@@ -2,8 +2,12 @@
   "name": "shochan_ai",
   "version": "1.0.0",
   "description": "AI Agent for me.",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "watch": "tsx watch src/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -20,6 +24,10 @@
   "dependencies": {
     "@types/node": "^24.2.1",
     "tsx": "^4.20.3",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^8.2.0"
   }
 }
