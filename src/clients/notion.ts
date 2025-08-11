@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import type { CreatePageResponse, PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { CreateTaskTool, CreateProjectTool, TaskCreationResult, ProjectCreationResult } from '../types/tool';
+import { CreateTaskTool, CreateProjectTool, TaskCreationResult, ProjectCreationResult } from '../types/tools';
 
 export class NotionClient {
   private client: Client;

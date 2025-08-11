@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { AgentTool } from '../types/tool';
+import { AgentTool } from '../types/tools';
 
 export class ClaudeClient {
   private client: Anthropic;

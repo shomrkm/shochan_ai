@@ -1,4 +1,4 @@
-import { AskQuestionTool, QuestionToolResult } from '../types/tool';
+import { AskQuestionTool, QuestionToolResult } from '../types/tools';
 
 export class QuestionHandler {
   async execute(tool: AskQuestionTool): Promise<QuestionToolResult> {
