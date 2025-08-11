@@ -23,6 +23,7 @@
   "homepage": "https://github.com/shomrkm/shochan_ai#readme",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.59.0",
+    "@notionhq/client": "^4.0.1",
     "dotenv": "^16.4.5",
     "tsx": "^4.20.3",
     "typescript": "^5.9.2"
