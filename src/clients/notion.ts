@@ -30,42 +30,12 @@ export class NotionClient {
     const { title, description, task_type, scheduled_date, project_id } = tool.function.parameters;
 
     try {
-      const properties: Record<string, any> = {
-        Name: {
-          title: [
-            {
-              text: {
-                content: title,
-              },
-            },
-          ],
-        },
-        タスク種別: {
-          select: {
-            name: task_type,
-          },
-        },
-      };
-
-      // スケジュール日付があれば設定
-      if (scheduled_date) {
-        properties['実施予定日'] = {
-          date: {
-            start: scheduled_date,
-          },
-        };
-      }
-
-      // プロジェクトIDがあれば関連付け
-      if (project_id) {
-        properties['プロジェクト'] = {
-          relation: [
-            {
-              id: project_id,
-            },
-          ],
-        };
-      }
+      const properties = this.buildTaskProperties({
+        title,
+        task_type,
+        scheduled_date,
+        project_id,
+      });
 
       const response = await this.client.pages.create({
         parent: {
@@ -110,40 +80,11 @@ export class NotionClient {
     const { name, description, importance, action_plan } = tool.function.parameters;
 
     try {
-      const properties: Record<string, any> = {
-        名前: {
-          title: [
-            {
-              text: {
-                content: name,
-              },
-            },
-          ],
-        },
-        重要度: {
-          select: {
-            name: importance,
-          },
-        },
-        ステータス: {
-          status: {
-            name: 'Not started',
-          },
-        },
-      };
-
-      // アクションプランがあれば設定
-      if (action_plan) {
-        properties['アクションプラン'] = {
-          rich_text: [
-            {
-              text: {
-                content: action_plan,
-              },
-            },
-          ],
-        };
-      }
+      const properties = this.buildProjectProperties({
+        name,
+        importance,
+        action_plan,
+      });
 
       const response = await this.client.pages.create({
         parent: {
@@ -194,6 +135,96 @@ export class NotionClient {
       console.error('Notion connection test failed:', error);
       return false;
     }
+  }
+
+  private buildTaskProperties(args: {
+    title: string;
+    task_type: string;
+    scheduled_date?: string;
+    project_id?: string;
+  }): Record<string, any> {
+    const { title, task_type, scheduled_date, project_id } = args;
+
+    const properties: Record<string, any> = {
+      Name: {
+        title: [
+          {
+            text: {
+              content: title,
+            },
+          },
+        ],
+      },
+      タスク種別: {
+        select: {
+          name: task_type,
+        },
+      },
+    };
+
+    if (scheduled_date) {
+      properties['実施予定日'] = {
+        date: {
+          start: scheduled_date,
+        },
+      };
+    }
+
+    if (project_id) {
+      properties['プロジェクト'] = {
+        relation: [
+          {
+            id: project_id,
+          },
+        ],
+      };
+    }
+
+    return properties;
+  }
+
+  private buildProjectProperties(args: {
+    name: string;
+    importance: string;
+    action_plan?: string;
+  }): Record<string, any> {
+    const { name, importance, action_plan } = args;
+
+    const properties: Record<string, any> = {
+      名前: {
+        title: [
+          {
+            text: {
+              content: name,
+            },
+          },
+        ],
+      },
+      重要度: {
+        select: {
+          name: importance,
+        },
+      },
+      ステータス: {
+        status: {
+          name: 'Not started',
+        },
+      },
+    };
+
+    if (action_plan) {
+      properties['アクションプラン'] = {
+        rich_text: [
+          {
+            text: {
+              content: action_plan,
+            },
+          },
+        ],
+      };
+    }
+
+    return properties;
   }
 }
 
