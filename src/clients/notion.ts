@@ -1,6 +1,7 @@
 import { Client } from '@notionhq/client';
 import type { CreatePageResponse, PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import { CreateTaskTool, CreateProjectTool, TaskCreationResult, ProjectCreationResult } from '../types/tools';
+import { buildProjectCreatePageParams, buildTaskCreatePageParams } from '../utils/notionUtils';
 
 export class NotionClient {
   private client: Client;
@@ -30,35 +31,16 @@ export class NotionClient {
     const { title, description, task_type, scheduled_date, project_id } = tool.function.parameters;
 
     try {
-      const properties = this.buildTaskProperties({
+      const params = buildTaskCreatePageParams({
+        databaseId: this.tasksDbId,
         title,
+        description,
         task_type,
         scheduled_date,
         project_id,
       });
 
-      const response = await this.client.pages.create({
-        parent: {
-          database_id: this.tasksDbId,
-        },
-        properties,
-        children: [
-          {
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [
-                {
-                  type: 'text',
-                  text: {
-                    content: description,
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      });
+      const response = await this.client.pages.create(params);
 
       if (!isFullPageResponse(response)) {
         throw new Error('Notion returned a partial page response. Ensure the integration has access to the page/database.');
@@ -80,34 +62,15 @@ export class NotionClient {
     const { name, description, importance, action_plan } = tool.function.parameters;
 
     try {
-      const properties = this.buildProjectProperties({
+      const params = buildProjectCreatePageParams({
+        databaseId: this.projectsDbId,
         name,
+        description,
         importance,
         action_plan,
       });
 
-      const response = await this.client.pages.create({
-        parent: {
-          database_id: this.projectsDbId,
-        },
-        properties,
-        children: [
-          {
-            object: 'block',
-            type: 'paragraph',
-            paragraph: {
-              rich_text: [
-                {
-                  type: 'text',
-                  text: {
-                    content: description,
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      });
+      const response = await this.client.pages.create(params);
 
       if (!isFullPageResponse(response)) {
         throw new Error('Notion returned a partial page response. Ensure the integration has access to the page/database.');
@@ -137,95 +100,6 @@ export class NotionClient {
     }
   }
 
-  private buildTaskProperties(args: {
-    title: string;
-    task_type: string;
-    scheduled_date?: string;
-    project_id?: string;
-  }): Record<string, any> {
-    const { title, task_type, scheduled_date, project_id } = args;
-
-    const properties: Record<string, any> = {
-      Name: {
-        title: [
-          {
-            text: {
-              content: title,
-            },
-          },
-        ],
-      },
-      タスク種別: {
-        select: {
-          name: task_type,
-        },
-      },
-    };
-
-    if (scheduled_date) {
-      properties['実施予定日'] = {
-        date: {
-          start: scheduled_date,
-        },
-      };
-    }
-
-    if (project_id) {
-      properties['プロジェクト'] = {
-        relation: [
-          {
-            id: project_id,
-          },
-        ],
-      };
-    }
-
-    return properties;
-  }
-
-  private buildProjectProperties(args: {
-    name: string;
-    importance: string;
-    action_plan?: string;
-  }): Record<string, any> {
-    const { name, importance, action_plan } = args;
-
-    const properties: Record<string, any> = {
-      名前: {
-        title: [
-          {
-            text: {
-              content: name,
-            },
-          },
-        ],
-      },
-      重要度: {
-        select: {
-          name: importance,
-        },
-      },
-      ステータス: {
-        status: {
-          name: 'Not started',
-        },
-      },
-    };
-
-    if (action_plan) {
-      properties['アクションプラン'] = {
-        rich_text: [
-          {
-            text: {
-              content: action_plan,
-            },
-          },
-        ],
-      };
-    }
-
-    return properties;
-  }
 }
 
 function isFullPageResponse(response: CreatePageResponse): response is PageObjectResponse {
