@@ -1,8 +1,9 @@
 import { AskQuestionTool, QuestionToolResult } from '../types/tools';
-import * as readline from 'readline';
+import { createInterface, Interface as ReadlineInterface } from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
 
 export class QuestionHandler {
-  private rl: readline.Interface | null = null;
+  private rl: ReadlineInterface | null = null;
 
   constructor() {
     // 必要な時だけreadlineインターフェースを作成
@@ -20,7 +21,7 @@ export class QuestionHandler {
     console.log('='.repeat(60));
 
     try {
-      // ユーザーからの入力を待機
+      // Wait for the user's answer.
       const userAnswer = await this.getUserInput('\n💬 Your answer: ');
       
       console.log(`✅ Thank you! You answered: "${userAnswer}"`);
@@ -51,38 +52,39 @@ export class QuestionHandler {
         timestamp: new Date(),
       };
     } finally {
-      this.cleanup();
+      await this.cleanup();
     }
   }
 
-  private getUserInput(prompt: string): Promise<string> {
-    return new Promise((resolve, reject) => {
-      // readlineインターフェースを作成
-      this.rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
+  private async getUserInput(prompt: string): Promise<string> {
+    // readline/promises インターフェースを作成
+    this.rl = createInterface({ input, output });
 
-      this.rl.question(prompt, (answer) => {
+    // When Ctrl+C is pressed, the question is cancelled.
+    const onSigInt = () => {
+      console.log('\n\n👋 User cancelled the question.');
+      this.rl?.close();
+    };
+    this.rl.on('SIGINT', onSigInt);
+
+    try {
+      while (true) {
+        const answer = await this.rl.question(prompt);
         const trimmedAnswer = answer.trim();
-        if (trimmedAnswer === '') {
+        if (trimmedAnswer.length === 0) {
           console.log('❌ Empty answer. Please provide a response.');
-          // 再帰的に再質問
-          this.getUserInput(prompt).then(resolve).catch(reject);
-        } else {
-          resolve(trimmedAnswer);
+          continue;
         }
-      });
-
-      // Ctrl+C の処理
-      this.rl.on('SIGINT', () => {
-        console.log('\n\n👋 User cancelled the question.');
-        reject(new Error('User cancelled input'));
-      });
-    });
+        return trimmedAnswer;
+      }
+    } finally {
+      this.rl.off('SIGINT', onSigInt);
+      this.rl.close();
+      this.rl = null;
+    }
   }
 
-  private cleanup(): void {
+  private async cleanup(): Promise<void> {
     if (this.rl) {
       this.rl.close();
       this.rl = null;
