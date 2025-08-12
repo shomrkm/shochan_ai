@@ -1,12 +1,15 @@
 // src/tools/index.ts
-import { AgentTool, ToolResult, TaskToolResult, ProjectToolResult, CreateTaskTool, CreateProjectTool } from '../types/tools';
+import { AgentTool, ToolResult, TaskToolResult, ProjectToolResult, CreateTaskTool, CreateProjectTool, QuestionResult, AskQuestionTool } from '../types/tools';
 import { NotionClient } from '../clients/notion';
+import { QuestionHandler } from './question-handler';
 
 export class ToolExecutor {
   private notionClient: NotionClient;
+  private questionHandler: QuestionHandler;
 
   constructor() {
     this.notionClient = new NotionClient();
+    this.questionHandler = new QuestionHandler();
   }
 
   async execute(tool: AgentTool): Promise<ToolResult> {
@@ -16,27 +19,21 @@ export class ToolExecutor {
     try {
       switch (tool.function.name) {
         case 'create_task': {
-          const result: TaskToolResult = await this.executeCreateTask(tool);
+          const result = await this.executeCreateTask(tool);
           return result;
         }
 
         case 'create_project': {
-          const result: ProjectToolResult = await this.executeCreateProject(tool);
+          const result = await this.executeCreateProject(tool);
           return result;
         }
 
         case 'ask_question': {
-          // 今回はスキップ：単純にログ出力のみ
-          console.log('\n🤔 Agent wants to ask a question:');
-          console.log(`Question: ${tool.function.parameters.question}`);
-          console.log(`Context: ${tool.function.parameters.context}`);
-          console.log('📝 [SKIPPED] This will be implemented in Factor 7\n');
-          
-          return {
-            success: true,
-            message: 'Question noted (implementation pending)',
-            timestamp: new Date(),
-          };
+          if(!isAskQuestionTool(tool)) {
+            throw new Error('Invalid tool type for askQuestion');
+          }
+          const result = await this.questionHandler.execute(tool);
+          return result;
         }
 
         default:
@@ -101,4 +98,8 @@ function isCreateTaskTool(tool: AgentTool): tool is CreateTaskTool {
 
 function isCreateProjectTool(tool: AgentTool): tool is CreateProjectTool {
   return tool.function.name === 'create_project';
+}
+
+function isAskQuestionTool(tool: AgentTool): tool is AskQuestionTool {
+  return tool.function.name === 'ask_question';
 }
