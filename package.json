@@ -9,6 +9,7 @@
     "dev": "tsx src/index.ts",
     "watch": "tsx watch src/index.ts",
     "test-notion": "tsx src/test-notion.ts",
+    "test-dialogue": "tsx src/test-dialogue.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
