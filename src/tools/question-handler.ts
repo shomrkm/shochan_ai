@@ -6,7 +6,7 @@ export class QuestionHandler {
   private rl: ReadlineInterface | null = null;
 
   constructor() {
-    // 必要な時だけreadlineインターフェースを作成
+    // Create the readline interface only when needed.
   }
 
   async execute(tool: AskQuestionTool): Promise<QuestionToolResult> {
@@ -57,7 +57,6 @@ export class QuestionHandler {
   }
 
   private async getUserInput(prompt: string): Promise<string> {
-    // readline/promises インターフェースを作成
     this.rl = createInterface({ input, output });
 
     // When Ctrl+C is pressed, the question is cancelled.
