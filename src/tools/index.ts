@@ -1,5 +1,6 @@
 // src/tools/index.ts
 import { AgentTool, ToolResult, TaskToolResult, ProjectToolResult, CreateTaskTool, CreateProjectTool, QuestionResult, AskQuestionTool } from '../types/tools';
+import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
 import { NotionClient } from '../clients/notion';
 import { QuestionHandler } from './question-handler';
 
@@ -89,17 +90,4 @@ export class ToolExecutor {
   async testConnection(): Promise<boolean> {
     return await this.notionClient.testConnection();
   }
-}
-
-// Type guards
-function isCreateTaskTool(tool: AgentTool): tool is CreateTaskTool {
-  return tool.function.name === 'create_task';
-}
-
-function isCreateProjectTool(tool: AgentTool): tool is CreateProjectTool {
-  return tool.function.name === 'create_project';
-}
-
-function isAskQuestionTool(tool: AgentTool): tool is AskQuestionTool {
-  return tool.function.name === 'ask_question';
 }
