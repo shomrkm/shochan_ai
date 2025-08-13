@@ -68,7 +68,7 @@ export interface QuestionResult {
   asked_at: Date;
 }
   
-export interface ToolResult<T = unknown> {
+export interface ToolResult<T extends Record<string, any> = Record<string, any>> {
   success: boolean;
   message: string;
   data?: T;
