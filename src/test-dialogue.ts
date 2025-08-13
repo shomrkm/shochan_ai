@@ -1,34 +1,29 @@
-// src/test-dialogue.ts
 import dotenv from 'dotenv';
 import { TaskCreatorAgent } from './agents/task-creator';
 
 dotenv.config();
 
-async function testDialogueFeature() {
-  console.log('🚀 Testing Factor 7: Contact humans with tool calls\n');
+async function testContinuousDialogue() {
+  console.log('🚀 Testing Factor 7: Continuous Interactive Dialogue\n');
 
   try {
     const agent = new TaskCreatorAgent();
 
-    // 接続テスト
+    // test connections
     const connectionsOk = await agent.testConnections();
     if (!connectionsOk) {
       console.log('❌ Connection tests failed');
       return;
     }
 
-    console.log('🎯 Testing interactive dialogue flow...\n');
+    console.log('🎯 Starting continuous dialogue test...\n');
 
-    // テスト1: 曖昧なリクエスト（質問されるはず）
-    console.log('=== Test: Vague Request (Should Trigger Questions) ===');
-    console.log('👤 Sending vague request to agent...\n');
-    
-    await agent.processMessage(
-      'I want to create something for SmartHR'
+    // start continuous dialogue
+    await agent.startConversation(
+      'I want to create a new project for SmartHR'
     );
 
-    console.log('\n🎉 Interactive dialogue test completed!');
-    console.log('📝 The agent should have asked you for clarification.');
+    console.log('🎉 Continuous dialogue test completed!');
 
   } catch (error) {
     console.error('❌ Test failed:', error);
@@ -36,7 +31,7 @@ async function testDialogueFeature() {
 }
 
 if (require.main === module) {
-  testDialogueFeature()
+  testContinuousDialogue()
     .then(() => {
       console.log('\n✅ Dialogue test completed!');
       process.exit(0);
