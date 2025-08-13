@@ -1,4 +1,4 @@
-import { AgentTool, CreateTaskTool, CreateProjectTool, AskQuestionTool } from './tools';
+import { AgentTool, CreateTaskTool, CreateProjectTool, AskQuestionTool, ToolResult, QuestionToolResult, TaskToolResult } from './tools';
 
 export function isCreateTaskTool(tool: AgentTool): tool is CreateTaskTool {
   return tool.function.name === 'create_task';
@@ -12,4 +12,9 @@ export function isAskQuestionTool(tool: AgentTool): tool is AskQuestionTool {
   return tool.function.name === 'ask_question';
 }
 
+export function isQuestionToolResult(result: ToolResult): result is QuestionToolResult {
+  if (!result.data) return false;
+
+  return 'question' in result.data;
+}
 
