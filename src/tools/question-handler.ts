@@ -1,6 +1,6 @@
-import { AskQuestionTool, QuestionToolResult } from '../types/tools';
-import { createInterface, Interface as ReadlineInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { createInterface, type Interface as ReadlineInterface } from 'node:readline/promises';
+import type { AskQuestionTool, QuestionToolResult } from '../types/tools';
 
 export class QuestionHandler {
   private rl: ReadlineInterface | null = null;
@@ -23,7 +23,7 @@ export class QuestionHandler {
     try {
       // Wait for the user's answer.
       const userAnswer = await this.getUserInput('\n💬 Your answer: ');
-      
+
       console.log(`✅ Thank you! You answered: "${userAnswer}"`);
       console.log('='.repeat(60) + '\n');
 

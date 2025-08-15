@@ -1,4 +1,8 @@
-import type { NotionCreatePageParams, BuildProjectPageParamsArgs, BuildTaskPageParamsArgs } from '../types/notion';
+import type {
+  BuildProjectPageParamsArgs,
+  BuildTaskPageParamsArgs,
+  NotionCreatePageParams,
+} from '../types/notion';
 
 export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): NotionCreatePageParams {
   const { databaseId, title, description, task_type, scheduled_date, project_id } = args;
@@ -62,7 +66,9 @@ export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): Notion
   };
 }
 
-export function buildProjectCreatePageParams(args: BuildProjectPageParamsArgs): NotionCreatePageParams {
+export function buildProjectCreatePageParams(
+  args: BuildProjectPageParamsArgs
+): NotionCreatePageParams {
   const { databaseId, name, description, importance, action_plan } = args;
 
   return {
@@ -121,5 +127,3 @@ export function buildProjectCreatePageParams(args: BuildProjectPageParamsArgs): 
     ],
   };
 }
-
-

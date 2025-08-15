@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { buildProjectCreatePageParams, buildTaskCreatePageParams } from './notionUtils';
 
 describe('notionUtils', () => {
@@ -78,5 +78,3 @@ describe('notionUtils', () => {
     });
   });
 });
-
-

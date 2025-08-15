@@ -1,6 +1,14 @@
 import { Client } from '@notionhq/client';
-import type { CreatePageResponse, PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
-import { CreateTaskTool, CreateProjectTool, TaskCreationResult, ProjectCreationResult } from '../types/tools';
+import type {
+  CreatePageResponse,
+  PageObjectResponse,
+} from '@notionhq/client/build/src/api-endpoints';
+import type {
+  CreateProjectTool,
+  CreateTaskTool,
+  ProjectCreationResult,
+  TaskCreationResult,
+} from '../types/tools';
 import { buildProjectCreatePageParams, buildTaskCreatePageParams } from '../utils/notionUtils';
 
 export class NotionClient {
@@ -22,7 +30,7 @@ export class NotionClient {
     this.client = new Client({
       auth: process.env.NOTION_API_KEY,
     });
-    
+
     this.tasksDbId = process.env.NOTION_TASKS_DATABASE_ID;
     this.projectsDbId = process.env.NOTION_PROJECTS_DATABASE_ID;
   }
@@ -43,7 +51,9 @@ export class NotionClient {
       const response = await this.client.pages.create(params);
 
       if (!isFullPageResponse(response)) {
-        throw new Error('Notion returned a partial page response. Ensure the integration has access to the page/database.');
+        throw new Error(
+          'Notion returned a partial page response. Ensure the integration has access to the page/database.'
+        );
       }
 
       return {
@@ -54,7 +64,9 @@ export class NotionClient {
       };
     } catch (error) {
       console.error('Notion API error:', error);
-      throw new Error(`Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create task: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -73,7 +85,9 @@ export class NotionClient {
       const response = await this.client.pages.create(params);
 
       if (!isFullPageResponse(response)) {
-        throw new Error('Notion returned a partial page response. Ensure the integration has access to the page/database.');
+        throw new Error(
+          'Notion returned a partial page response. Ensure the integration has access to the page/database.'
+        );
       }
 
       return {
@@ -84,7 +98,9 @@ export class NotionClient {
       };
     } catch (error) {
       console.error('Notion API error:', error);
-      throw new Error(`Failed to create project: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Failed to create project: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 
@@ -99,13 +115,12 @@ export class NotionClient {
       return false;
     }
   }
-
 }
 
 function isFullPageResponse(response: CreatePageResponse): response is PageObjectResponse {
   return (
     (response as any).object === 'page' &&
     'created_time' in response &&
-    'url' in response as any
+    (('url' in response) as any)
   );
 }

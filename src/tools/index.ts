@@ -1,7 +1,17 @@
 // src/tools/index.ts
-import { AgentTool, ToolResult, TaskToolResult, ProjectToolResult, CreateTaskTool, CreateProjectTool, QuestionResult, AskQuestionTool } from '../types/tools';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+
 import { NotionClient } from '../clients/notion';
+import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import {
+  type AgentTool,
+  AskQuestionTool,
+  CreateProjectTool,
+  CreateTaskTool,
+  type ProjectToolResult,
+  QuestionResult,
+  type TaskToolResult,
+  type ToolResult,
+} from '../types/tools';
 import { QuestionHandler } from './question-handler';
 
 export class ToolExecutor {
@@ -30,7 +40,7 @@ export class ToolExecutor {
         }
 
         case 'ask_question': {
-          if(!isAskQuestionTool(tool)) {
+          if (!isAskQuestionTool(tool)) {
             throw new Error('Invalid tool type for askQuestion');
           }
           const result = await this.questionHandler.execute(tool);
@@ -56,7 +66,7 @@ export class ToolExecutor {
     }
 
     const result = await this.notionClient.createTask(tool);
-    
+
     console.log(`✅ Task created successfully: ${result.title}`);
     console.log(`🔗 Notion URL: ${result.notion_url || 'N/A'}`);
 
@@ -74,7 +84,7 @@ export class ToolExecutor {
     }
 
     const result = await this.notionClient.createProject(tool);
-    
+
     console.log(`✅ Project created successfully: ${result.name}`);
     console.log(`🔗 Notion URL: ${result.notion_url || 'N/A'}`);
 

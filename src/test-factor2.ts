@@ -6,7 +6,9 @@ dotenv.config();
 
 async function testFactor2Implementation() {
   console.log('🚀 Testing Factor 2: Own your prompts\n');
-  console.log('📚 This test demonstrates dynamic prompt generation based on conversation context\n');
+  console.log(
+    '📚 This test demonstrates dynamic prompt generation based on conversation context\n'
+  );
 
   try {
     const agent = new TaskCreatorAgent();
@@ -35,9 +37,7 @@ async function testFactor2Implementation() {
     console.log('\n🎯 Starting Factor 2 enhanced dialogue...\n');
 
     // テストシナリオ: 曖昧な要求から始めて情報収集
-    await agent.startConversation(
-      'I want to build something cool for SmartHR'
-    );
+    await agent.startConversation('I want to build something cool for SmartHR');
 
     console.log('\n🎉 Factor 2 test completed!');
     console.log('📝 You should have seen:');
@@ -46,7 +46,6 @@ async function testFactor2Implementation() {
     console.log('  3. Intelligent information collection');
     console.log('  4. Prompt debugging information');
     console.log('  5. Stage transitions: initial → gathering_info → confirming → executing');
-
   } catch (error) {
     console.error('❌ Test failed:', error);
   }

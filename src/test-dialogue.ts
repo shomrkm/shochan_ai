@@ -19,12 +19,9 @@ async function testContinuousDialogue() {
     console.log('🎯 Starting continuous dialogue test...\n');
 
     // start continuous dialogue
-    await agent.startConversation(
-      'I want to create a new project for SmartHR'
-    );
+    await agent.startConversation('I want to create a new project for SmartHR');
 
     console.log('🎉 Continuous dialogue test completed!');
-
   } catch (error) {
     console.error('❌ Test failed:', error);
   }

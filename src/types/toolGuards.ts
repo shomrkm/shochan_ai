@@ -1,4 +1,12 @@
-import { AgentTool, CreateTaskTool, CreateProjectTool, AskQuestionTool, ToolResult, QuestionToolResult, TaskToolResult } from './tools';
+import {
+  type AgentTool,
+  type AskQuestionTool,
+  type CreateProjectTool,
+  type CreateTaskTool,
+  type QuestionToolResult,
+  TaskToolResult,
+  type ToolResult,
+} from './tools';
 
 export function isCreateTaskTool(tool: AgentTool): tool is CreateTaskTool {
   return tool.function.name === 'create_task';
@@ -17,4 +25,3 @@ export function isQuestionToolResult(result: ToolResult): result is QuestionTool
 
   return 'question' in result.data;
 }
-

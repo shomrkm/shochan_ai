@@ -1,8 +1,9 @@
 // 型定義を ../types/prompt-types.ts から import
-import { PromptContext, PromptFunction, PROMPT_KEYS } from '../types/prompt-types';
-export { PromptContext, PromptFunction, PROMPT_KEYS } from '../types/prompt-types';
-  
-  // Base prompt components
+import { PROMPT_KEYS, type PromptContext, type PromptFunction } from '../types/prompt-types';
+
+export { PROMPT_KEYS, PromptContext, PromptFunction } from '../types/prompt-types';
+
+// Base prompt components
 const BASE_TOOLS_DESCRIPTION = `
   ## Available Tools
   
@@ -31,12 +32,12 @@ const BASE_TOOLS_DESCRIPTION = `
   4. Always make tool calls in JSON format
   5. Execute only one tool call at a time
 `;
-  
+
 // prompt function implementation
 export const INITIAL_CONVERSATION_PROMPT: PromptFunction = {
-    name: PROMPT_KEYS.INITIAL_CONVERSATION,
-    description: 'For the beginning of conversations when user intent is unclear',
-    build: (context: PromptContext) => `
+  name: PROMPT_KEYS.INITIAL_CONVERSATION,
+  description: 'For the beginning of conversations when user intent is unclear',
+  build: (context: PromptContext) => `
   You are a Notion GTD system task creation assistant.
   
   ${BASE_TOOLS_DESCRIPTION}
@@ -58,13 +59,13 @@ export const INITIAL_CONVERSATION_PROMPT: PromptFunction = {
   - "What is the main goal you're trying to achieve?"
   
   Remember: Ask ONE focused question at a time.
-  `
+  `,
 };
-  
+
 export const INFORMATION_GATHERING_PROMPT: PromptFunction = {
-    name: PROMPT_KEYS.INFORMATION_GATHERING,
-    description: 'For when we are collecting details about what to create',
-    build: (context: PromptContext) => `
+  name: PROMPT_KEYS.INFORMATION_GATHERING,
+  description: 'For when we are collecting details about what to create',
+  build: (context: PromptContext) => `
   You are a Notion GTD system task creation assistant.
   
   ${BASE_TOOLS_DESCRIPTION}
@@ -99,13 +100,13 @@ export const INFORMATION_GATHERING_PROMPT: PromptFunction = {
   - If user seems frustrated with questions → create with available info
   
   Focus on getting the essential information quickly, then create!
-  `
+  `,
 };
-  
+
 export const CONFIRMATION_PROMPT: PromptFunction = {
-    name: PROMPT_KEYS.CONFIRMATION,
-    description: 'For confirming details before creation',
-    build: (context: PromptContext) => `
+  name: PROMPT_KEYS.CONFIRMATION,
+  description: 'For confirming details before creation',
+  build: (context: PromptContext) => `
   You are a Notion GTD system task creation assistant.
   
   ${BASE_TOOLS_DESCRIPTION}
@@ -124,13 +125,13 @@ export const CONFIRMATION_PROMPT: PromptFunction = {
   4. If not confirmed, ask for specific corrections
   
   Example confirmation: "I'll create a project called 'X' with description 'Y' and high importance. Should I proceed?"
-  `
+  `,
 };
-  
+
 export const EXECUTION_PROMPT: PromptFunction = {
-    name: PROMPT_KEYS.EXECUTION,
-    description: 'For actually creating tasks or projects',
-    build: (context: PromptContext) => `
+  name: PROMPT_KEYS.EXECUTION,
+  description: 'For actually creating tasks or projects',
+  build: (context: PromptContext) => `
   You are a Notion GTD system task creation assistant.
   
   ${BASE_TOOLS_DESCRIPTION}
@@ -156,5 +157,5 @@ export const EXECUTION_PROMPT: PromptFunction = {
   5. Set scheduled_date if mentioned
   
   IMPORTANT: Create the task/project now - don't ask more questions!
-  `
+  `,
 };

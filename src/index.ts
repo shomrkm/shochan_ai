@@ -21,9 +21,7 @@ async function main() {
 
     // テスト1: 明確なタスク作成要求
     console.log('=== Test 1: Clear Task Request ===');
-    await agent.processMessage(
-      'Create a task to review the quarterly sales report by tomorrow'
-    );
+    await agent.processMessage('Create a task to review the quarterly sales report by tomorrow');
 
     console.log('\n' + '='.repeat(50) + '\n');
 
@@ -37,13 +35,10 @@ async function main() {
 
     // テスト3: 曖昧な要求（質問されるはず）
     console.log('=== Test 3: Vague Request (Should Ask Question) ===');
-    await agent.processMessage(
-      'I want to develop something for SmartHR'
-    );
+    await agent.processMessage('I want to develop something for SmartHR');
 
     console.log('\n🎊 Factor 1 demonstration completed!');
     console.log('📋 Check your Notion databases for created items.');
-    
   } catch (error) {
     console.error('❌ Demo failed:', error);
   }

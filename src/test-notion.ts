@@ -16,7 +16,7 @@ async function testNotionIntegration() {
     // 接続テスト
     console.log('🔗 Testing database connection...');
     const connectionTest = await notion.testConnection();
-    
+
     if (!connectionTest) {
       console.log('❌ Database connection failed');
       console.log('📋 Check:');
@@ -26,7 +26,7 @@ async function testNotionIntegration() {
       console.log('  - Integration has access to the databases');
       return;
     }
-    
+
     console.log('✅ Database connection successful\n');
 
     // テスト1: タスク作成
@@ -97,10 +97,9 @@ async function testNotionIntegration() {
     console.log('  1. Check your Notion databases to see the created items');
     console.log('  2. Verify that the task is properly linked to the project');
     console.log('  3. Ready to integrate with Claude API!');
-
   } catch (error) {
     console.error('❌ Test failed:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('unauthorized')) {
         console.log('\n🔑 Authorization error:');

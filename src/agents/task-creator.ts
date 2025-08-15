@@ -1,17 +1,24 @@
+import type Anthropic from '@anthropic-ai/sdk';
 import { ClaudeClient } from '../clients/claude';
-import { ToolExecutor } from '../tools';
-import { AgentTool, QuestionToolResult, ToolResult } from '../types/tools';
-import Anthropic from '@anthropic-ai/sdk';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool, isQuestionToolResult } from '../types/toolGuards';
 import { PromptManager } from '../prompts/prompt-manager';
-import { PromptContext } from '../types/prompt-types';
+import { ToolExecutor } from '../tools';
+import type { PromptContext } from '../types/prompt-types';
+import {
+  isAskQuestionTool,
+  isCreateProjectTool,
+  isCreateTaskTool,
+  isQuestionToolResult,
+} from '../types/toolGuards';
+import { type AgentTool, QuestionToolResult, type ToolResult } from '../types/tools';
 
-type ProcessMessageResult = {
-  toolCall: AgentTool;
-  toolResult: ToolResult;
-} | {
-  response: string;
-};
+type ProcessMessageResult =
+  | {
+      toolCall: AgentTool;
+      toolResult: ToolResult;
+    }
+  | {
+      response: string;
+    };
 
 export class TaskCreatorAgent {
   private claude: ClaudeClient;
@@ -35,17 +42,17 @@ export class TaskCreatorAgent {
   async startConversation(userMessage: string): Promise<void> {
     console.log('🎯 Starting interactive conversation...\n');
     this.clearHistory();
-    
+
     let currentMessage = userMessage;
     const MAX_ITERATION = 8;
     let iterations = 0;
-    
+
     while (iterations < MAX_ITERATION) {
       iterations++;
       console.log(`\n🔄 Conversation iteration ${iterations}/${MAX_ITERATION}`);
-      
+
       const result = await this.processMessage(currentMessage);
-      if(!this.hasCalledTool(result)) {
+      if (!this.hasCalledTool(result)) {
         console.log('💬 Agent provided a response without tools.');
         break;
       }
@@ -58,13 +65,13 @@ export class TaskCreatorAgent {
       if (isAskQuestionTool(result.toolCall) && isQuestionToolResult(result.toolResult)) {
         this.questionCount++;
         this.conversationStage = this.determineNextStage();
-        
+
         if (result.toolResult.success && result.toolResult.data?.answer) {
           const answer = result.toolResult.data.answer;
           currentMessage = answer;
-          
+
           this.updateCollectedInfo(result.toolCall, answer);
-          
+
           console.log('\n📝 Collected information so far:');
           console.log(JSON.stringify(this.collectedInfo, null, 2));
           console.log('\n');
@@ -74,11 +81,11 @@ export class TaskCreatorAgent {
         }
       }
     }
-    
+
     if (iterations >= MAX_ITERATION) {
       console.log('⚠️  Maximum iterations reached. Conversation ended.');
     }
-    
+
     console.log('🏁 Conversation completed!\n');
   }
 
@@ -115,7 +122,7 @@ export class TaskCreatorAgent {
         );
 
         console.log(`🤖 Claude: ${response}`);
-        
+
         this.conversationHistory.push(
           { role: 'user', content: userMessage },
           { role: 'assistant', content: response }
@@ -154,7 +161,7 @@ export class TaskCreatorAgent {
     }
 
     const question = toolCall.function.parameters.question;
-    
+
     const q = question.toLowerCase();
     if (q.includes('feature') || q.includes('functionality') || q.includes('what')) {
       this.collectedInfo.feature = answer;
@@ -183,7 +190,7 @@ export class TaskCreatorAgent {
   private determineNextStage(): PromptContext['conversationStage'] {
     const hasBasicInfo = this.collectedInfo.feature || this.collectedInfo.title;
     const hasDetails = this.collectedInfo.description || this.collectedInfo.feature;
-    
+
     if (hasBasicInfo && hasDetails && this.questionCount >= 2) {
       return 'confirming';
     } else if (this.questionCount >= 1) {
@@ -193,7 +200,9 @@ export class TaskCreatorAgent {
     }
   }
 
-  private hasCalledTool(result: ProcessMessageResult): result is { toolCall: AgentTool; toolResult: ToolResult } {
+  private hasCalledTool(
+    result: ProcessMessageResult
+  ): result is { toolCall: AgentTool; toolResult: ToolResult } {
     return 'toolCall' in result && 'toolResult' in result;
   }
 
@@ -207,7 +216,7 @@ export class TaskCreatorAgent {
 
   async testConnections(): Promise<boolean> {
     console.log('🔍 Testing connections...');
-    
+
     try {
       const notionConnected = await this.toolExecutor.testConnection();
       if (!notionConnected) {

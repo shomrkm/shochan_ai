@@ -19,5 +19,3 @@ export interface BuildProjectPageParamsArgs {
   importance: string;
   action_plan?: string;
 }
-
-

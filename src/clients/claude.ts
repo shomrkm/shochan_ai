@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { AgentTool } from '../types/tools';
+import type { AgentTool } from '../types/tools';
 
 export class ClaudeClient {
   private client: Anthropic;
@@ -8,7 +8,7 @@ export class ClaudeClient {
     if (!process.env.ANTHROPIC_API_KEY) {
       throw new Error('ANTHROPIC_API_KEY is not set in environment variables');
     }
-    
+
     this.client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
@@ -45,13 +45,13 @@ export class ClaudeClient {
                 task_type: {
                   type: 'string',
                   enum: ['Today', 'Next Actions', 'Someday / Maybe', 'Wait for', 'Routin'],
-                  description: 'Type of task in GTD system'
+                  description: 'Type of task in GTD system',
                 },
                 scheduled_date: { type: 'string', description: 'Scheduled date in ISO format' },
-                project_id: { type: 'string', description: 'Related project ID' }
+                project_id: { type: 'string', description: 'Related project ID' },
               },
-              required: ['title', 'description', 'task_type']
-            }
+              required: ['title', 'description', 'task_type'],
+            },
           },
           {
             name: 'ask_question',
@@ -64,11 +64,11 @@ export class ClaudeClient {
                 question_type: {
                   type: 'string',
                   enum: ['clarification', 'missing_info', 'confirmation'],
-                  description: 'Type of question'
-                }
+                  description: 'Type of question',
+                },
               },
-              required: ['question', 'context', 'question_type']
-            }
+              required: ['question', 'context', 'question_type'],
+            },
           },
           {
             name: 'create_project',
@@ -81,20 +81,18 @@ export class ClaudeClient {
                 importance: {
                   type: 'string',
                   enum: ['⭐', '⭐⭐', '⭐⭐⭐', '⭐⭐⭐⭐', '⭐⭐⭐⭐⭐'],
-                  description: 'Project importance level'
+                  description: 'Project importance level',
                 },
-                action_plan: { type: 'string', description: 'Action plan' }
+                action_plan: { type: 'string', description: 'Action plan' },
               },
-              required: ['name', 'description', 'importance']
-            }
-          }
+              required: ['name', 'description', 'importance'],
+            },
+          },
         ],
       });
 
       // ツール呼び出しを抽出
-      const toolUse = response.content.find(
-        (content) => content.type === 'tool_use'
-      );
+      const toolUse = response.content.find((content) => content.type === 'tool_use');
 
       if (toolUse && toolUse.type === 'tool_use') {
         return {
@@ -133,9 +131,7 @@ export class ClaudeClient {
         messages,
       });
 
-      const textContent = response.content.find(
-        (content) => content.type === 'text'
-      );
+      const textContent = response.content.find((content) => content.type === 'text');
 
       return textContent?.type === 'text' ? textContent.text : '';
     } catch (error) {
