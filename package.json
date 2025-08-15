@@ -10,6 +10,7 @@
     "watch": "tsx watch src/index.ts",
     "test-notion": "tsx src/test-notion.ts",
     "test-dialogue": "tsx src/test-dialogue.ts",
+    "test-factor2": "tsx src/test-factor2.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
