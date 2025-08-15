@@ -1,5 +1,6 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { ClaudeClient } from '../clients/claude';
+import { ContextManager } from '../context/context-manager';
 import { PromptManager } from '../prompts/prompt-manager';
 import { ToolExecutor } from '../tools';
 import type { PromptContext } from '../types/prompt-types';
@@ -24,7 +25,9 @@ export class TaskCreatorAgent {
   private claude: ClaudeClient;
   private toolExecutor: ToolExecutor;
   private promptManager: PromptManager;
-  private conversationHistory: Anthropic.MessageParam[] = [];
+  private contextManager: ContextManager; // Factor 3: Context Window Management
+  // Note: conversationHistory is now managed by ContextManager (Factor 3)
+  // private conversationHistory: Anthropic.MessageParam[] = []; // Deprecated: replaced by ContextManager
   private collectedInfo: Record<string, string> = {};
   private questionCount: number = 0;
   private conversationStage: PromptContext['conversationStage'] = 'initial';
@@ -33,6 +36,15 @@ export class TaskCreatorAgent {
     this.claude = new ClaudeClient();
     this.toolExecutor = new ToolExecutor();
     this.promptManager = new PromptManager();
+    
+    // Factor 3: Initialize context manager with strategy
+    this.contextManager = new ContextManager({
+      enableSummarization: true,
+      summaryThreshold: 8,
+      priorityThreshold: 'medium',
+      maxHistoryMessages: 15,
+      tokenBudgetRatio: 0.7,
+    });
   }
 
   /**
@@ -87,6 +99,22 @@ export class TaskCreatorAgent {
     }
 
     console.log('🏁 Conversation completed!\n');
+    
+    // Factor 3: Display final context statistics
+    this.displayContextStats();
+  }
+
+  /**
+   * Display context manager statistics (Factor 3)
+   */
+  private displayContextStats(): void {
+    const stats = this.contextManager.getContextStats();
+    console.log('\n📊 Context Window Statistics (Factor 3):');
+    console.log(`📏 Tokens: ${stats.currentTokens}/${stats.maxTokens} (${stats.utilizationPercentage.toFixed(1)}% utilized)`);
+    console.log(`💬 Messages: ${stats.messageCount}`);
+    console.log(`🔄 Has Summary: ${stats.hasSummary ? 'Yes' : 'No'}`);
+    console.log(`⚡ Available: ${stats.availableTokens} tokens`);
+    console.log('');
   }
 
   /**
@@ -98,7 +126,28 @@ export class TaskCreatorAgent {
     console.log(`\n👤 User: ${userMessage}`);
 
     try {
-      // Factor 2: 動的プロンプト生成
+      // Factor 3: Add user message to context manager
+      const userMessageContext = {
+        isRecent: true,
+        containsDecision: /decide|choose|select|yes|no|confirm/i.test(userMessage),
+        hasUserPreference: /prefer|like|want|need/i.test(userMessage),
+        toolCallResult: false,
+      };
+      
+      const userOptimizationResult = this.contextManager.addMessage(
+        { role: 'user', content: userMessage },
+        userMessageContext
+      );
+
+      // Factor 3: Use optimized messages for API calls
+      const optimizedHistory = this.contextManager.getOptimizedMessages();
+      
+      // Log context optimization results
+      if (userOptimizationResult.tokensSaved > 0) {
+        console.log(`🔧 Context optimized: saved ${userOptimizationResult.tokensSaved} tokens (${userOptimizationResult.savingsPercentage.toFixed(1)}%)`);
+      }
+
+      // Factor 2: dynamic prompt generation
       const promptContext: PromptContext = {
         userMessage,
         conversationStage: this.conversationStage,
@@ -111,21 +160,22 @@ export class TaskCreatorAgent {
       const toolCall = await this.claude.generateToolCall(
         systemPrompt,
         userMessage,
-        this.conversationHistory
+        optimizedHistory // Factor 3: Use optimized history instead of raw history
       );
 
       if (!toolCall) {
         const response = await this.claude.generateResponse(
           systemPrompt,
           userMessage,
-          this.conversationHistory
+          optimizedHistory // Factor 3: Use optimized history
         );
 
         console.log(`🤖 Claude: ${response}`);
 
-        this.conversationHistory.push(
-          { role: 'user', content: userMessage },
-          { role: 'assistant', content: response }
+        // Factor 3: Add assistant response to context manager
+        this.contextManager.addMessage(
+          { role: 'assistant', content: response },
+          { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: false }
         );
 
         return { response };
@@ -136,9 +186,10 @@ export class TaskCreatorAgent {
 
       const toolResult = await this.toolExecutor.execute(toolCall);
 
-      this.conversationHistory.push(
-        { role: 'user', content: userMessage },
-        { role: 'assistant', content: `Used tool: ${toolCall.function.name}` }
+      // Factor 3: Add tool call result to context manager
+      this.contextManager.addMessage(
+        { role: 'assistant', content: `Used tool: ${toolCall.function.name}` },
+        { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: true }
       );
 
       return { toolCall, toolResult };
@@ -207,10 +258,20 @@ export class TaskCreatorAgent {
   }
 
   private clearHistory(): void {
-    this.conversationHistory = [];
+    // Note: conversationHistory is now managed by ContextManager
     this.collectedInfo = {};
     this.questionCount = 0;
     this.conversationStage = 'initial';
+    
+    // Factor 3: Reset context manager (this now handles conversation history)
+    this.contextManager = new ContextManager({
+      enableSummarization: true,
+      summaryThreshold: 8,
+      priorityThreshold: 'medium',
+      maxHistoryMessages: 15,
+      tokenBudgetRatio: 0.7,
+    });
+    
     console.log('🧹 Conversation history and collected info cleared');
   }
 
