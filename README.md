@@ -188,17 +188,6 @@ The project uses several configuration files:
 - [Notion API](https://developers.notion.com/) - Database integration
 - [Project Documentation](https://www.notion.so/shomrkm/Learning-AI-Agent-Development-24bd4af9764f800c9fe9ca2a490386d5) - Detailed progress notes
 
-## 🤝 Contributing
-
-This is primarily a **personal learning project** for studying AI agent development and 12-factor agents principles. However, contributions, suggestions, and discussions are welcome! If you're also learning or have insights to share:
-
-1. Fork the repository
-2. Create a feature branch
-3. Follow the existing code style (enforced by Biome)
-4. Add tests for new functionality
-5. Submit a pull request
-
-Feel free to open issues for discussions about AI agent patterns, implementation approaches, or learning resources!
 
 ## 📄 License
 
