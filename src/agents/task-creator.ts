@@ -1,6 +1,5 @@
 import { ClaudeClient } from '../clients/claude';
 import { ToolExecutor } from '../tools';
-import { TASK_CREATOR_SYSTEM_PROMPT } from '../prompts/system';
 import { AgentTool, QuestionToolResult, ToolResult } from '../types/tools';
 import Anthropic from '@anthropic-ai/sdk';
 import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool, isQuestionToolResult } from '../types/toolGuards';
@@ -23,8 +22,6 @@ export class TaskCreatorAgent {
   private questionCount: number = 0;
   private conversationStage: PromptContext['conversationStage'] = 'initial';
 
-  private readonly MAX_ITERATIONS = 8;
-
   constructor() {
     this.claude = new ClaudeClient();
     this.toolExecutor = new ToolExecutor();
@@ -40,11 +37,12 @@ export class TaskCreatorAgent {
     this.clearHistory();
     
     let currentMessage = userMessage;
+    const MAX_ITERATION = 8;
     let iterations = 0;
     
-    while (iterations < this.MAX_ITERATIONS) {
+    while (iterations < MAX_ITERATION) {
       iterations++;
-      console.log(`\n🔄 Conversation iteration ${iterations}/${this.MAX_ITERATIONS}`);
+      console.log(`\n🔄 Conversation iteration ${iterations}/${MAX_ITERATION}`);
       
       const result = await this.processMessage(currentMessage);
       if(!this.hasCalledTool(result)) {
@@ -77,7 +75,7 @@ export class TaskCreatorAgent {
       }
     }
     
-    if (iterations >= this.MAX_ITERATIONS) {
+    if (iterations >= MAX_ITERATION) {
       console.log('⚠️  Maximum iterations reached. Conversation ended.');
     }
     
@@ -101,14 +99,7 @@ export class TaskCreatorAgent {
         questionCount: this.questionCount,
       };
 
-      // デバッグモードの場合、プロンプトを表示
-      if (process.env.DEBUG_PROMPTS === 'true') {
-        this.promptManager.debugPrompt(promptContext);
-      }
-
-      const systemPrompt = this.useDynamicPrompts() 
-        ? this.promptManager.buildSystemPrompt(promptContext)
-        : TASK_CREATOR_SYSTEM_PROMPT;
+      const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
 
       const toolCall = await this.claude.generateToolCall(
         systemPrompt,
@@ -134,9 +125,7 @@ export class TaskCreatorAgent {
       }
 
       console.log(`🤖 Claude generated tool call: ${toolCall.function.name}`);
-      if (this.useDynamicPrompts()) {
-        console.log(`📋 Used prompt stage: ${this.conversationStage}`);
-      }
+      console.log(`📋 Using prompt stage: ${this.conversationStage}`);
 
       const toolResult = await this.toolExecutor.execute(toolCall);
 
@@ -214,49 +203,6 @@ export class TaskCreatorAgent {
     this.questionCount = 0;
     this.conversationStage = 'initial';
     console.log('🧹 Conversation history and collected info cleared');
-  }
-
-  /**
-   * use dynamic prompts
-   * @returns true if dynamic prompts are enabled
-   */
-  private useDynamicPrompts(): boolean {
-    return process.env.USE_DYNAMIC_PROMPTS === 'true';
-  }
-
-  enableDynamicPrompts(): void {
-    process.env.USE_DYNAMIC_PROMPTS = 'true';
-    console.log('🎯 Dynamic prompts enabled (Factor 2)');
-  }
-
-  disableDynamicPrompts(): void {
-    process.env.USE_DYNAMIC_PROMPTS = 'false';
-    console.log('📝 Using static prompt (original behavior)');
-  }
-
-  enablePromptDebugging(): void {
-    process.env.DEBUG_PROMPTS = 'true';
-    console.log('🔍 Prompt debugging enabled');
-  }
-
-  disablePromptDebugging(): void {
-    process.env.DEBUG_PROMPTS = 'false';
-    console.log('🔇 Prompt debugging disabled');
-  }
-
-  showAvailablePromptFunctions(): void {
-    const functions = this.promptManager.listPromptFunctions();
-    console.log('📋 Available prompt functions:');
-    functions.forEach(func => console.log(`  - ${func}`));
-  }
-
-  getCurrentPromptContext(): PromptContext {
-    return {
-      userMessage: '',
-      conversationStage: this.conversationStage,
-      collectedInfo: this.collectedInfo,
-      questionCount: this.questionCount,
-    };
   }
 
   async testConnections(): Promise<boolean> {
