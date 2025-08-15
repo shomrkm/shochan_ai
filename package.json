@@ -12,7 +12,13 @@
     "test-dialogue": "tsx src/test-dialogue.ts",
     "test-factor2": "tsx src/test-factor2.ts",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "check": "biome check .",
+    "check:fix": "biome check --write ."
   },
   "repository": {
     "type": "git",
@@ -33,6 +39,7 @@
     "typescript": "^5.9.2"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.2.0",
     "@types/dotenv": "^8.2.0",
     "@types/node": "^24.2.1",
     "vitest": "^2.1.9"
