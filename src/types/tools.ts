@@ -51,15 +51,22 @@ export type AgentTool = CreateTaskTool | AskQuestionTool | CreateProjectTool;
 export interface TaskCreationResult {
   task_id: string;
   title: string;
+  description: string;
+  task_type: string;
   created_at: Date;
   notion_url?: string;
+  scheduled_date?: string;
+  project_id?: string;
 }
 
 export interface ProjectCreationResult {
   project_id: string;
   name: string;
+  description: string;
+  importance: string;
   created_at: Date;
   notion_url?: string;
+  action_plan?: string;
 }
 
 // Factor 4: Enhanced structured tool results
