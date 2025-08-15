@@ -62,17 +62,42 @@ export interface ProjectCreationResult {
   notion_url?: string;
 }
 
-export interface QuestionResult {
-  question: string;
-  context: string;
-  asked_at: Date;
+// Factor 4: Enhanced structured tool results
+export interface ToolExecutionMetadata {
+  toolName: string;
+  inputParameters: Record<string, unknown>;
+  retryCount?: number;
+  validationErrors?: string[];
+  warnings?: string[];
 }
 
+export type ToolExecutionStatus =
+  | 'success'
+  | 'failure'
+  | 'partial_success'
+  | 'validation_error'
+  | 'timeout'
+  | 'retry_exhausted';
+
+export interface ToolExecutionError {
+  code: string;
+  message: string;
+  details?: Record<string, unknown>;
+  recoverable: boolean;
+  suggestedAction?: string;
+}
+
+// Enhanced tool result with Factor 4 principles
 export interface ToolResult<T extends Record<string, any> = Record<string, any>> {
   success: boolean;
   message: string;
   data?: T;
   timestamp: Date;
+  // Factor 4 enhancements
+  executionTime?: number; // milliseconds
+  metadata?: ToolExecutionMetadata;
+  status?: ToolExecutionStatus;
+  error?: ToolExecutionError;
 }
 
 // Specific tool result types
@@ -83,7 +108,7 @@ export type QuestionToolResult = ToolResult<QuestionResult>;
 export interface QuestionResult {
   question: string;
   context: string;
-  asked_at: Date;
+  question_type: string;
   answer?: string;
-  question_type?: string;
+  timestamp: Date;
 }
