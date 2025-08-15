@@ -1,82 +1,80 @@
+// src/prompts/prompt-manager.ts
 import { 
-    PromptContext, 
-    PromptFunction,
-    PromptFunctionKey,
-    PromptFunctionRegistry,
-    PROMPT_KEYS
-} from '../types/prompt-types';
-
-import {
-    INITIAL_CONVERSATION_PROMPT,
-    INFORMATION_GATHERING_PROMPT,
-    CONFIRMATION_PROMPT,
-    EXECUTION_PROMPT
+  PromptContext, 
+  PromptFunction,
+  INITIAL_CONVERSATION_PROMPT,
+  INFORMATION_GATHERING_PROMPT,
+  CONFIRMATION_PROMPT,
+  EXECUTION_PROMPT
 } from './prompt-functions';
 
 export class PromptManager {
-    private promptFunctions: PromptFunctionRegistry;
+  private promptFunctions: Map<string, PromptFunction> = new Map();
 
-    constructor() {
-        this.promptFunctions = {
-            [PROMPT_KEYS.INITIAL_CONVERSATION]: INITIAL_CONVERSATION_PROMPT,
-            [PROMPT_KEYS.INFORMATION_GATHERING]: INFORMATION_GATHERING_PROMPT,
-            [PROMPT_KEYS.CONFIRMATION]: CONFIRMATION_PROMPT,
-            [PROMPT_KEYS.EXECUTION]: EXECUTION_PROMPT
-        };
+  constructor() {
+    this.initializePromptFunctions();
+  }
+
+  private initializePromptFunctions(): void {
+    this.promptFunctions.set('initial_conversation', INITIAL_CONVERSATION_PROMPT);
+    this.promptFunctions.set('information_gathering', INFORMATION_GATHERING_PROMPT);
+    this.promptFunctions.set('confirmation', CONFIRMATION_PROMPT);
+    this.promptFunctions.set('execution', EXECUTION_PROMPT);
+  }
+
+  buildSystemPrompt(context: PromptContext): string {
+    const promptName = this.selectPromptFunction(context);
+    const promptFunction = this.promptFunctions.get(promptName);
+    
+    if (!promptFunction) {
+      console.warn(`Prompt function ${promptName} not found, using initial_conversation`);
+      return INITIAL_CONVERSATION_PROMPT.build(context);
     }
 
-    buildSystemPrompt(context: PromptContext): string {
-        const promptKey = this.selectPromptFunction(context);
-        const promptFunction = this.promptFunctions[promptKey];
-        
-        if (!promptFunction) {
-            console.warn(`Prompt function ${promptKey} not found, using initial_conversation`);
-            return INITIAL_CONVERSATION_PROMPT.build(context);
-        }
+    const generatedPrompt = promptFunction.build(context);
+    
+    // デバッグ情報をログ出力
+    console.log(`🎯 Using prompt function: ${promptFunction.name}`);
+    console.log(`📋 Description: ${promptFunction.description}`);
+    
+    return generatedPrompt;
+  }
 
-        const generatedPrompt = promptFunction.build(context);
-        
-        // display the prompt function name and description
-        console.log(`🎯 Using prompt function: ${promptFunction.name}`);
-        console.log(`📋 Description: ${promptFunction.description}`);
-        
-        return generatedPrompt;
+  private selectPromptFunction(context: PromptContext): string {
+    // シンプルなロジックで適切なプロンプトを選択
+    switch (context.conversationStage) {
+      case 'initial':
+        return 'initial_conversation';
+      case 'gathering_info':
+        return 'information_gathering';
+      case 'confirming':
+        return 'confirmation';
+      case 'executing':
+        return 'execution';
+      default:
+        return 'initial_conversation';
     }
+  }
 
-    private selectPromptFunction(context: PromptContext): PromptFunctionKey {
-        switch (context.conversationStage) {
-        case 'initial':
-            return PROMPT_KEYS.INITIAL_CONVERSATION;
-        case 'gathering_info':
-            return PROMPT_KEYS.INFORMATION_GATHERING;
-        case 'confirming':
-            return PROMPT_KEYS.CONFIRMATION;
-        case 'executing':
-            return PROMPT_KEYS.EXECUTION;
-        default:
-            return PROMPT_KEYS.INITIAL_CONVERSATION;
-        }
-    }
+  // デバッグ用：生成されたプロンプトを表示
+  debugPrompt(context: PromptContext): void {
+    console.log('\n' + '='.repeat(60));
+    console.log('🔍 PROMPT DEBUG');
+    console.log('='.repeat(60));
+    console.log('Context:', JSON.stringify(context, null, 2));
+    console.log('\nGenerated Prompt:');
+    console.log(this.buildSystemPrompt(context));
+    console.log('='.repeat(60) + '\n');
+  }
 
-    // debug: display the generated prompt
-    debugPrompt(context: PromptContext): void {
-        console.log('\n' + '='.repeat(60));
-        console.log('🔍 PROMPT DEBUG');
-        console.log('='.repeat(60));
-        console.log('Context:', JSON.stringify(context, null, 2));
-        console.log('\nGenerated Prompt:');
-        console.log(this.buildSystemPrompt(context));
-        console.log('='.repeat(60) + '\n');
-    }
+  // プロンプト関数を動的に追加
+  addPromptFunction(promptFunction: PromptFunction): void {
+    this.promptFunctions.set(promptFunction.name, promptFunction);
+    console.log(`✅ Added prompt function: ${promptFunction.name}`);
+  }
 
-    // add prompt function dynamically
-    addPromptFunction(promptFunction: PromptFunction): void {
-        this.promptFunctions[promptFunction.name] = promptFunction;
-        console.log(`✅ Added prompt function: ${promptFunction.name}`);
-    }
-
-    // list available prompt functions
-    listPromptFunctions(): PromptFunctionKey[] {
-        return Object.keys(this.promptFunctions) as PromptFunctionKey[];
-    }
+  // 使用可能なプロンプト関数一覧
+  listPromptFunctions(): string[] {
+    return Array.from(this.promptFunctions.keys());
+  }
 }
