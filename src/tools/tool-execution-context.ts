@@ -165,11 +165,11 @@ export class ToolExecutionContextBuilder {
   }
 
   private generateExecutionId(): string {
-    return `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `exec_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   }
 
   private generateTraceId(): string {
-    return `trace_${Date.now()}_${Math.random().toString(36).substr(2, 12)}`;
+    return `trace_${Date.now()}_${Math.random().toString(36).slice(2, 14)}`;
   }
 }
 
