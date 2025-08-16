@@ -246,13 +246,16 @@ export class TaskCreatorAgent {
 
       console.log(`🤖 Claude generated tool call: ${toolCall.function.name}`);
       console.log(`📋 Using prompt stage: ${this.conversationStage}`);
+      
+      if (toolCall.function.name === 'ask_question') {
+        console.log(`⏰ You have 10 minutes to respond to the question`);
+      }
 
       const enrichedResult = await this.toolExecutor.executeWithContext(toolCall, {
         traceId: this.currentTraceId || undefined,
         enableDebugMode: false,
         validateInput: true,
         validateOutput: true,
-        timeout: 30000,
         maxRetries: 2,
       });
 
@@ -419,6 +422,7 @@ export class TaskCreatorAgent {
     
     return result.toolResult.success;
   }
+
 
   /**
    * Display enhanced information about question processing

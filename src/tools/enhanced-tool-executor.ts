@@ -98,6 +98,9 @@ export class EnhancedToolExecutor {
     }
     if (options.timeout) {
       contextBuilder = contextBuilder.withTimeout(options.timeout);
+    } else {
+      // Apply default timeout based on tool type
+      contextBuilder = contextBuilder.withTimeout(this.getDefaultToolTimeout(tool.function.name));
     }
     if (options.maxRetries !== undefined) {
       contextBuilder = contextBuilder.withRetrySettings(options.maxRetries, options.retryDelayMs || 1000);
@@ -339,6 +342,24 @@ export class EnhancedToolExecutor {
       errors,
       warnings
     };
+  }
+
+  /**
+   * Get default timeout value based on tool type
+   */
+  private getDefaultToolTimeout(toolName: string): number {
+    switch (toolName) {
+      case 'ask_question':
+        // Human input requires more time - 10 minutes
+        return 600000;
+      case 'create_task':
+      case 'create_project':
+        // API calls should be faster - 30 seconds  
+        return 30000;
+      default:
+        // Default timeout for unknown tools - 1 minute
+        return 60000;
+    }
   }
 
   /**
