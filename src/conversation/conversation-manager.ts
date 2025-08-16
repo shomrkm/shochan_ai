@@ -1,16 +1,8 @@
 import type { PromptContext } from '../types/prompt-types';
+import type { ProcessMessageResult } from '../types/conversation-types';
+import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
-
-type ProcessMessageResult =
-  | {
-      toolCall: AgentTool;
-      toolResult: EnrichedToolResult;
-    }
-  | {
-      response: string;
-    };
 
 /**
  * Manages conversation state, flow control, and stage transitions
