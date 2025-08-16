@@ -170,8 +170,7 @@ src/
 │   └── question-handler.ts       # Interactive questioning
 ├── prompts/                      # Factor 2: Prompt Management
 │   ├── prompt-functions.ts       # Dynamic prompt functions
-│   ├── prompt-manager.ts         # Prompt orchestration
-│   └── system.ts                 # Legacy static prompts
+│   └── prompt-manager.ts         # Prompt orchestration
 ├── types/
 │   ├── conversation-types.ts     # Conversation-related types
 │   ├── context-types.ts          # Context management types

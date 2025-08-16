@@ -257,8 +257,7 @@ src/
 │   └── token-counter.ts          # Token calculation utilities
 ├── prompts/                      # Factor 2: Prompt Management
 │   ├── prompt-functions.ts       # Dynamic prompt functions
-│   ├── prompt-manager.ts         # Prompt orchestration
-│   └── system.ts                 # Legacy static prompts
+│   └── prompt-manager.ts         # Prompt orchestration
 ├── tools/                        # Factor 1 & 4: Tool System
 │   ├── index.ts                  # Legacy tool execution engine
 │   ├── enhanced-tool-executor.ts # Factor 4: Enhanced execution with validation
