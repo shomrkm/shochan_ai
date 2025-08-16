@@ -4,7 +4,6 @@ import {
   type CreateProjectTool,
   type CreateTaskTool,
   type QuestionToolResult,
-  TaskToolResult,
   type ToolResult,
 } from './tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';

@@ -2,8 +2,7 @@ import type Anthropic from '@anthropic-ai/sdk';
 import { ClaudeClient } from '../clients/claude';
 import { ContextManager } from '../context/context-manager';
 import { PromptManager } from '../prompts/prompt-manager';
-import { ToolExecutor } from '../tools';
-import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor'; // Factor 4
+import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { PromptContext } from '../types/prompt-types';
 import {
   isAskQuestionTool,
@@ -11,42 +10,40 @@ import {
   isCreateTaskTool,
   isEnrichedQuestionToolResult,
 } from '../types/toolGuards';
-import { type AgentTool, type ToolResult } from '../types/tools';
-import type { EnrichedToolResult } from '../tools/tool-execution-context'; // Factor 4
+import { type AgentTool } from '../types/tools';
+import type { EnrichedToolResult } from '../tools/tool-execution-context';
 
 type ProcessMessageResult =
   | {
       toolCall: AgentTool;
-      toolResult: ToolResult;
-      // Factor 4: Add enriched result
-      enrichedResult?: EnrichedToolResult;
+      toolResult: EnrichedToolResult;
     }
   | {
       response: string;
     };
 
+/**
+ * Main AI agent for creating tasks and projects through interactive conversation.
+ * Implements Factor 3 (context management) and Factor 4 (structured tool outputs).
+ */
 export class TaskCreatorAgent {
   private claude: ClaudeClient;
-  private toolExecutor: ToolExecutor;
-  private enhancedToolExecutor: EnhancedToolExecutor; // Factor 4: Enhanced tool execution
+  private toolExecutor: EnhancedToolExecutor;
   private promptManager: PromptManager;
-  private contextManager: ContextManager; // Factor 3: Context Window Management
-  // Note: conversationHistory is now managed by ContextManager (Factor 3)
-  // private conversationHistory: Anthropic.MessageParam[] = []; // Deprecated: replaced by ContextManager
+  private contextManager: ContextManager;
   private collectedInfo: Record<string, string> = {};
   private questionCount: number = 0;
   private conversationStage: PromptContext['conversationStage'] = 'initial';
-  
-  // Factor 4: Trace management
   private currentTraceId: string | null = null;
 
+  /**
+   * Initialize the TaskCreatorAgent with all necessary components
+   */
   constructor() {
     this.claude = new ClaudeClient();
-    this.toolExecutor = new ToolExecutor();
-    this.enhancedToolExecutor = new EnhancedToolExecutor(); // Factor 4
+    this.toolExecutor = new EnhancedToolExecutor();
     this.promptManager = new PromptManager();
     
-    // Factor 3: Initialize context manager with strategy
     this.contextManager = new ContextManager({
       enableSummarization: true,
       summaryThreshold: 8,
@@ -57,16 +54,15 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * start the conversation
-   * @param userMessage the message from the user
+   * Start an interactive conversation to create tasks or projects
+   * @param userMessage the initial message from the user
    */
   async startConversation(userMessage: string): Promise<void> {
     console.log('🎯 Starting interactive conversation...\n');
     this.clearHistory();
     
-    // Factor 4: Initialize trace for this conversation
     this.currentTraceId = `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    console.log(`🔍 [Factor 4] Starting trace: ${this.currentTraceId}`);
+    console.log(`🔍 Starting trace: ${this.currentTraceId}`);
 
     let currentMessage = userMessage;
     const MAX_ITERATION = 8;
@@ -84,10 +80,7 @@ export class TaskCreatorAgent {
 
       if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
         console.log('✅ Task/Project created successfully!');
-        // Factor 4: Display enriched result information
-        if (result.enrichedResult) {
-          this.displayEnrichedResultSummary(result.enrichedResult);
-        }
+        this.displayEnrichedResultSummary(result.toolResult);
         break;
       }
 
@@ -95,7 +88,6 @@ export class TaskCreatorAgent {
         this.questionCount++;
         this.conversationStage = this.determineNextStage();
 
-        // Factor 4 Phase 3: Use helper methods for cleaner code
         if (this.isResultSuccessful(result) && this.getResultData(result)?.answer) {
           const answer = this.getResultData(result).answer;
           currentMessage = answer;
@@ -106,12 +98,9 @@ export class TaskCreatorAgent {
           console.log(JSON.stringify(this.collectedInfo, null, 2));
           console.log('\n');
           
-          // Factor 4 Phase 3: Enhanced feedback only if enrichedResult available
           this.displayQuestionProcessingInfo(result);
         } else {
           console.log('❌ Failed to get user answer, ending conversation.');
-          
-          // Factor 4 Phase 3: Enhanced error reporting
           this.displayQuestionErrorInfo(result);
           break;
         }
@@ -124,19 +113,16 @@ export class TaskCreatorAgent {
 
     console.log('🏁 Conversation completed!\n');
     
-    // Factor 3: Display final context statistics
     this.displayContextStats();
-    
-    // Factor 4: Display execution statistics
     this.displayExecutionStats();
   }
 
   /**
-   * Display context manager statistics (Factor 3)
+   * Display context manager statistics
    */
   private displayContextStats(): void {
     const stats = this.contextManager.getContextStats();
-    console.log('\n📊 Context Window Statistics (Factor 3):');
+    console.log('\n📊 Context Window Statistics:');
     console.log(`📏 Tokens: ${stats.currentTokens}/${stats.maxTokens} (${stats.utilizationPercentage.toFixed(1)}% utilized)`);
     console.log(`💬 Messages: ${stats.messageCount}`);
     console.log(`🔄 Has Summary: ${stats.hasSummary ? 'Yes' : 'No'}`);
@@ -145,15 +131,14 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * process the message
+   * Process a single message and generate tool calls or responses
    * @param userMessage the message from the user
-   * @returns the result of the message
+   * @returns the result of processing the message
    */
   async processMessage(userMessage: string): Promise<ProcessMessageResult> {
     console.log(`\n👤 User: ${userMessage}`);
 
     try {
-      // Factor 3: Add user message to context manager
       const userMessageContext = {
         isRecent: true,
         containsDecision: /decide|choose|select|yes|no|confirm/i.test(userMessage),
@@ -166,15 +151,12 @@ export class TaskCreatorAgent {
         userMessageContext
       );
 
-      // Factor 3: Use optimized messages for API calls
       const optimizedHistory = this.contextManager.getOptimizedMessages();
       
-      // Log context optimization results
       if (userOptimizationResult.tokensSaved > 0) {
         console.log(`🔧 Context optimized: saved ${userOptimizationResult.tokensSaved} tokens (${userOptimizationResult.savingsPercentage.toFixed(1)}%)`);
       }
 
-      // Factor 2: dynamic prompt generation
       const promptContext: PromptContext = {
         userMessage,
         conversationStage: this.conversationStage,
@@ -187,19 +169,18 @@ export class TaskCreatorAgent {
       const toolCall = await this.claude.generateToolCall(
         systemPrompt,
         userMessage,
-        optimizedHistory // Factor 3: Use optimized history instead of raw history
+        optimizedHistory
       );
 
       if (!toolCall) {
         const response = await this.claude.generateResponse(
           systemPrompt,
           userMessage,
-          optimizedHistory // Factor 3: Use optimized history
+          optimizedHistory
         );
 
         console.log(`🤖 Claude: ${response}`);
 
-        // Factor 3: Add assistant response to context manager
         this.contextManager.addMessage(
           { role: 'assistant', content: response },
           { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: false }
@@ -211,29 +192,21 @@ export class TaskCreatorAgent {
       console.log(`🤖 Claude generated tool call: ${toolCall.function.name}`);
       console.log(`📋 Using prompt stage: ${this.conversationStage}`);
 
-      // Factor 4: Use enhanced tool executor with tracing
-      const enrichedResult = await this.enhancedToolExecutor.executeWithContext(toolCall, {
+      const enrichedResult = await this.toolExecutor.executeWithContext(toolCall, {
         traceId: this.currentTraceId || undefined,
-        enableDebugMode: false, // Set to true for detailed logs
+        enableDebugMode: false,
         validateInput: true,
         validateOutput: true,
-        timeout: 30000, // 30 seconds timeout
+        timeout: 30000,
         maxRetries: 2,
       });
 
-      // Factor 4: Create unified tool result with legacy compatibility
-      const unifiedResult = this.createUnifiedToolResult(enrichedResult);
-
-      // Factor 3: Add tool call result to context manager
       this.contextManager.addMessage(
         { role: 'assistant', content: `Used tool: ${toolCall.function.name}` },
         { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: true }
       );
 
-      return { toolCall, toolResult: unifiedResult, enrichedResult };
-
-      // TODO Phase 3: Eventually return only enrichedResult
-      // return { toolCall, toolResult: enrichedResult };
+      return { toolCall, toolResult: enrichedResult };
     } catch (error) {
       console.error('❌ Agent processing failed:', error);
       return {
@@ -243,8 +216,8 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * update the collected info
-   * @param toolCall the tool call
+   * Update collected information based on user's answer to questions
+   * @param toolCall the tool call that asked the question
    * @param answer the answer from the user
    */
   private updateCollectedInfo(toolCall: AgentTool, answer: string): void {
@@ -276,7 +249,7 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * determine the next stage of the conversation
+   * Determine the next stage of the conversation based on collected information
    * @returns the next stage of the conversation
    */
   private determineNextStage(): PromptContext['conversationStage'] {
@@ -292,20 +265,24 @@ export class TaskCreatorAgent {
     }
   }
 
+  /**
+   * Check if the result contains a tool call
+   */
   private hasCalledTool(
     result: ProcessMessageResult
-  ): result is { toolCall: AgentTool; toolResult: ToolResult; enrichedResult?: EnrichedToolResult } {
+  ): result is { toolCall: AgentTool; toolResult: EnrichedToolResult } {
     return 'toolCall' in result && 'toolResult' in result;
   }
 
+  /**
+   * Clear conversation history and reset agent state
+   */
   private clearHistory(): void {
-    // Note: conversationHistory is now managed by ContextManager
     this.collectedInfo = {};
     this.questionCount = 0;
     this.conversationStage = 'initial';
-    this.currentTraceId = null; // Factor 4: Reset trace ID
+    this.currentTraceId = null;
     
-    // Factor 3: Reset context manager (this now handles conversation history)
     this.contextManager = new ContextManager({
       enableSummarization: true,
       summaryThreshold: 8,
@@ -318,10 +295,10 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Display enriched result summary (Factor 4)
+   * Display summary of enriched tool execution result
    */
   private displayEnrichedResultSummary(enrichedResult: EnrichedToolResult): void {
-    console.log('\n🔍 [Factor 4] Tool Execution Summary:');
+    console.log('\n🔍 Tool Execution Summary:');
     console.log(`⚡ Execution Time: ${enrichedResult.executionTimeMs}ms`);
     console.log(`🔄 Retry Count: ${enrichedResult.metadata.retryCount}`);
     console.log(`📊 Status: ${enrichedResult.status}`);
@@ -345,12 +322,12 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Display execution statistics (Factor 4)
+   * Display tool execution statistics
    */
   private displayExecutionStats(): void {
-    const stats = this.enhancedToolExecutor.getExecutionStats();
+    const stats = this.toolExecutor.getExecutionStats();
     
-    console.log('\n📊 Tool Execution Statistics (Factor 4):');
+    console.log('\n📊 Tool Execution Statistics:');
     console.log(`🎯 Active Contexts: ${stats.activeContexts}`);
     console.log(`📈 Total Executions: ${stats.totalExecutions}`);
     console.log(`🔄 Average Retry Rate: ${stats.averageRetryRate.toFixed(2)}`);
@@ -363,7 +340,7 @@ export class TaskCreatorAgent {
     }
     
     if (this.currentTraceId) {
-      const traceContexts = this.enhancedToolExecutor.getContextsByTrace(this.currentTraceId);
+      const traceContexts = this.toolExecutor.getContextsByTrace(this.currentTraceId);
       console.log(`🔍 Trace "${this.currentTraceId}": ${traceContexts.length} executions`);
     }
     
@@ -371,110 +348,77 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Create unified tool result with legacy compatibility (Factor 4)
-   * Phase 2: Bridge between EnrichedToolResult and ToolResult
-   */
-  private createUnifiedToolResult(enrichedResult: EnrichedToolResult): ToolResult & { 
-    // Legacy fields
-    timestamp: Date;
-    // Enhanced fields (optional for gradual adoption)
-    executionTimeMs?: number;
-    status?: string;
-    metadata?: any;
-  } {
-    return {
-      // Legacy ToolResult interface
-      success: enrichedResult.success,
-      message: enrichedResult.message,
-      data: enrichedResult.data,
-      timestamp: enrichedResult.endTime,
-      
-      // Enhanced fields for gradual adoption
-      executionTimeMs: enrichedResult.executionTimeMs,
-      status: enrichedResult.status,
-      metadata: enrichedResult.metadata,
-      
-      // Future: Add more enriched fields as needed
-      // error: enrichedResult.error,
-      // inputValidation: enrichedResult.inputValidation,
-      // outputValidation: enrichedResult.outputValidation,
-    };
-  }
-
-  /**
-   * Factor 4 Phase 3: Helper method to safely access result data
+   * Safely access result data from ProcessMessageResult
    */
   private getResultData(result: ProcessMessageResult): any {
     if (!this.hasCalledTool(result)) return null;
     
-    // Phase 3: Prefer enrichedResult if available
-    return result.enrichedResult?.data || result.toolResult.data;
+    return result.toolResult.data;
   }
 
   /**
-   * Factor 4 Phase 3: Helper method to check result success
+   * Check if the result was successful
    */
   private isResultSuccessful(result: ProcessMessageResult): boolean {
     if (!this.hasCalledTool(result)) return false;
     
-    // Phase 3: Prefer enrichedResult if available
-    return result.enrichedResult?.success ?? result.toolResult.success;
+    return result.toolResult.success;
   }
 
   /**
-   * Factor 4 Phase 3: Display enhanced question processing information
+   * Display enhanced information about question processing
    */
   private displayQuestionProcessingInfo(result: ProcessMessageResult): void {
-    if (!this.hasCalledTool(result) || !result.enrichedResult) return;
+    if (!this.hasCalledTool(result)) return;
     
-    if (isEnrichedQuestionToolResult(result.enrichedResult)) {
-      console.log(`⚡ Question processing took ${result.enrichedResult.executionTimeMs}ms`);
+    if (isEnrichedQuestionToolResult(result.toolResult)) {
+      console.log(`⚡ Question processing took ${result.toolResult.executionTimeMs}ms`);
       
-      if (result.enrichedResult.inputValidation?.warnings.length) {
-        console.log(`⚠️ Input warnings: ${result.enrichedResult.inputValidation.warnings.join(', ')}`);
+      if (result.toolResult.inputValidation?.warnings.length) {
+        console.log(`⚠️ Input warnings: ${result.toolResult.inputValidation.warnings.join(', ')}`);
       }
       
-      if (result.enrichedResult.outputValidation?.warnings.length) {
-        console.log(`⚠️ Output warnings: ${result.enrichedResult.outputValidation.warnings.join(', ')}`);
+      if (result.toolResult.outputValidation?.warnings.length) {
+        console.log(`⚠️ Output warnings: ${result.toolResult.outputValidation.warnings.join(', ')}`);
       }
       
-      if (result.enrichedResult.metadata.retryCount && result.enrichedResult.metadata.retryCount > 0) {
-        console.log(`🔄 Required ${result.enrichedResult.metadata.retryCount} retries`);
+      if (result.toolResult.metadata.retryCount && result.toolResult.metadata.retryCount > 0) {
+        console.log(`🔄 Required ${result.toolResult.metadata.retryCount} retries`);
       }
     }
   }
 
   /**
-   * Factor 4 Phase 3: Display enhanced question error information
+   * Display enhanced error information for question processing
    */
   private displayQuestionErrorInfo(result: ProcessMessageResult): void {
     if (!this.hasCalledTool(result)) return;
     
-    if (result.enrichedResult?.error) {
-      console.log(`🔍 Error details: ${result.enrichedResult.error.code} - ${result.enrichedResult.error.message}`);
-      if (result.enrichedResult.error.suggestedAction) {
-        console.log(`💡 Suggestion: ${result.enrichedResult.error.suggestedAction}`);
+    if (result.toolResult.error) {
+      console.log(`🔍 Error details: ${result.toolResult.error.code} - ${result.toolResult.error.message}`);
+      if (result.toolResult.error.suggestedAction) {
+        console.log(`💡 Suggestion: ${result.toolResult.error.suggestedAction}`);
       }
     } else {
-      // Fallback to legacy error information
       console.log(`🔍 Basic error: ${result.toolResult.message}`);
     }
   }
 
+  /**
+   * Test connections to external services
+   */
   async testConnections(): Promise<boolean> {
     console.log('🔍 Testing connections...');
 
     try {
-      // Test both legacy and enhanced executors
-      const legacyConnected = await this.toolExecutor.testConnection();
-      const enhancedConnected = await this.enhancedToolExecutor.testConnection();
+      const connected = await this.toolExecutor.testConnection();
       
-      if (!legacyConnected || !enhancedConnected) {
+      if (!connected) {
         console.log('❌ Connection test failed');
         return false;
       }
 
-      console.log('✅ All connections successful (Legacy + Enhanced)');
+      console.log('✅ Tool executor connection successful');
       return true;
     } catch (error) {
       console.error('❌ Connection test failed:', error);
