@@ -7,11 +7,16 @@ This document describes the architecture of the Shochan AI Agent, implemented fo
 ```mermaid
 graph TB
     %% Main Agent
-    Agent[TaskCreatorAgent<br/>メインエージェント]
+    Agent[TaskCreatorAgent<br/>メインオーケストレーター]
+    
+    %% Conversation Management Components (NEW!)
+    ConversationMgr[ConversationManager<br/>会話管理]
+    InfoMgr[CollectedInfoManager<br/>情報収集管理]
+    DisplayMgr[DisplayManager<br/>表示管理]
     
     %% Factor 1: Core Components
     Claude[ClaudeClient<br/>Claude API]
-    ToolExec[ToolExecutor<br/>ツール実行エンジン]
+    ToolExec[EnhancedToolExecutor<br/>拡張ツール実行エンジン]
     Notion[NotionClient<br/>Notion API]
     QuestionHandler[QuestionHandler<br/>質問処理]
     
@@ -19,20 +24,30 @@ graph TB
     PromptMgr[PromptManager<br/>プロンプト管理]
     PromptFuncs[PromptFunctions<br/>プロンプト関数群]
     
-    %% Factor 3: Context Management (NEW!)
+    %% Factor 3: Context Management
     ContextMgr[ContextManager<br/>コンテキスト管理]
     TokenCounter[TokenCounter<br/>トークン計算]
     MsgPrioritizer[MessagePrioritizer<br/>メッセージ優先度判定]
+    
+    %% Factor 4: Tool Enhancement Components
+    ToolValidator[ToolResultValidator<br/>ツール結果検証]
+    ToolContext[ToolExecutionContext<br/>ツール実行コンテキスト]
     
     %% External APIs
     AnthropicAPI[Anthropic API]
     NotionAPI[Notion API]
     
-    %% Dependencies
+    %% Agent Dependencies (Refactored!)
+    Agent --> ConversationMgr
+    Agent --> InfoMgr
+    Agent --> DisplayMgr
     Agent --> Claude
     Agent --> ToolExec
     Agent --> PromptMgr
     Agent --> ContextMgr
+    
+    %% Conversation Management Dependencies
+    ConversationMgr --> InfoMgr
     
     %% Factor 1 Dependencies
     Claude --> AnthropicAPI
@@ -43,32 +58,45 @@ graph TB
     %% Factor 2 Dependencies
     PromptMgr --> PromptFuncs
     
-    %% Factor 3 Dependencies (NEW!)
+    %% Factor 3 Dependencies
     ContextMgr --> TokenCounter
     ContextMgr --> MsgPrioritizer
     MsgPrioritizer --> TokenCounter
+    
+    %% Factor 4 Dependencies
+    ToolExec --> ToolValidator
+    ToolExec --> ToolContext
     
     %% Styling
     classDef factor1 fill:#e1f5fe
     classDef factor2 fill:#f3e5f5
     classDef factor3 fill:#e8f5e8
+    classDef factor4 fill:#fff3e0
+    classDef conversation fill:#f1f8e9
     classDef external fill:#ffebee
     
     class Agent,Claude,ToolExec,Notion,QuestionHandler factor1
     class PromptMgr,PromptFuncs factor2
     class ContextMgr,TokenCounter,MsgPrioritizer factor3
+    class ToolValidator,ToolContext factor4
+    class ConversationMgr,InfoMgr,DisplayMgr conversation
     class AnthropicAPI,NotionAPI external
 ```
 
 ## 🎯 Layered Architecture
 
 ### **Agent Layer**
-- **TaskCreatorAgent**: Main orchestrator implementing 12-factor principles
+- **TaskCreatorAgent**: Clean orchestrator implementing 12-factor principles with separated concerns
+
+### **Conversation Management Layer** (NEW!)
+- **ConversationManager**: Conversation state and flow control
+- **CollectedInfoManager**: User information collection and organization  
+- **DisplayManager**: Centralized display and logging functionality
 
 ### **Service Layer**
 - **ContextManager** (Factor 3): Strategic context window management
 - **PromptManager** (Factor 2): Dynamic prompt selection and management
-- **ToolExecutor** (Factor 1): Tool execution engine
+- **EnhancedToolExecutor** (Factor 4): Enhanced tool execution with validation
 
 ### **Client Layer**
 - **ClaudeClient**: Anthropic Claude API integration
@@ -148,15 +176,40 @@ graph LR
 - **Token Optimization**: 30-60% token savings
 - **Real-time Statistics**: Context window utilization tracking
 
+## 🔄 Architecture Refactoring
+
+### **Clean Architecture Implementation**
+The TaskCreatorAgent has been refactored following clean architecture principles:
+
+**Before Refactoring:**
+- Single monolithic class with 487 lines and 30+ methods
+- Multiple responsibilities mixed together
+- Hard to test and maintain individual features
+
+**After Refactoring:**
+- **TaskCreatorAgent** (270 lines): Pure orchestrator with 8 focused methods
+- **ConversationManager**: Handles conversation state and flow control
+- **CollectedInfoManager**: Manages user information collection
+- **DisplayManager**: Centralizes all display and logging functionality
+
+### **Benefits Achieved:**
+- **Single Responsibility Principle**: Each component has one clear purpose
+- **Improved Testability**: Components can be tested in isolation
+- **Enhanced Maintainability**: Changes to one feature don't affect others
+- **Better Code Reusability**: Components can be reused across different agents
+
 ## 🎨 Design Patterns
 
 ### **1. Dependency Injection**
 ```typescript
 constructor() {
   this.claude = new ClaudeClient();
-  this.toolExecutor = new ToolExecutor();
+  this.toolExecutor = new EnhancedToolExecutor();
   this.promptManager = new PromptManager();
   this.contextManager = new ContextManager(); // Factor 3
+  this.conversationManager = new ConversationManager(); // NEW!
+  this.collectedInfoManager = new CollectedInfoManager(); // NEW!
+  this.displayManager = new DisplayManager(); // NEW!
 }
 ```
 
@@ -190,10 +243,14 @@ const systemPrompt = promptFunction.build(context);
 ```
 src/
 ├── agents/
-│   └── task-creator.ts           # Main agent orchestrator
+│   └── task-creator.ts           # Main orchestrator agent (refactored)
 ├── clients/
 │   ├── claude.ts                 # Anthropic Claude API client
 │   └── notion.ts                 # Notion API client
+├── conversation/                 # Conversation management components (NEW!)
+│   ├── conversation-manager.ts   # Conversation state and flow control
+│   ├── collected-info-manager.ts # User information collection and organization
+│   └── display-manager.ts        # Centralized display and logging functionality
 ├── context/                      # Factor 3: Context Management
 │   ├── context-manager.ts        # Strategic context optimization
 │   ├── message-prioritizer.ts    # Message priority assessment
@@ -209,6 +266,7 @@ src/
 │   ├── tool-result-validator.ts  # Factor 4: Input/output validation
 │   └── question-handler.ts       # Interactive questioning
 ├── types/
+│   ├── conversation-types.ts     # Conversation-related types (NEW!)
 │   ├── context-types.ts          # Context management types
 │   ├── prompt-types.ts           # Prompt system types
 │   ├── tools.ts                  # Tool system types

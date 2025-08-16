@@ -44,10 +44,13 @@ This is a **personal learning project** designed to systematically study and imp
 
 ### Core Components
 
-- **`TaskCreatorAgent`**: Main agent with Factor 3-4 integration
-- **`PromptManager`**: Dynamic prompt selection and management
+- **`TaskCreatorAgent`**: Main orchestrator agent with clean separation of concerns
+- **`ConversationManager`**: Conversation state and flow control management
+- **`CollectedInfoManager`**: User information collection and organization
+- **`DisplayManager`**: Centralized display and logging functionality
 - **`ContextManager`**: Strategic context window optimization (Factor 3)
 - **`EnhancedToolExecutor`**: Structured tool execution with validation (Factor 4)
+- **`PromptManager`**: Dynamic prompt selection and management
 - **`ClaudeClient`**: Anthropic Claude API integration
 - **`NotionClient`**: Notion API integration for GTD system
 
@@ -147,21 +150,34 @@ npm run check:fix
 ```
 src/
 ├── agents/
-│   └── task-creator.ts           # Main agent implementation
+│   └── task-creator.ts           # Main orchestrator agent (refactored)
 ├── clients/
 │   ├── claude.ts                 # Anthropic Claude API client
 │   └── notion.ts                 # Notion API client
-├── tools/
-│   ├── index.ts                  # Tool execution engine
+├── conversation/                 # Conversation management components
+│   ├── conversation-manager.ts   # Conversation state and flow control
+│   ├── collected-info-manager.ts # User information collection
+│   └── display-manager.ts        # Display and logging functionality
+├── context/                      # Factor 3: Context Management
+│   ├── context-manager.ts        # Strategic context optimization
+│   ├── message-prioritizer.ts    # Message priority assessment
+│   └── token-counter.ts          # Token calculation utilities
+├── tools/                        # Factor 1 & 4: Tool System
+│   ├── index.ts                  # Legacy tool execution engine
+│   ├── enhanced-tool-executor.ts # Factor 4: Enhanced execution with validation
+│   ├── tool-execution-context.ts # Factor 4: Execution context management
+│   ├── tool-result-validator.ts  # Factor 4: Input/output validation
 │   └── question-handler.ts       # Interactive questioning
-├── prompts/
+├── prompts/                      # Factor 2: Prompt Management
 │   ├── prompt-functions.ts       # Dynamic prompt functions
-│   ├── prompt-manager.ts         # Prompt management system
+│   ├── prompt-manager.ts         # Prompt orchestration
 │   └── system.ts                 # Legacy static prompts
 ├── types/
-│   ├── tools.ts                  # Tool-related type definitions
-│   ├── toolGuards.ts            # Type guard functions
-│   └── prompt-types.ts          # Prompt-related types
+│   ├── conversation-types.ts     # Conversation-related types
+│   ├── context-types.ts          # Context management types
+│   ├── prompt-types.ts           # Prompt system types
+│   ├── tools.ts                  # Tool system types
+│   └── toolGuards.ts            # Runtime type validation
 ├── utils/
 │   └── notionUtils.ts           # Notion utility functions
 └── test-*.ts                    # Various test scenarios
@@ -180,9 +196,11 @@ See [PLAN.md](./PLAN.md) for the comprehensive development plan covering all 12 
 
 ## 🌟 Key Features
 
+- **Clean Architecture**: Refactored with separation of concerns and single responsibility principle
+- **Modular Components**: ConversationManager, CollectedInfoManager, DisplayManager for specialized tasks
 - **Dynamic Conversation Management**: Adapts prompts based on conversation stage
 - **Type-Safe Architecture**: Full TypeScript implementation with strict typing
-- **Modular Design**: Easy to extend with new tools and capabilities
+- **Enhanced Maintainability**: Easy to extend, test, and modify individual components
 - **Production-Ready**: Following enterprise-grade development practices
 - **Interactive Learning**: Demonstrates 12-factor agents principles progressively
 
