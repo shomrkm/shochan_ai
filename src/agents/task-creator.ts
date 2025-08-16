@@ -9,9 +9,9 @@ import {
   isAskQuestionTool,
   isCreateProjectTool,
   isCreateTaskTool,
-  isQuestionToolResult,
+  isEnrichedQuestionToolResult,
 } from '../types/toolGuards';
-import { type AgentTool, QuestionToolResult, type ToolResult } from '../types/tools';
+import { type AgentTool, type ToolResult } from '../types/tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context'; // Factor 4
 
 type ProcessMessageResult =
@@ -91,12 +91,13 @@ export class TaskCreatorAgent {
         break;
       }
 
-      if (isAskQuestionTool(result.toolCall) && isQuestionToolResult(result.toolResult)) {
+      if (isAskQuestionTool(result.toolCall)) {
         this.questionCount++;
         this.conversationStage = this.determineNextStage();
 
-        if (result.toolResult.success && result.toolResult.data?.answer) {
-          const answer = result.toolResult.data.answer;
+        // Factor 4 Phase 3: Use helper methods for cleaner code
+        if (this.isResultSuccessful(result) && this.getResultData(result)?.answer) {
+          const answer = this.getResultData(result).answer;
           currentMessage = answer;
 
           this.updateCollectedInfo(result.toolCall, answer);
@@ -104,8 +105,14 @@ export class TaskCreatorAgent {
           console.log('\n📝 Collected information so far:');
           console.log(JSON.stringify(this.collectedInfo, null, 2));
           console.log('\n');
+          
+          // Factor 4 Phase 3: Enhanced feedback only if enrichedResult available
+          this.displayQuestionProcessingInfo(result);
         } else {
           console.log('❌ Failed to get user answer, ending conversation.');
+          
+          // Factor 4 Phase 3: Enhanced error reporting
+          this.displayQuestionErrorInfo(result);
           break;
         }
       }
@@ -287,7 +294,7 @@ export class TaskCreatorAgent {
 
   private hasCalledTool(
     result: ProcessMessageResult
-  ): result is { toolCall: AgentTool; toolResult: ToolResult } {
+  ): result is { toolCall: AgentTool; toolResult: ToolResult; enrichedResult?: EnrichedToolResult } {
     return 'toolCall' in result && 'toolResult' in result;
   }
 
@@ -392,6 +399,66 @@ export class TaskCreatorAgent {
       // inputValidation: enrichedResult.inputValidation,
       // outputValidation: enrichedResult.outputValidation,
     };
+  }
+
+  /**
+   * Factor 4 Phase 3: Helper method to safely access result data
+   */
+  private getResultData(result: ProcessMessageResult): any {
+    if (!this.hasCalledTool(result)) return null;
+    
+    // Phase 3: Prefer enrichedResult if available
+    return result.enrichedResult?.data || result.toolResult.data;
+  }
+
+  /**
+   * Factor 4 Phase 3: Helper method to check result success
+   */
+  private isResultSuccessful(result: ProcessMessageResult): boolean {
+    if (!this.hasCalledTool(result)) return false;
+    
+    // Phase 3: Prefer enrichedResult if available
+    return result.enrichedResult?.success ?? result.toolResult.success;
+  }
+
+  /**
+   * Factor 4 Phase 3: Display enhanced question processing information
+   */
+  private displayQuestionProcessingInfo(result: ProcessMessageResult): void {
+    if (!this.hasCalledTool(result) || !result.enrichedResult) return;
+    
+    if (isEnrichedQuestionToolResult(result.enrichedResult)) {
+      console.log(`⚡ Question processing took ${result.enrichedResult.executionTimeMs}ms`);
+      
+      if (result.enrichedResult.inputValidation?.warnings.length) {
+        console.log(`⚠️ Input warnings: ${result.enrichedResult.inputValidation.warnings.join(', ')}`);
+      }
+      
+      if (result.enrichedResult.outputValidation?.warnings.length) {
+        console.log(`⚠️ Output warnings: ${result.enrichedResult.outputValidation.warnings.join(', ')}`);
+      }
+      
+      if (result.enrichedResult.metadata.retryCount && result.enrichedResult.metadata.retryCount > 0) {
+        console.log(`🔄 Required ${result.enrichedResult.metadata.retryCount} retries`);
+      }
+    }
+  }
+
+  /**
+   * Factor 4 Phase 3: Display enhanced question error information
+   */
+  private displayQuestionErrorInfo(result: ProcessMessageResult): void {
+    if (!this.hasCalledTool(result)) return;
+    
+    if (result.enrichedResult?.error) {
+      console.log(`🔍 Error details: ${result.enrichedResult.error.code} - ${result.enrichedResult.error.message}`);
+      if (result.enrichedResult.error.suggestedAction) {
+        console.log(`💡 Suggestion: ${result.enrichedResult.error.suggestedAction}`);
+      }
+    } else {
+      // Fallback to legacy error information
+      console.log(`🔍 Basic error: ${result.toolResult.message}`);
+    }
   }
 
   async testConnections(): Promise<boolean> {
