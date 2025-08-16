@@ -58,56 +58,111 @@ export class TaskCreatorAgent {
    * @param userMessage the initial message from the user
    */
   async startConversation(userMessage: string): Promise<void> {
-    console.log('🎯 Starting interactive conversation...\n');
-    this.clearHistory();
+    this.initializeConversation();
     
-    this.currentTraceId = `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    console.log(`🔍 Starting trace: ${this.currentTraceId}`);
-
     let currentMessage = userMessage;
     const MAX_ITERATION = 8;
     let iterations = 0;
 
     while (iterations < MAX_ITERATION) {
       iterations++;
-      console.log(`\n🔄 Conversation iteration ${iterations}/${MAX_ITERATION}`);
+      this.logIteration(iterations, MAX_ITERATION);
 
       const result = await this.processMessage(currentMessage);
-      if (!this.hasCalledTool(result)) {
-        console.log('💬 Agent provided a response without tools.');
+      
+      const shouldContinue = this.handleConversationResult(result);
+      if (!shouldContinue.continue) {
         break;
       }
-
-      if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
-        console.log('✅ Task/Project created successfully!');
-        this.displayEnrichedResultSummary(result.toolResult);
-        break;
-      }
-
-      if (isAskQuestionTool(result.toolCall)) {
-        this.questionCount++;
-        this.conversationStage = this.determineNextStage();
-
-        if (this.isResultSuccessful(result) && this.getResultData(result)?.answer) {
-          const answer = this.getResultData(result).answer;
-          currentMessage = answer;
-
-          this.updateCollectedInfo(result.toolCall, answer);
-
-          console.log('\n📝 Collected information so far:');
-          console.log(JSON.stringify(this.collectedInfo, null, 2));
-          console.log('\n');
-          
-          this.displayQuestionProcessingInfo(result);
-        } else {
-          console.log('❌ Failed to get user answer, ending conversation.');
-          this.displayQuestionErrorInfo(result);
-          break;
-        }
+      
+      if (shouldContinue.nextMessage) {
+        currentMessage = shouldContinue.nextMessage;
       }
     }
 
-    if (iterations >= MAX_ITERATION) {
+    this.finalizeConversation(iterations, MAX_ITERATION);
+  }
+
+  /**
+   * Initialize conversation state and setup
+   */
+  private initializeConversation(): void {
+    console.log('🎯 Starting interactive conversation...\n');
+    this.clearHistory();
+    
+    this.currentTraceId = `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    console.log(`🔍 Starting trace: ${this.currentTraceId}`);
+  }
+
+  /**
+   * Log current iteration progress
+   */
+  private logIteration(current: number, max: number): void {
+    console.log(`\n🔄 Conversation iteration ${current}/${max}`);
+  }
+
+  /**
+   * Handle the result of processing a message and determine next action
+   */
+  private handleConversationResult(result: ProcessMessageResult): { continue: boolean; nextMessage?: string } {
+    if (!this.hasCalledTool(result)) {
+      console.log('💬 Agent provided a response without tools.');
+      return { continue: false };
+    }
+
+    if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
+      console.log('✅ Task/Project created successfully!');
+      this.displayEnrichedResultSummary(result.toolResult);
+      return { continue: false };
+    }
+
+    if (isAskQuestionTool(result.toolCall)) {
+      return this.handleQuestionResult(result);
+    }
+
+    return { continue: true };
+  }
+
+  /**
+   * Handle question tool result and update conversation state
+   */
+  private handleQuestionResult(result: ProcessMessageResult): { continue: boolean; nextMessage?: string } {
+    if (!this.hasCalledTool(result)) {
+      return { continue: false };
+    }
+
+    this.questionCount++;
+    this.conversationStage = this.determineNextStage();
+
+    if (this.isResultSuccessful(result) && this.getResultData(result)?.answer) {
+      const answer = this.getResultData(result).answer;
+      
+      this.updateCollectedInfo(result.toolCall, answer);
+      this.displayCollectedInfo();
+      this.displayQuestionProcessingInfo(result);
+      
+      return { continue: true, nextMessage: answer };
+    } else {
+      console.log('❌ Failed to get user answer, ending conversation.');
+      this.displayQuestionErrorInfo(result);
+      return { continue: false };
+    }
+  }
+
+  /**
+   * Display currently collected information
+   */
+  private displayCollectedInfo(): void {
+    console.log('\n📝 Collected information so far:');
+    console.log(JSON.stringify(this.collectedInfo, null, 2));
+    console.log('\n');
+  }
+
+  /**
+   * Finalize conversation and display statistics
+   */
+  private finalizeConversation(iterations: number, maxIterations: number): void {
+    if (iterations >= maxIterations) {
       console.log('⚠️  Maximum iterations reached. Conversation ended.');
     }
 
