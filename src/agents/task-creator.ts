@@ -114,100 +114,187 @@ export class TaskCreatorAgent {
     this.displayManager.displayUserMessage(userMessage);
 
     try {
-      const userMessageContext = {
-        isRecent: true,
-        containsDecision: /decide|choose|select|yes|no|confirm/i.test(userMessage),
-        hasUserPreference: /prefer|like|want|need/i.test(userMessage),
-        toolCallResult: false,
-      };
+      const optimizedHistory = await this.processUserMessageContext(userMessage);
+      const promptContext = this.buildPromptContext(userMessage);
       
-      const userOptimizationResult = this.contextManager.addMessage(
-        { role: 'user', content: userMessage },
-        userMessageContext
-      );
-
-      const optimizedHistory = this.contextManager.getOptimizedMessages();
+      const toolCall = await this.generateToolCall(promptContext, userMessage, optimizedHistory);
       
-      if (userOptimizationResult.tokensSaved > 0) {
-        this.displayManager.displayContextOptimization(
-          userOptimizationResult.tokensSaved,
-          userOptimizationResult.savingsPercentage
-        );
-      }
-
-      const promptContext: PromptContext = {
-        userMessage,
-        conversationStage: this.conversationManager.getConversationStage(),
-        collectedInfo: this.collectedInfoManager.getCollectedInfo(),
-        questionCount: this.conversationManager.getQuestionCount(),
-      };
-
-      const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
-
-      const toolCall = await this.claude.generateToolCall(
-        systemPrompt,
-        userMessage,
-        optimizedHistory
-      );
-
       if (!toolCall) {
-        const response = await this.claude.generateResponse(
-          systemPrompt,
-          userMessage,
-          optimizedHistory
-        );
-
-        this.displayManager.displayAgentResponse(response);
-
-        this.contextManager.addMessage(
-          { role: 'assistant', content: response },
-          { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: false }
-        );
-
-        return { response };
+        return await this.handleNoToolCall(promptContext, userMessage, optimizedHistory);
       }
 
-      this.displayManager.displayToolCall(
-        toolCall.function.name,
-        this.conversationManager.getConversationStage()
-      );
-      
-      if (toolCall.function.name === 'ask_question') {
-        this.displayManager.displayQuestionTimeout();
-      }
-
-      const enrichedResult = await this.toolExecutor.executeWithContext(toolCall, {
-        traceId: this.conversationManager.getCurrentTraceId() || undefined,
-        enableDebugMode: false,
-        validateInput: true,
-        validateOutput: true,
-        maxRetries: 2,
-      });
-
-      // Handle question-specific processing
-      if (isAskQuestionTool(toolCall) && this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
-        const answer = enrichedResult.data?.answer;
-        if (answer && typeof answer === 'string') {
-          this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
-          this.collectedInfoManager.displayCollectedInfo();
-          this.displayManager.displayQuestionProcessingInfo({ toolCall, toolResult: enrichedResult });
-        } else {
-          this.displayManager.displayQuestionErrorInfo({ toolCall, toolResult: enrichedResult });
-        }
-      }
-
-      this.contextManager.addMessage(
-        { role: 'assistant', content: `Used tool: ${toolCall.function.name}` },
-        { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: true }
-      );
-
-      return { toolCall, toolResult: enrichedResult };
+      return await this.executeToolCall(toolCall);
     } catch (error) {
-      console.error('❌ Agent processing failed:', error);
-      return {
-        response: `申し訳ございません。処理中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
+      return this.handleProcessingError(error);
     }
+  }
+
+  /**
+   * Process user message context and optimize conversation history
+   */
+  private async processUserMessageContext(userMessage: string) {
+    const userMessageContext = this.createUserMessageContext(userMessage);
+    
+    const userOptimizationResult = this.contextManager.addMessage(
+      { role: 'user', content: userMessage },
+      userMessageContext
+    );
+
+    const optimizedHistory = this.contextManager.getOptimizedMessages();
+    
+    if (userOptimizationResult.tokensSaved > 0) {
+      this.displayManager.displayContextOptimization(
+        userOptimizationResult.tokensSaved,
+        userOptimizationResult.savingsPercentage
+      );
+    }
+
+    return optimizedHistory;
+  }
+
+  /**
+   * Create user message context for optimization
+   */
+  private createUserMessageContext(userMessage: string) {
+    return {
+      isRecent: true,
+      containsDecision: /decide|choose|select|yes|no|confirm/i.test(userMessage),
+      hasUserPreference: /prefer|like|want|need/i.test(userMessage),
+      toolCallResult: false,
+    };
+  }
+
+  /**
+   * Build prompt context from current conversation state
+   */
+  private buildPromptContext(userMessage: string): PromptContext {
+    return {
+      userMessage,
+      conversationStage: this.conversationManager.getConversationStage(),
+      collectedInfo: this.collectedInfoManager.getCollectedInfo(),
+      questionCount: this.conversationManager.getQuestionCount(),
+    };
+  }
+
+  /**
+   * Generate tool call using Claude API
+   */
+  private async generateToolCall(
+    promptContext: PromptContext,
+    userMessage: string,
+    optimizedHistory: any[]
+  ) {
+    const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
+    
+    return await this.claude.generateToolCall(
+      systemPrompt,
+      userMessage,
+      optimizedHistory
+    );
+  }
+
+  /**
+   * Handle case when no tool call is generated (direct response)
+   */
+  private async handleNoToolCall(
+    promptContext: PromptContext,
+    userMessage: string,
+    optimizedHistory: any[]
+  ): Promise<ProcessMessageResult> {
+    const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
+    
+    const response = await this.claude.generateResponse(
+      systemPrompt,
+      userMessage,
+      optimizedHistory
+    );
+
+    this.displayManager.displayAgentResponse(response);
+
+    this.contextManager.addMessage(
+      { role: 'assistant', content: response },
+      { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: false }
+    );
+
+    return { response };
+  }
+
+  /**
+   * Execute tool call and handle results
+   */
+  private async executeToolCall(toolCall: any): Promise<ProcessMessageResult> {
+    this.displayToolCallInfo(toolCall);
+    
+    const enrichedResult = await this.executeToolWithContext(toolCall);
+    
+    this.handleQuestionToolResult(toolCall, enrichedResult);
+    
+    this.addToolResultToContext(toolCall);
+
+    return { toolCall, toolResult: enrichedResult };
+  }
+
+  /**
+   * Display tool call information
+   */
+  private displayToolCallInfo(toolCall: any): void {
+    this.displayManager.displayToolCall(
+      toolCall.function.name,
+      this.conversationManager.getConversationStage()
+    );
+    
+    if (toolCall.function.name === 'ask_question') {
+      this.displayManager.displayQuestionTimeout();
+    }
+  }
+
+  /**
+   * Execute tool with enhanced context
+   */
+  private async executeToolWithContext(toolCall: any) {
+    return await this.toolExecutor.executeWithContext(toolCall, {
+      traceId: this.conversationManager.getCurrentTraceId() || undefined,
+      enableDebugMode: false,
+      validateInput: true,
+      validateOutput: true,
+      maxRetries: 2,
+    });
+  }
+
+  /**
+   * Handle question tool specific result processing
+   */
+  private handleQuestionToolResult(toolCall: any, enrichedResult: any): void {
+    if (isAskQuestionTool(toolCall) && this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
+      const answer = enrichedResult.data?.answer;
+      if (answer && typeof answer === 'string') {
+        this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
+        this.collectedInfoManager.displayCollectedInfo();
+        this.displayManager.displayQuestionProcessingInfo({ toolCall, toolResult: enrichedResult });
+      } else {
+        this.displayManager.displayQuestionErrorInfo({ toolCall, toolResult: enrichedResult });
+      }
+    }
+  }
+
+  /**
+   * Add tool result to conversation context
+   */
+  private addToolResultToContext(toolCall: any): void {
+    this.contextManager.addMessage(
+      { role: 'assistant', content: `Used tool: ${toolCall.function.name}` },
+      { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: true }
+    );
+  }
+
+  /**
+   * Handle processing errors
+   */
+  private handleProcessingError(error: unknown): ProcessMessageResult {
+    console.error('❌ Agent processing failed:', error);
+    return {
+      response: `申し訳ございません。処理中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+    };
   }
 
   /**
