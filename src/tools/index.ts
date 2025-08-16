@@ -1,7 +1,7 @@
 // src/tools/index.ts
 
 import { NotionClient } from '../clients/notion';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/tools';
 import {
   type AgentTool,
   AskQuestionTool,

@@ -1,4 +1,3 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import { ClaudeClient } from '../clients/claude';
 import { ContextManager } from '../context/context-manager';
 import { ConversationManager } from '../conversation/conversation-manager';
@@ -12,7 +11,7 @@ import {
   isAskQuestionTool,
   isCreateProjectTool,
   isCreateTaskTool,
-} from '../types/toolGuards';
+} from '../types/tools';
 import { type AgentTool } from '../types/tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 
