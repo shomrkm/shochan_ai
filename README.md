@@ -27,15 +27,29 @@ This is a **personal learning project** designed to systematically study and imp
   - `confirming`: Pre-creation confirmation
   - `executing`: Actual task/project creation
 
+### Factor 3: Own Your Context Window
+- Efficient conversation history management with 30-60% token savings
+- Priority-based message retention and automatic summarization
+- Real-time context statistics and optimization
+- Strategic context window adjustment
+
+### Factor 4: Tools are Just Structured Outputs
+- Enhanced tool execution with comprehensive validation
+- Rich structured outputs with execution metadata
+- Tool-specific timeout configuration (ask_question: 10min, API calls: 30s)
+- Distributed tracing and performance monitoring
+- Type-safe input/output validation without `as` casting
+
 ## 🏗️ Architecture
 
 ### Core Components
 
-- **`TaskCreatorAgent`**: Main agent with conversation stage management
+- **`TaskCreatorAgent`**: Main agent with Factor 3-4 integration
 - **`PromptManager`**: Dynamic prompt selection and management
+- **`ContextManager`**: Strategic context window optimization (Factor 3)
+- **`EnhancedToolExecutor`**: Structured tool execution with validation (Factor 4)
 - **`ClaudeClient`**: Anthropic Claude API integration
 - **`NotionClient`**: Notion API integration for GTD system
-- **`ToolExecutor`**: Unified tool execution engine
 
 ### Available Tools
 

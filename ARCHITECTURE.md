@@ -202,8 +202,11 @@ src/
 │   ├── prompt-functions.ts       # Dynamic prompt functions
 │   ├── prompt-manager.ts         # Prompt orchestration
 │   └── system.ts                 # Legacy static prompts
-├── tools/                        # Factor 1: Tool System
-│   ├── index.ts                  # Tool execution engine
+├── tools/                        # Factor 1 & 4: Tool System
+│   ├── index.ts                  # Legacy tool execution engine
+│   ├── enhanced-tool-executor.ts # Factor 4: Enhanced execution with validation
+│   ├── tool-execution-context.ts # Factor 4: Execution context management
+│   ├── tool-result-validator.ts  # Factor 4: Input/output validation
 │   └── question-handler.ts       # Interactive questioning
 ├── types/
 │   ├── context-types.ts          # Context management types
@@ -267,12 +270,39 @@ flowchart TD
 - Automatic cleanup of low-priority messages
 - Structured state encoding for compact representation
 
-## 🔮 Future Architecture (Factors 4-12)
+### **Factor 4: Tools are Just Structured Outputs** ✅
+
+**Purpose**: Enhanced tool execution with structured outputs, validation, and monitoring
+
+```mermaid
+graph LR
+    A[TaskCreatorAgent] --> B[EnhancedToolExecutor]
+    B --> C[ToolResultValidator] 
+    B --> D[ToolExecutionContext]
+    B --> E[ContextManager]
+    C --> F[ValidationResult]
+    D --> G[EnrichedToolResult]
+```
+
+**Components**:
+- `EnhancedToolExecutor`: Decorator pattern over legacy ToolExecutor
+- `ToolResultValidator`: Type-safe input/output validation
+- `ToolExecutionContext`: Rich execution context with tracing
+- `EnrichedToolResult`: Structured results with metadata
+
+**Key Features**:
+- **Tool-specific timeouts**: ask_question (10min), API calls (30s)
+- **Input/Output validation**: Type guards without `as` casting
+- **Distributed tracing**: TraceID for multi-tool conversations
+- **Performance monitoring**: Execution time, retry counts, statistics
+- **Error handling**: Structured errors with suggested actions
+
+## 🔮 Future Architecture (Factors 5-12)
 
 ### **Next Priorities**
-1. **Factor 4**: Tools are Just Structured Outputs
-2. **Factor 5**: Unify Execution State with Business State
-3. **Factor 6**: Agent Interaction APIs
+1. **Factor 5**: Unify Execution State with Business State
+2. **Factor 6**: Agent Interaction APIs
+3. **Factor 7**: Agents are Async Everywhere
 
 ### **Planned Architectural Enhancements**
 - **Microservices Architecture**: Small, focused agents (Factor 10)
