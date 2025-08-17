@@ -21,7 +21,9 @@ export class DisplayManager {
   displayContextStats(contextManager: ContextManager): void {
     const stats = contextManager.getContextStats();
     console.log('\n📊 Context Window Statistics:');
-    console.log(`📏 Tokens: ${stats.currentTokens}/${stats.maxTokens} (${stats.utilizationPercentage.toFixed(1)}% utilized)`);
+    console.log(
+      `📏 Tokens: ${stats.currentTokens}/${stats.maxTokens} (${stats.utilizationPercentage.toFixed(1)}% utilized)`
+    );
     console.log(`💬 Messages: ${stats.messageCount}`);
     console.log(`🔄 Has Summary: ${stats.hasSummary ? 'Yes' : 'No'}`);
     console.log(`⚡ Available: ${stats.availableTokens} tokens`);
@@ -33,24 +35,24 @@ export class DisplayManager {
    */
   displayExecutionStats(toolExecutor: EnhancedToolExecutor, currentTraceId: string | null): void {
     const stats = toolExecutor.getExecutionStats();
-    
+
     console.log('\n📊 Tool Execution Statistics:');
     console.log(`🎯 Active Contexts: ${stats.activeContexts}`);
     console.log(`📈 Total Executions: ${stats.totalExecutions}`);
     console.log(`🔄 Average Retry Rate: ${stats.averageRetryRate.toFixed(2)}`);
-    
+
     if (stats.topExecutedTools.length > 0) {
       console.log('🏆 Top Executed Tools:');
       stats.topExecutedTools.forEach((tool, index) => {
         console.log(`   ${index + 1}. ${tool.toolName}: ${tool.count} times`);
       });
     }
-    
+
     if (currentTraceId) {
       const traceContexts = toolExecutor.getContextsByTrace(currentTraceId);
       console.log(`🔍 Trace "${currentTraceId}": ${traceContexts.length} executions`);
     }
-    
+
     console.log('');
   }
 
@@ -62,22 +64,26 @@ export class DisplayManager {
     console.log(`⚡ Execution Time: ${enrichedResult.executionTimeMs}ms`);
     console.log(`🔄 Retry Count: ${enrichedResult.metadata.retryCount}`);
     console.log(`📊 Status: ${enrichedResult.status}`);
-    
+
     if (enrichedResult.inputValidation) {
-      console.log(`✅ Input Validation: ${enrichedResult.inputValidation.isValid ? 'Passed' : 'Failed'}`);
+      console.log(
+        `✅ Input Validation: ${enrichedResult.inputValidation.isValid ? 'Passed' : 'Failed'}`
+      );
     }
-    
+
     if (enrichedResult.outputValidation) {
-      console.log(`✅ Output Validation: ${enrichedResult.outputValidation.isValid ? 'Passed' : 'Failed'}`);
+      console.log(
+        `✅ Output Validation: ${enrichedResult.outputValidation.isValid ? 'Passed' : 'Failed'}`
+      );
     }
-    
+
     if (enrichedResult.error) {
       console.log(`❌ Error: ${enrichedResult.error.code} - ${enrichedResult.error.message}`);
       if (enrichedResult.error.suggestedAction) {
         console.log(`💡 Suggestion: ${enrichedResult.error.suggestedAction}`);
       }
     }
-    
+
     console.log('');
   }
 
@@ -86,18 +92,18 @@ export class DisplayManager {
    */
   displayQuestionProcessingInfo(result: ProcessMessageResult): void {
     if (!this.hasCalledTool(result)) return;
-    
+
     if (isEnrichedQuestionToolResult(result.toolResult)) {
       console.log(`⚡ Question processing took ${result.toolResult.executionTimeMs}ms`);
-      
+
       if (result.toolResult.inputValidation?.warnings.length) {
         console.log(`⚠️ Input warnings: ${result.toolResult.inputValidation.warnings.join(', ')}`);
       }
-      
+
       if (result.toolResult.outputValidation?.warnings.length) {
         console.log(`⚠️ Output warnings: ${result.toolResult.outputValidation.warnings.join(', ')}`);
       }
-      
+
       if (result.toolResult.metadata.retryCount && result.toolResult.metadata.retryCount > 0) {
         console.log(`🔄 Required ${result.toolResult.metadata.retryCount} retries`);
       }
@@ -109,9 +115,11 @@ export class DisplayManager {
    */
   displayQuestionErrorInfo(result: ProcessMessageResult): void {
     if (!this.hasCalledTool(result)) return;
-    
+
     if (result.toolResult.error) {
-      console.log(`🔍 Error details: ${result.toolResult.error.code} - ${result.toolResult.error.message}`);
+      console.log(
+        `🔍 Error details: ${result.toolResult.error.code} - ${result.toolResult.error.message}`
+      );
       if (result.toolResult.error.suggestedAction) {
         console.log(`💡 Suggestion: ${result.toolResult.error.suggestedAction}`);
       }
@@ -170,7 +178,9 @@ export class DisplayManager {
    * Display context optimization information
    */
   displayContextOptimization(tokensSaved: number, savingsPercentage: number): void {
-    console.log(`🔧 Context optimized: saved ${tokensSaved} tokens (${savingsPercentage.toFixed(1)}%)`);
+    console.log(
+      `🔧 Context optimized: saved ${tokensSaved} tokens (${savingsPercentage.toFixed(1)}%)`
+    );
   }
 
   /**

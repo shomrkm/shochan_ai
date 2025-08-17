@@ -4,14 +4,14 @@
  */
 
 import type { AgentTool } from '../types/tools';
-import { ToolResultValidator } from './tool-result-validator';
+import { ToolExecutor } from './index'; // Legacy tool executor
 import {
-  ToolExecutionContextBuilder,
-  ToolExecutionContextManager,
   type EnrichedToolResult,
   type ToolExecutionContext,
+  ToolExecutionContextBuilder,
+  ToolExecutionContextManager,
 } from './tool-execution-context';
-import { ToolExecutor } from './index'; // Legacy tool executor
+import { ToolResultValidator } from './tool-result-validator';
 
 /**
  * Enhanced tool executor implementing Factor 4 principles
@@ -19,7 +19,7 @@ import { ToolExecutor } from './index'; // Legacy tool executor
 export class EnhancedToolExecutor {
   private legacyExecutor: ToolExecutor;
   private contextManager: ToolExecutionContextManager;
-  
+
   constructor() {
     this.legacyExecutor = new ToolExecutor();
     this.contextManager = new ToolExecutionContextManager();
@@ -43,7 +43,7 @@ export class EnhancedToolExecutor {
   ): Promise<EnrichedToolResult<T>> {
     const context = this.buildExecutionContext(tool, options);
     this.contextManager.registerContext(context);
-    
+
     this.logDebugStart(context);
 
     try {
@@ -55,13 +55,17 @@ export class EnhancedToolExecutor {
 
       // Execution phase
       const executionResult = await this.executeWithRetry(tool, context);
-      
+
       // Output validation phase
       const outputValidation = this.performOutputValidation(tool, context, executionResult);
 
       // Create and return enriched result
-      return this.buildEnrichedResult<T>(context, executionResult, inputValidation, outputValidation);
-
+      return this.buildEnrichedResult<T>(
+        context,
+        executionResult,
+        inputValidation,
+        outputValidation
+      );
     } catch (error) {
       return this.handleExecutionError<T>(context, error);
     } finally {
@@ -85,9 +89,9 @@ export class EnhancedToolExecutor {
       validateOutput?: boolean;
     }
   ): ToolExecutionContext {
-    let contextBuilder = ToolExecutionContextBuilder
-      .create(tool.function.name)
-      .withInputParameters(tool.function.parameters);
+    let contextBuilder = ToolExecutionContextBuilder.create(tool.function.name).withInputParameters(
+      tool.function.parameters
+    );
 
     // Apply all options
     if (options.traceId) {
@@ -103,7 +107,10 @@ export class EnhancedToolExecutor {
       contextBuilder = contextBuilder.withTimeout(this.getDefaultToolTimeout(tool.function.name));
     }
     if (options.maxRetries !== undefined) {
-      contextBuilder = contextBuilder.withRetrySettings(options.maxRetries, options.retryDelayMs || 1000);
+      contextBuilder = contextBuilder.withRetrySettings(
+        options.maxRetries,
+        options.retryDelayMs || 1000
+      );
     }
     if (options.validateInput !== undefined || options.validateOutput !== undefined) {
       contextBuilder = contextBuilder.withValidationSettings(
@@ -123,7 +130,9 @@ export class EnhancedToolExecutor {
    */
   private logDebugStart(context: ToolExecutionContext): void {
     if (context.debugMode) {
-      console.log(`🔍 [DEBUG] Starting execution: ${context.executionId} for tool: ${context.toolName}`);
+      console.log(
+        `🔍 [DEBUG] Starting execution: ${context.executionId} for tool: ${context.toolName}`
+      );
     }
   }
 
@@ -167,7 +176,10 @@ export class EnhancedToolExecutor {
 
     const outputValidation = this.validateToolOutput(tool.function.name, executionResult.data);
     if (!outputValidation.isValid) {
-      console.warn(`⚠️ Output validation warnings for ${context.toolName}:`, outputValidation.warnings);
+      console.warn(
+        `⚠️ Output validation warnings for ${context.toolName}:`,
+        outputValidation.warnings
+      );
     }
 
     return outputValidation;
@@ -209,14 +221,9 @@ export class EnhancedToolExecutor {
     error: unknown
   ): EnrichedToolResult<T> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown execution error';
-    const errorResult = this.createErrorResult<T>(
-      context,
-      'EXECUTION_ERROR',
-      errorMessage,
-      { 
-        originalError: error instanceof Error ? error.stack : String(error) 
-      }
-    );
+    const errorResult = this.createErrorResult<T>(context, 'EXECUTION_ERROR', errorMessage, {
+      originalError: error instanceof Error ? error.stack : String(error),
+    });
 
     if (context.debugMode) {
       console.error(`❌ [DEBUG] Execution failed: ${context.executionId} - ${errorMessage}`);
@@ -230,7 +237,9 @@ export class EnhancedToolExecutor {
    */
   private logDebugComplete<T>(context: ToolExecutionContext, result: EnrichedToolResult<T>): void {
     if (context.debugMode) {
-      console.log(`✅ [DEBUG] Completed execution: ${context.executionId} in ${result.executionTimeMs}ms`);
+      console.log(
+        `✅ [DEBUG] Completed execution: ${context.executionId} in ${result.executionTimeMs}ms`
+      );
     }
   }
 
@@ -242,26 +251,28 @@ export class EnhancedToolExecutor {
     context: ToolExecutionContext
   ): Promise<{ success: boolean; data?: unknown; message: string }> {
     let lastError: Error | null = null;
-    
+
     for (let attempt = 0; attempt <= context.maxRetries; attempt++) {
       context.currentRetry = attempt;
-      
+
       if (attempt > 0) {
         if (context.debugMode) {
-          console.log(`🔄 [DEBUG] Retry attempt ${attempt}/${context.maxRetries} for ${context.executionId}`);
+          console.log(
+            `🔄 [DEBUG] Retry attempt ${attempt}/${context.maxRetries} for ${context.executionId}`
+          );
         }
         await this.sleep(context.retryDelayMs);
       }
 
       try {
         // Check timeout
-        const timeoutPromise = context.timeoutMs 
+        const timeoutPromise = context.timeoutMs
           ? this.createTimeoutPromise(context.timeoutMs)
           : null;
 
         // Execute tool
         const executionPromise = this.legacyExecutor.execute(tool);
-        
+
         const result = timeoutPromise
           ? await Promise.race([executionPromise, timeoutPromise])
           : await executionPromise;
@@ -269,12 +280,13 @@ export class EnhancedToolExecutor {
         return {
           success: result.success,
           data: result.data,
-          message: result.message || (result.success ? 'Tool executed successfully' : 'Tool execution failed')
+          message:
+            result.message ||
+            (result.success ? 'Tool executed successfully' : 'Tool execution failed'),
         };
-
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
-        
+
         // Check if error is recoverable
         if (!this.isRecoverableError(lastError)) {
           throw lastError;
@@ -285,7 +297,9 @@ export class EnhancedToolExecutor {
     }
 
     // All retries exhausted
-    throw new Error(`All ${context.maxRetries + 1} attempts failed. Last error: ${lastError?.message}`);
+    throw new Error(
+      `All ${context.maxRetries + 1} attempts failed. Last error: ${lastError?.message}`
+    );
   }
 
   /**
@@ -317,7 +331,7 @@ export class EnhancedToolExecutor {
           errors.push('Task type is required');
         }
         break;
-        
+
       case 'create_project':
         if (!tool.function.parameters.name || typeof tool.function.parameters.name !== 'string') {
           errors.push('Project name is required and must be a string');
@@ -326,9 +340,12 @@ export class EnhancedToolExecutor {
           errors.push('Project importance is required');
         }
         break;
-        
+
       case 'ask_question':
-        if (!tool.function.parameters.question || typeof tool.function.parameters.question !== 'string') {
+        if (
+          !tool.function.parameters.question ||
+          typeof tool.function.parameters.question !== 'string'
+        ) {
           errors.push('Question is required and must be a string');
         }
         if (!tool.function.parameters.question_type) {
@@ -340,7 +357,7 @@ export class EnhancedToolExecutor {
     return {
       isValid: errors.length === 0,
       errors,
-      warnings
+      warnings,
     };
   }
 
@@ -354,7 +371,7 @@ export class EnhancedToolExecutor {
         return 600000;
       case 'create_task':
       case 'create_project':
-        // API calls should be faster - 30 seconds  
+        // API calls should be faster - 30 seconds
         return 30000;
       default:
         // Default timeout for unknown tools - 1 minute
@@ -398,12 +415,14 @@ export class EnhancedToolExecutor {
       endTime,
       executionTimeMs,
       status: success ? 'success' : 'partial_success',
-      message: message || (success ? 'Tool executed successfully' : 'Tool execution completed with issues'),
+      message:
+        message ||
+        (success ? 'Tool executed successfully' : 'Tool execution completed with issues'),
       metadata: {
         toolName: context.toolName,
         inputParameters: context.inputParameters,
         retryCount: context.currentRetry,
-      }
+      },
     };
   }
 
@@ -438,7 +457,7 @@ export class EnhancedToolExecutor {
         details: errorDetails,
         recoverable: this.isRecoverableErrorCode(errorCode),
         suggestedAction: this.getSuggestedAction(errorCode),
-      }
+      },
     };
   }
 
@@ -446,7 +465,7 @@ export class EnhancedToolExecutor {
    * Helper methods
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private createTimeoutPromise(timeoutMs: number): Promise<never> {
@@ -467,16 +486,11 @@ export class EnhancedToolExecutor {
       /temporary/i,
     ];
 
-    return recoverablePatterns.some(pattern => pattern.test(error.message));
+    return recoverablePatterns.some((pattern) => pattern.test(error.message));
   }
 
   private isRecoverableErrorCode(errorCode: string): boolean {
-    const recoverableCodes = [
-      'TIMEOUT',
-      'NETWORK_ERROR',
-      'RATE_LIMIT',
-      'TEMPORARY_ERROR'
-    ];
+    const recoverableCodes = ['TIMEOUT', 'NETWORK_ERROR', 'RATE_LIMIT', 'TEMPORARY_ERROR'];
     return recoverableCodes.includes(errorCode);
   }
 

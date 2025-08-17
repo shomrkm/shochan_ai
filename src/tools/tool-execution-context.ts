@@ -14,21 +14,21 @@ export interface ToolExecutionContext {
   toolName: string;
   startTime: Date;
   inputParameters: Record<string, unknown>;
-  
+
   // Tracing and debugging
   parentExecutionId?: string;
   traceId: string;
   debugMode?: boolean;
-  
+
   // Retry and resilience
   maxRetries: number;
   currentRetry: number;
   retryDelayMs: number;
-  
+
   // Validation settings
   validateInput: boolean;
   validateOutput: boolean;
-  
+
   // Performance tracking
   timeoutMs?: number;
   expectedExecutionTimeMs?: number;
@@ -41,20 +41,20 @@ export interface EnrichedToolResult<T = Record<string, unknown>> {
   // Core result
   success: boolean;
   data?: T;
-  
+
   // Execution context
   context: ToolExecutionContext;
-  
+
   // Timing information
   startTime: Date;
   endTime: Date;
   executionTimeMs: number;
-  
+
   // Status and metadata
   status: ToolExecutionStatus;
   message: string;
   metadata: ToolExecutionMetadata;
-  
+
   // Error handling
   error?: {
     code: string;
@@ -64,14 +64,14 @@ export interface EnrichedToolResult<T = Record<string, unknown>> {
     suggestedAction?: string;
     stackTrace?: string;
   };
-  
+
   // Validation results
   inputValidation?: {
     isValid: boolean;
     errors: string[];
     warnings: string[];
   };
-  
+
   outputValidation?: {
     isValid: boolean;
     errors: string[];
@@ -146,7 +146,7 @@ export class ToolExecutionContextBuilder {
     // Generate unique execution ID
     this.context.executionId = this.generateExecutionId();
     this.context.startTime = new Date();
-    
+
     // Generate trace ID if not provided
     if (!this.context.traceId) {
       this.context.traceId = this.generateTraceId();
@@ -186,7 +186,7 @@ export class ToolExecutionContextManager {
    */
   registerContext(context: ToolExecutionContext): void {
     this.activeContexts.set(context.executionId, context);
-    
+
     // Add to history (keep size bounded)
     this.contextHistory.push(context);
     if (this.contextHistory.length > this.maxHistorySize) {
@@ -212,7 +212,7 @@ export class ToolExecutionContextManager {
    * Get all contexts for a specific trace
    */
   getContextsByTrace(traceId: string): ToolExecutionContext[] {
-    return this.contextHistory.filter(ctx => ctx.traceId === traceId);
+    return this.contextHistory.filter((ctx) => ctx.traceId === traceId);
   }
 
   /**
@@ -240,7 +240,8 @@ export class ToolExecutionContextManager {
     return {
       activeContexts: this.activeContexts.size,
       totalExecutions: this.contextHistory.length,
-      averageRetryRate: this.contextHistory.length > 0 ? totalRetries / this.contextHistory.length : 0,
+      averageRetryRate:
+        this.contextHistory.length > 0 ? totalRetries / this.contextHistory.length : 0,
       topExecutedTools,
     };
   }

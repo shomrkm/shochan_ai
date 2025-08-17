@@ -26,16 +26,13 @@ async function main() {
 
     // Start with a fresh conversation
     console.log('🆕 Starting fresh conversation to demonstrate context management...\n');
-    
+
     // Start an interactive conversation
-    await agent.startConversation(
-      'I want to create something for my work project'
-    );
+    await agent.startConversation('I want to create something for my work project');
 
     console.log('\n🎊 Factor 3 interactive demo completed!');
     console.log('📈 Context window was automatically optimized for efficiency.');
     console.log('🔍 Notice how the system managed tokens and prioritized messages.');
-    
   } catch (error) {
     console.error('❌ Demo failed:', error);
   }

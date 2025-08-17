@@ -1,5 +1,5 @@
-import type { AgentTool } from '../types/tools';
 import { isAskQuestionTool } from '../types/toolGuards';
+import type { AgentTool } from '../types/tools';
 
 /**
  * Manages collected information from user interactions
@@ -19,7 +19,7 @@ export class CollectedInfoManager {
 
     const question = toolCall.function.parameters.question;
     const q = question.toLowerCase();
-    
+
     if (q.includes('feature') || q.includes('functionality') || q.includes('what')) {
       this.collectedInfo.feature = answer;
     } else if (q.includes('technology') || q.includes('tech stack') || q.includes('how')) {

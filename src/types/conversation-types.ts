@@ -1,5 +1,5 @@
-import type { AgentTool } from './tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
+import type { AgentTool } from './tools';
 
 export type ProcessMessageResult =
   | {

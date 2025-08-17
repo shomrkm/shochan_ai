@@ -1,20 +1,16 @@
 import type Anthropic from '@anthropic-ai/sdk';
 import { ClaudeClient } from '../clients/claude';
 import { ContextManager } from '../context/context-manager';
-import { ConversationManager } from '../conversation/conversation-manager';
 import { CollectedInfoManager } from '../conversation/collected-info-manager';
+import { ConversationManager } from '../conversation/conversation-manager';
 import { DisplayManager } from '../conversation/display-manager';
 import { PromptManager } from '../prompts/prompt-manager';
 import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
-import type { PromptContext } from '../types/prompt-types';
-import type { ProcessMessageResult } from '../types/conversation-types';
-import {
-  isAskQuestionTool,
-  isCreateProjectTool,
-  isCreateTaskTool,
-} from '../types/toolGuards';
-import { type AgentTool } from '../types/tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
+import type { ProcessMessageResult } from '../types/conversation-types';
+import type { PromptContext } from '../types/prompt-types';
+import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import type { AgentTool } from '../types/tools';
 
 /**
  * Main AI agent for creating tasks and projects through interactive conversation.
@@ -40,7 +36,7 @@ export class TaskCreatorAgent {
     this.conversationManager = new ConversationManager();
     this.collectedInfoManager = new CollectedInfoManager();
     this.displayManager = new DisplayManager();
-    
+
     this.contextManager = new ContextManager({
       enableSummarization: true,
       summaryThreshold: 8,
@@ -56,7 +52,7 @@ export class TaskCreatorAgent {
    */
   async startConversation(userMessage: string): Promise<void> {
     this.initializeConversation();
-    
+
     let currentMessage = userMessage;
     const MAX_ITERATION = 8;
     let iterations = 0;
@@ -66,19 +62,22 @@ export class TaskCreatorAgent {
       this.displayManager.logIteration(iterations, MAX_ITERATION);
 
       const result = await this.processMessage(currentMessage);
-      
+
       const shouldContinue = this.conversationManager.handleConversationResult(
         result,
         this.collectedInfoManager.getCollectedInfo()
       );
-      
+
       if (!shouldContinue.continue) {
-        if (this.hasCalledTool(result) && (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))) {
+        if (
+          this.hasCalledTool(result) &&
+          (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))
+        ) {
           this.displayManager.displayEnrichedResultSummary(result.toolResult);
         }
         break;
       }
-      
+
       if (shouldContinue.nextMessage) {
         currentMessage = shouldContinue.nextMessage;
       }
@@ -102,7 +101,10 @@ export class TaskCreatorAgent {
   private finalizeConversation(iterations: number, maxIterations: number): void {
     this.displayManager.displayConversationCompleted(iterations, maxIterations);
     this.displayManager.displayContextStats(this.contextManager);
-    this.displayManager.displayExecutionStats(this.toolExecutor, this.conversationManager.getCurrentTraceId());
+    this.displayManager.displayExecutionStats(
+      this.toolExecutor,
+      this.conversationManager.getCurrentTraceId()
+    );
   }
 
   /**
@@ -116,9 +118,9 @@ export class TaskCreatorAgent {
     try {
       const optimizedHistory = await this.processUserMessageContext(userMessage);
       const promptContext = this.buildPromptContext(userMessage);
-      
+
       const toolCall = await this.generateToolCall(promptContext, userMessage, optimizedHistory);
-      
+
       if (!toolCall) {
         return await this.handleNoToolCall(promptContext, userMessage, optimizedHistory);
       }
@@ -134,14 +136,14 @@ export class TaskCreatorAgent {
    */
   private async processUserMessageContext(userMessage: string) {
     const userMessageContext = this.createUserMessageContext(userMessage);
-    
+
     const userOptimizationResult = this.contextManager.addMessage(
       { role: 'user', content: userMessage },
       userMessageContext
     );
 
     const optimizedHistory = this.contextManager.getOptimizedMessages();
-    
+
     if (userOptimizationResult.tokensSaved > 0) {
       this.displayManager.displayContextOptimization(
         userOptimizationResult.tokensSaved,
@@ -185,12 +187,8 @@ export class TaskCreatorAgent {
     optimizedHistory: any[]
   ) {
     const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
-    
-    return await this.claude.generateToolCall(
-      systemPrompt,
-      userMessage,
-      optimizedHistory
-    );
+
+    return await this.claude.generateToolCall(systemPrompt, userMessage, optimizedHistory);
   }
 
   /**
@@ -202,7 +200,7 @@ export class TaskCreatorAgent {
     optimizedHistory: any[]
   ): Promise<ProcessMessageResult> {
     const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
-    
+
     const response = await this.claude.generateResponse(
       systemPrompt,
       userMessage,
@@ -224,11 +222,11 @@ export class TaskCreatorAgent {
    */
   private async executeToolCall(toolCall: any): Promise<ProcessMessageResult> {
     this.displayToolCallInfo(toolCall);
-    
+
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    
+
     this.handleQuestionToolResult(toolCall, enrichedResult);
-    
+
     this.addToolResultToContext(toolCall);
 
     return { toolCall, toolResult: enrichedResult };
@@ -242,7 +240,7 @@ export class TaskCreatorAgent {
       toolCall.function.name,
       this.conversationManager.getConversationStage()
     );
-    
+
     if (toolCall.function.name === 'ask_question') {
       this.displayManager.displayQuestionTimeout();
     }
@@ -265,7 +263,10 @@ export class TaskCreatorAgent {
    * Handle question tool specific result processing
    */
   private handleQuestionToolResult(toolCall: any, enrichedResult: any): void {
-    if (isAskQuestionTool(toolCall) && this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
+    if (
+      isAskQuestionTool(toolCall) &&
+      this.isResultSuccessful({ toolCall, toolResult: enrichedResult })
+    ) {
       const answer = enrichedResult.data?.answer;
       if (answer && typeof answer === 'string') {
         this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
@@ -303,7 +304,7 @@ export class TaskCreatorAgent {
   private clearHistory(): void {
     this.collectedInfoManager.clearCollectedInfo();
     this.conversationManager.clearState();
-    
+
     this.contextManager = new ContextManager({
       enableSummarization: true,
       summaryThreshold: 8,
@@ -311,7 +312,7 @@ export class TaskCreatorAgent {
       maxHistoryMessages: 15,
       tokenBudgetRatio: 0.7,
     });
-    
+
     this.displayManager.displayHistoryCleared();
   }
 
@@ -340,7 +341,7 @@ export class TaskCreatorAgent {
 
     try {
       const connected = await this.toolExecutor.testConnection();
-      
+
       if (!connected) {
         console.log('❌ Connection test failed');
         return false;

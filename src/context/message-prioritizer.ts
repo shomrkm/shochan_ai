@@ -1,5 +1,5 @@
 import type Anthropic from '@anthropic-ai/sdk';
-import type { MessagePriority, EnhancedMessage } from '../types/context-types';
+import type { EnhancedMessage, MessagePriority } from '../types/context-types';
 import { TokenCounter } from './token-counter';
 
 /**
@@ -20,13 +20,13 @@ export class MessagePrioritizer {
     }
   ): MessagePriority {
     let score = 50; // Base score
-    let reasons: string[] = [];
+    const reasons: string[] = [];
 
     // Content-based analysis
-    const content = this.extractTextContent(message);
-    
+    const content = MessagePrioritizer.extractTextContent(message);
+
     // Critical patterns
-    if (this.containsCriticalPatterns(content)) {
+    if (MessagePrioritizer.containsCriticalPatterns(content)) {
       score += 30;
       reasons.push('contains critical information');
     }
@@ -55,7 +55,7 @@ export class MessagePrioritizer {
     }
 
     // Content quality analysis
-    const contentScore = this.analyzeContentQuality(content);
+    const contentScore = MessagePrioritizer.analyzeContentQuality(content);
     score += contentScore;
     if (contentScore > 0) {
       reasons.push('high-quality content');
@@ -96,7 +96,7 @@ export class MessagePrioritizer {
       toolCallResult: boolean;
     }
   ): EnhancedMessage {
-    const priority = this.analyzePriority(message, conversationContext);
+    const priority = MessagePrioritizer.analyzePriority(message, conversationContext);
     const tokenCount = TokenCounter.countMessageTokens(message);
 
     return {
@@ -106,7 +106,7 @@ export class MessagePrioritizer {
         priority,
         tokenCount,
         messageType: message.role,
-        summary: this.generateSummary(message),
+        summary: MessagePrioritizer.generateSummary(message),
       },
     };
   }
@@ -118,15 +118,16 @@ export class MessagePrioritizer {
     return [...messages].sort((a, b) => {
       // First sort by priority level
       const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
-      const levelDiff = priorityOrder[b.metadata.priority.level] - priorityOrder[a.metadata.priority.level];
-      
+      const levelDiff =
+        priorityOrder[b.metadata.priority.level] - priorityOrder[a.metadata.priority.level];
+
       if (levelDiff !== 0) return levelDiff;
-      
+
       // Then by score
       const scoreDiff = b.metadata.priority.score - a.metadata.priority.score;
-      
+
       if (scoreDiff !== 0) return scoreDiff;
-      
+
       // Finally by recency (newer first)
       return b.metadata.timestamp.getTime() - a.metadata.timestamp.getTime();
     });
@@ -142,7 +143,7 @@ export class MessagePrioritizer {
     const levelOrder = { critical: 4, high: 3, medium: 2, low: 1 };
     const minLevelValue = levelOrder[minLevel];
 
-    return messages.filter(message => {
+    return messages.filter((message) => {
       const messageLevelValue = levelOrder[message.metadata.priority.level];
       return messageLevelValue >= minLevelValue;
     });
@@ -153,8 +154,8 @@ export class MessagePrioritizer {
       return message.content;
     } else if (Array.isArray(message.content)) {
       return message.content
-        .filter(content => content.type === 'text')
-        .map(content => (content as any).text)
+        .filter((content) => content.type === 'text')
+        .map((content) => (content as any).text)
         .join(' ');
     }
     return '';
@@ -170,7 +171,7 @@ export class MessagePrioritizer {
       /preference|setting|config/i,
     ];
 
-    return criticalPatterns.some(pattern => pattern.test(content));
+    return criticalPatterns.some((pattern) => pattern.test(content));
   }
 
   private static analyzeContentQuality(content: string): number {
@@ -200,8 +201,8 @@ export class MessagePrioritizer {
   }
 
   private static generateSummary(message: Anthropic.MessageParam): string {
-    const content = this.extractTextContent(message);
-    
+    const content = MessagePrioritizer.extractTextContent(message);
+
     if (content.length <= 100) {
       return content;
     }

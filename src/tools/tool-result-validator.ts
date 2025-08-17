@@ -3,10 +3,7 @@
  * Validation utilities for structured tool results
  */
 
-import type {
-  ToolResult,
-  ToolExecutionError,
-} from '../types/tools';
+import type { ToolExecutionError, ToolResult } from '../types/tools';
 
 // Validation result
 export interface ValidationResult {
@@ -16,10 +13,7 @@ export interface ValidationResult {
 }
 
 // Type guard functions
-function hasProperty<T extends PropertyKey>(
-  obj: unknown,
-  prop: T
-): obj is Record<T, unknown> {
+function hasProperty<T extends PropertyKey>(obj: unknown, prop: T): obj is Record<T, unknown> {
   return typeof obj === 'object' && obj !== null && prop in obj;
 }
 
@@ -69,20 +63,36 @@ export class ToolResultValidator {
     }
 
     // Optional fields validation
-    if (hasProperty(data, 'notion_url') && data.notion_url !== undefined && !isString(data.notion_url)) {
+    if (
+      hasProperty(data, 'notion_url') &&
+      data.notion_url !== undefined &&
+      !isString(data.notion_url)
+    ) {
       errors.push('notion_url must be a string if provided');
     }
 
-    if (hasProperty(data, 'scheduled_date') && data.scheduled_date !== undefined && !isString(data.scheduled_date)) {
+    if (
+      hasProperty(data, 'scheduled_date') &&
+      data.scheduled_date !== undefined &&
+      !isString(data.scheduled_date)
+    ) {
       errors.push('scheduled_date must be a string if provided');
     }
 
-    if (hasProperty(data, 'project_id') && data.project_id !== undefined && !isString(data.project_id)) {
+    if (
+      hasProperty(data, 'project_id') &&
+      data.project_id !== undefined &&
+      !isString(data.project_id)
+    ) {
       errors.push('project_id must be a string if provided');
     }
 
     // Warnings for best practices
-    if (hasProperty(data, 'notion_url') && isString(data.notion_url) && !data.notion_url.startsWith('https://')) {
+    if (
+      hasProperty(data, 'notion_url') &&
+      isString(data.notion_url) &&
+      !data.notion_url.startsWith('https://')
+    ) {
       warnings.push('notion_url should be a valid HTTPS URL');
     }
 
@@ -127,16 +137,28 @@ export class ToolResultValidator {
     }
 
     // Optional fields validation
-    if (hasProperty(data, 'notion_url') && data.notion_url !== undefined && !isString(data.notion_url)) {
+    if (
+      hasProperty(data, 'notion_url') &&
+      data.notion_url !== undefined &&
+      !isString(data.notion_url)
+    ) {
       errors.push('notion_url must be a string if provided');
     }
 
-    if (hasProperty(data, 'action_plan') && data.action_plan !== undefined && !isString(data.action_plan)) {
+    if (
+      hasProperty(data, 'action_plan') &&
+      data.action_plan !== undefined &&
+      !isString(data.action_plan)
+    ) {
       errors.push('action_plan must be a string if provided');
     }
 
     // Warnings
-    if (hasProperty(data, 'notion_url') && isString(data.notion_url) && !data.notion_url.startsWith('https://')) {
+    if (
+      hasProperty(data, 'notion_url') &&
+      isString(data.notion_url) &&
+      !data.notion_url.startsWith('https://')
+    ) {
       warnings.push('notion_url should be a valid HTTPS URL');
     }
 
@@ -178,7 +200,11 @@ export class ToolResultValidator {
 
     // Validate question_type values
     const validQuestionTypes = ['clarification', 'missing_info', 'confirmation'];
-    if (hasProperty(data, 'question_type') && isString(data.question_type) && !validQuestionTypes.includes(data.question_type)) {
+    if (
+      hasProperty(data, 'question_type') &&
+      isString(data.question_type) &&
+      !validQuestionTypes.includes(data.question_type)
+    ) {
       errors.push(`question_type must be one of: ${validQuestionTypes.join(', ')}`);
     }
 
@@ -263,8 +289,8 @@ export class ToolResultValidator {
     }
 
     // Validate the structure
-    const validation = this.validateToolResult(result);
-    
+    const validation = ToolResultValidator.validateToolResult(result);
+
     if (!validation.isValid) {
       // If validation fails, create an error result
       const errorResult: ToolResult<T> = {

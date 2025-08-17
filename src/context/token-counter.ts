@@ -18,10 +18,10 @@ export class TokenCounter {
    */
   static countTokens(text: string): number {
     if (!text) return 0;
-    
+
     // Basic estimation: characters / 4 + buffer
-    const estimatedTokens = Math.ceil(text.length / this.CHARS_PER_TOKEN);
-    return estimatedTokens + this.TOKEN_BUFFER;
+    const estimatedTokens = Math.ceil(text.length / TokenCounter.CHARS_PER_TOKEN);
+    return estimatedTokens + TokenCounter.TOKEN_BUFFER;
   }
 
   /**
@@ -31,11 +31,11 @@ export class TokenCounter {
     let totalTokens = 0;
 
     if (typeof message.content === 'string') {
-      totalTokens += this.countTokens(message.content);
+      totalTokens += TokenCounter.countTokens(message.content);
     } else if (Array.isArray(message.content)) {
       for (const content of message.content) {
         if (content.type === 'text') {
-          totalTokens += this.countTokens(content.text);
+          totalTokens += TokenCounter.countTokens(content.text);
         }
         // Add handling for other content types (images, etc.) if needed
       }
@@ -52,7 +52,7 @@ export class TokenCounter {
    */
   static countMessagesTokens(messages: Anthropic.MessageParam[]): number {
     return messages.reduce((total, message) => {
-      return total + this.countMessageTokens(message);
+      return total + TokenCounter.countMessageTokens(message);
     }, 0);
   }
 
@@ -63,9 +63,10 @@ export class TokenCounter {
     messages: Anthropic.MessageParam[],
     systemPrompt?: string
   ): TokenUsage {
-    const promptTokens = this.countMessagesTokens(messages) + 
-                        (systemPrompt ? this.countTokens(systemPrompt) : 0);
-    
+    const promptTokens =
+      TokenCounter.countMessagesTokens(messages) +
+      (systemPrompt ? TokenCounter.countTokens(systemPrompt) : 0);
+
     return {
       promptTokens,
       completionTokens: 0, // Will be updated after API response
@@ -82,10 +83,13 @@ export class TokenCounter {
     maxTokens: number,
     systemPrompt?: string
   ): boolean {
-    const currentTokens = this.calculateTokenUsage(currentMessages, systemPrompt).totalTokens;
-    const newMessageTokens = this.countMessageTokens(newMessage);
-    
-    return (currentTokens + newMessageTokens) > maxTokens;
+    const currentTokens = TokenCounter.calculateTokenUsage(
+      currentMessages,
+      systemPrompt
+    ).totalTokens;
+    const newMessageTokens = TokenCounter.countMessageTokens(newMessage);
+
+    return currentTokens + newMessageTokens > maxTokens;
   }
 
   /**
@@ -97,9 +101,9 @@ export class TokenCounter {
     systemPrompt?: string,
     reservedTokens: number = 500 // Reserve for completion
   ): number {
-    const usedTokens = this.calculateTokenUsage(messages, systemPrompt).totalTokens;
+    const usedTokens = TokenCounter.calculateTokenUsage(messages, systemPrompt).totalTokens;
     const available = maxTokens - usedTokens - reservedTokens;
-    
+
     return Math.max(0, available);
   }
 }

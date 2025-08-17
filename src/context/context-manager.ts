@@ -49,10 +49,7 @@ export class ContextManager {
     }
   ): ContextOptimizationResult {
     // Create enhanced message with metadata
-    const enhancedMessage = MessagePrioritizer.createEnhancedMessage(
-      message,
-      conversationContext
-    );
+    const enhancedMessage = MessagePrioritizer.createEnhancedMessage(message, conversationContext);
 
     // Add to context window
     this.contextWindow.messages.push(enhancedMessage);
@@ -66,7 +63,6 @@ export class ContextManager {
    * Optimize the context window based on current strategy
    */
   optimizeContext(): ContextOptimizationResult {
-
     // Check if optimization is needed
     const availableTokens = this.getAvailableTokens();
     const needsOptimization =
@@ -83,7 +79,10 @@ export class ContextManager {
 
     // Strategy 1: Summarize old messages
     let summaryGenerated = false;
-    if (this.strategy.enableSummarization && this.contextWindow.messages.length >= this.strategy.summaryThreshold) {
+    if (
+      this.strategy.enableSummarization &&
+      this.contextWindow.messages.length >= this.strategy.summaryThreshold
+    ) {
       summaryGenerated = this.summarizeOldMessages();
     }
 
@@ -103,7 +102,7 @@ export class ContextManager {
    * Get optimized messages for API call
    */
   getOptimizedMessages(): Anthropic.MessageParam[] {
-    return this.contextWindow.messages.map(msg => ({
+    return this.contextWindow.messages.map((msg) => ({
       role: msg.role,
       content: msg.content,
     }));
@@ -119,7 +118,8 @@ export class ContextManager {
       availableTokens: this.getAvailableTokens(),
       messageCount: this.contextWindow.messages.length,
       hasSummary: !!this.contextWindow.summary,
-      utilizationPercentage: (this.contextWindow.currentTokens / this.contextWindow.maxTokens) * 100,
+      utilizationPercentage:
+        (this.contextWindow.currentTokens / this.contextWindow.maxTokens) * 100,
     };
   }
 
@@ -132,15 +132,15 @@ export class ContextManager {
 
   private summarizeOldMessages(): boolean {
     const messagesToSummarize = Math.floor(this.contextWindow.messages.length * 0.4);
-    
+
     if (messagesToSummarize < 3) return false; // Not worth summarizing
 
     // Take oldest messages for summarization
     const oldMessages = this.contextWindow.messages.splice(0, messagesToSummarize);
-    
+
     // Generate summary
     const summary = this.generateConversationSummary(oldMessages);
-    
+
     // Update or create summary
     if (this.contextWindow.summary) {
       this.contextWindow.summary = this.mergeSummaries(this.contextWindow.summary, summary);
@@ -173,7 +173,10 @@ export class ContextManager {
 
     // Extract key information from messages
     for (const message of messages) {
-      if (message.metadata.priority.level === 'critical' || message.metadata.priority.level === 'high') {
+      if (
+        message.metadata.priority.level === 'critical' ||
+        message.metadata.priority.level === 'high'
+      ) {
         keyPoints.push(message.metadata.summary || 'Important message');
       }
 
@@ -198,7 +201,10 @@ export class ContextManager {
     };
   }
 
-  private mergeSummaries(existing: ConversationSummary, newSummary: ConversationSummary): ConversationSummary {
+  private mergeSummaries(
+    existing: ConversationSummary,
+    newSummary: ConversationSummary
+  ): ConversationSummary {
     return {
       summary: `${existing.summary} ${newSummary.summary}`,
       keyPoints: [...existing.keyPoints, ...newSummary.keyPoints],
@@ -213,17 +219,21 @@ export class ContextManager {
   private updateCurrentTokens(): void {
     const messages = this.getOptimizedMessages();
     this.contextWindow.currentTokens = TokenCounter.countMessagesTokens(messages);
-    
+
     // Add summary tokens if exists
     if (this.contextWindow.summary) {
-      this.contextWindow.currentTokens += TokenCounter.countTokens(this.contextWindow.summary.summary);
+      this.contextWindow.currentTokens += TokenCounter.countTokens(
+        this.contextWindow.summary.summary
+      );
     }
   }
 
   private getAvailableTokens(): number {
     return Math.max(
       0,
-      this.contextWindow.maxTokens - this.contextWindow.currentTokens - this.contextWindow.reservedTokens
+      this.contextWindow.maxTokens -
+        this.contextWindow.currentTokens -
+        this.contextWindow.reservedTokens
     );
   }
 
@@ -239,7 +249,8 @@ export class ContextManager {
       originalTokens,
       optimizedTokens: currentTokens,
       tokensSaved: Math.max(0, originalTokens - currentTokens),
-      savingsPercentage: originalTokens > 0 ? ((originalTokens - currentTokens) / originalTokens) * 100 : 0,
+      savingsPercentage:
+        originalTokens > 0 ? ((originalTokens - currentTokens) / originalTokens) * 100 : 0,
       messagesRemoved: Math.max(0, originalMessageCount - currentMessageCount),
       messagesKept: currentMessageCount,
       summaryGenerated,
@@ -251,8 +262,8 @@ export class ContextManager {
       return message.content;
     } else if (Array.isArray(message.content)) {
       return message.content
-        .filter(content => content.type === 'text')
-        .map(content => (content as any).text)
+        .filter((content) => content.type === 'text')
+        .map((content) => (content as any).text)
         .join(' ');
     }
     return '';
