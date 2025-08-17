@@ -1,6 +1,6 @@
 import type { PromptContext } from '../types/prompt-types';
 import type { ProcessMessageResult } from '../types/conversation-types';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/tools';
 import type { AgentTool } from '../types/tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 

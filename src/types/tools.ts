@@ -78,6 +78,51 @@ export interface ToolExecutionMetadata {
   warnings?: string[];
 }
 
+// Type Guards for runtime type checking
+export function isCreateTaskTool(tool: AgentTool): tool is CreateTaskTool {
+  return tool.function.name === 'create_task';
+}
+
+export function isCreateProjectTool(tool: AgentTool): tool is CreateProjectTool {
+  return tool.function.name === 'create_project';
+}
+
+export function isAskQuestionTool(tool: AgentTool): tool is AskQuestionTool {
+  return tool.function.name === 'ask_question';
+}
+
+export function isQuestionToolResult(result: ToolResult): result is QuestionToolResult {
+  if (!result.data) return false;
+  return 'question' in result.data;
+}
+
+// Factor 4: Enhanced tool result type guards
+export function isEnrichedQuestionToolResult(result: import('../tools/tool-execution-context').EnrichedToolResult): boolean {
+  if (!result.data) return false;
+  return 'question' in result.data;
+}
+
+export function isEnrichedTaskToolResult(result: import('../tools/tool-execution-context').EnrichedToolResult): boolean {
+  if (!result.data) return false;
+  return 'task_id' in result.data && 'title' in result.data;
+}
+
+export function isEnrichedProjectToolResult(result: import('../tools/tool-execution-context').EnrichedToolResult): boolean {
+  if (!result.data) return false;
+  return 'project_id' in result.data && 'name' in result.data;
+}
+
+// Helper function to check if result has enriched structure
+export function isEnrichedToolResult(result: any): result is import('../tools/tool-execution-context').EnrichedToolResult {
+  return result && 
+         'context' in result && 
+         'startTime' in result && 
+         'endTime' in result && 
+         'executionTimeMs' in result &&
+         'status' in result &&
+         'metadata' in result;
+}
+
 export type ToolExecutionStatus =
   | 'success'
   | 'failure'

@@ -1,5 +1,5 @@
 import type { AgentTool } from '../types/tools';
-import { isAskQuestionTool } from '../types/toolGuards';
+import { isAskQuestionTool } from '../types/tools';
 
 /**
  * Manages collected information from user interactions

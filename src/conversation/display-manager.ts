@@ -2,7 +2,7 @@ import type { ContextManager } from '../context/context-manager';
 import type { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
-import { isEnrichedQuestionToolResult } from '../types/toolGuards';
+import { isEnrichedQuestionToolResult } from '../types/tools';
 
 /**
  * Manages all display and logging functionality for the conversation
