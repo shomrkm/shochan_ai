@@ -170,47 +170,33 @@ export class ToolResultValidator {
   }
 
   /**
-   * Validate question result
+   * Validate user input result
    */
-  static validateQuestionResult(data: unknown): ValidationResult {
+  static validateUserInputResult(data: unknown): ValidationResult {
     const errors: string[] = [];
     const warnings: string[] = [];
 
     if (!data || typeof data !== 'object') {
-      errors.push('Question result data is missing or not an object');
+      errors.push('User input result data is missing or not an object');
       return { isValid: false, errors, warnings };
     }
 
     // Required fields validation
-    if (!hasProperty(data, 'question') || !isString(data.question)) {
-      errors.push('question is required and must be a string');
+    if (!hasProperty(data, 'message') || !isString(data.message)) {
+      errors.push('message is required and must be a string');
     }
 
     if (!hasProperty(data, 'context') || !isString(data.context)) {
       errors.push('context is required and must be a string');
     }
 
-    if (!hasProperty(data, 'question_type') || !isString(data.question_type)) {
-      errors.push('question_type is required and must be a string');
-    }
-
     if (!hasProperty(data, 'timestamp') || !isDate(data.timestamp)) {
       errors.push('timestamp is required and must be a Date');
     }
 
-    // Validate question_type values
-    const validQuestionTypes = ['clarification', 'missing_info', 'confirmation'];
-    if (
-      hasProperty(data, 'question_type') &&
-      isString(data.question_type) &&
-      !validQuestionTypes.includes(data.question_type)
-    ) {
-      errors.push(`question_type must be one of: ${validQuestionTypes.join(', ')}`);
-    }
-
     // Optional fields validation
-    if (hasProperty(data, 'answer') && data.answer !== undefined && !isString(data.answer)) {
-      errors.push('answer must be a string if provided');
+    if (hasProperty(data, 'user_response') && data.user_response !== undefined && !isString(data.user_response)) {
+      errors.push('user_response must be a string if provided');
     }
 
     return {

@@ -54,20 +54,21 @@ export class ClaudeClient {
             },
           },
           {
-            name: 'ask_question',
-            description: 'Ask user for additional information',
+            name: 'user_input',
+            description: 'Request input from user when more information is needed to create task/project. Use this when you need clarification, more details, or confirmation from the user.',
             input_schema: {
               type: 'object',
               properties: {
-                question: { type: 'string', description: 'Question to ask' },
-                context: { type: 'string', description: 'Context of the question' },
-                question_type: {
-                  type: 'string',
-                  enum: ['clarification', 'missing_info', 'confirmation'],
-                  description: 'Type of question',
+                message: { 
+                  type: 'string', 
+                  description: 'Clear message explaining what information you need from the user and why' 
+                },
+                context: { 
+                  type: 'string', 
+                  description: 'Context of what you are trying to accomplish' 
                 },
               },
-              required: ['question', 'context', 'question_type'],
+              required: ['message', 'context'],
             },
           },
           {
@@ -139,4 +140,5 @@ export class ClaudeClient {
       throw error;
     }
   }
+
 }

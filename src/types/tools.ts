@@ -20,14 +20,13 @@ export interface CreateTaskTool extends ToolCall {
   };
 }
 
-// AskQuestionTool for conversation
-export interface AskQuestionTool extends ToolCall {
+// UserInputTool for conversation - unified input collection
+export interface UserInputTool extends ToolCall {
   function: {
-    name: 'ask_question';
+    name: 'user_input';
     parameters: {
-      question: string;
-      context: string;
-      question_type: 'clarification' | 'missing_info' | 'confirmation';
+      message: string; // Message to display to user explaining what input is needed
+      context: string; // Context of the request
     };
   };
 }
@@ -45,7 +44,7 @@ export interface CreateProjectTool extends ToolCall {
   };
 }
 
-export type AgentTool = CreateTaskTool | AskQuestionTool | CreateProjectTool;
+export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool;
 
 // Result types for each tool
 export interface TaskCreationResult {
@@ -110,12 +109,11 @@ export interface ToolResult<T extends Record<string, any> = Record<string, any>>
 // Specific tool result types
 export type TaskToolResult = ToolResult<TaskCreationResult>;
 export type ProjectToolResult = ToolResult<ProjectCreationResult>;
-export type QuestionToolResult = ToolResult<QuestionResult>;
+export type UserInputToolResult = ToolResult<UserInputResult>;
 
-export interface QuestionResult {
-  question: string;
+export interface UserInputResult {
+  message: string; // Message displayed to user
   context: string;
-  question_type: string;
-  answer?: string;
+  user_response?: string; // User's response
   timestamp: Date;
 }

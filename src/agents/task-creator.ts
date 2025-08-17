@@ -1,4 +1,3 @@
-import type Anthropic from '@anthropic-ai/sdk';
 import { ClaudeClient } from '../clients/claude';
 import { ContextManager } from '../context/context-manager';
 import { CollectedInfoManager } from '../conversation/collected-info-manager';
@@ -9,7 +8,7 @@ import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
 import type { PromptContext } from '../types/prompt-types';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isUserInputTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 
 /**
@@ -264,10 +263,10 @@ export class TaskCreatorAgent {
    */
   private handleQuestionToolResult(toolCall: any, enrichedResult: any): void {
     if (
-      isAskQuestionTool(toolCall) &&
+      isUserInputTool(toolCall) &&
       this.isResultSuccessful({ toolCall, toolResult: enrichedResult })
     ) {
-      const answer = enrichedResult.data?.answer;
+      const answer = enrichedResult.data?.user_response;
       if (answer && typeof answer === 'string') {
         this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
         this.collectedInfoManager.displayCollectedInfo();

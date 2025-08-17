@@ -341,15 +341,18 @@ export class EnhancedToolExecutor {
         }
         break;
 
-      case 'ask_question':
+      case 'user_input':
         if (
-          !tool.function.parameters.question ||
-          typeof tool.function.parameters.question !== 'string'
+          !tool.function.parameters.message ||
+          typeof tool.function.parameters.message !== 'string'
         ) {
-          errors.push('Question is required and must be a string');
+          errors.push('Message is required and must be a string');
         }
-        if (!tool.function.parameters.question_type) {
-          errors.push('Question type is required');
+        if (
+          !tool.function.parameters.context ||
+          typeof tool.function.parameters.context !== 'string'
+        ) {
+          errors.push('Context is required and must be a string');
         }
         break;
     }
@@ -366,7 +369,7 @@ export class EnhancedToolExecutor {
    */
   private getDefaultToolTimeout(toolName: string): number {
     switch (toolName) {
-      case 'ask_question':
+      case 'user_input':
         // Human input requires more time - 10 minutes
         return 600000;
       case 'create_task':
@@ -388,8 +391,8 @@ export class EnhancedToolExecutor {
         return ToolResultValidator.validateTaskResult(data);
       case 'create_project':
         return ToolResultValidator.validateProjectResult(data);
-      case 'ask_question':
-        return ToolResultValidator.validateQuestionResult(data);
+      case 'user_input':
+        return ToolResultValidator.validateUserInputResult(data);
       default:
         return ToolResultValidator.validateToolResult(data);
     }

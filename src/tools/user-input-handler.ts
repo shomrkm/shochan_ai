@@ -1,40 +1,46 @@
 import { stdin as input, stdout as output } from 'node:process';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline/promises';
-import type { AskQuestionTool, QuestionToolResult } from '../types/tools';
+import type { 
+  AgentTool,
+  UserInputToolResult 
+} from '../types/tools';
+import { isUserInputTool } from '../types/toolGuards';
 
-export class QuestionHandler {
+export class UserInputHandler {
   private rl: ReadlineInterface | null = null;
 
   constructor() {
     // Create the readline interface only when needed.
   }
 
-  async execute(tool: AskQuestionTool): Promise<QuestionToolResult> {
-    const { question, context, question_type } = tool.function.parameters;
+  async execute(tool: AgentTool): Promise<UserInputToolResult> {
+    if (!isUserInputTool(tool)) {
+      throw new Error('Invalid tool type for user input');
+    }
+
+    const { message, context } = tool.function.parameters;
 
     console.log('\n' + '='.repeat(60));
-    console.log('🤔 AI Agent has a question for you');
+    console.log('🤔 AI Agent needs your input');
     console.log('='.repeat(60));
     console.log(`📋 Context: ${context}`);
-    console.log(`❓ Question: ${question}`);
-    console.log(`🏷️  Type: ${question_type}`);
+    console.log(`💬 ${message}`);
     console.log('='.repeat(60));
 
     try {
       // Wait for the user's answer.
-      const userAnswer = await this.getUserInput('\n💬 Your answer: ');
+      const userResponse = await this.getUserInput('\n💬 Your input: ');
 
-      console.log(`✅ Thank you! You answered: "${userAnswer}"`);
+      console.log(`✅ Thank you! You said: "${userResponse}"`);
       console.log('='.repeat(60) + '\n');
 
       return {
         success: true,
-        message: `Question answered: ${userAnswer}`,
+        message: `User input received: ${userResponse}`,
         data: {
-          question,
+          message,
           context,
-          answer: userAnswer,
-          question_type,
+          user_response: userResponse,
           timestamp: new Date(),
         },
         timestamp: new Date(),
@@ -45,9 +51,8 @@ export class QuestionHandler {
         success: false,
         message: 'Failed to get user input',
         data: {
-          question,
+          message,
           context,
-          question_type,
           timestamp: new Date(),
         },
         timestamp: new Date(),
@@ -60,9 +65,9 @@ export class QuestionHandler {
   private async getUserInput(prompt: string): Promise<string> {
     this.rl = createInterface({ input, output });
 
-    // When Ctrl+C is pressed, the question is cancelled.
+    // When Ctrl+C is pressed, the input is cancelled.
     const onSigInt = () => {
-      console.log('\n\n👋 User cancelled the question.');
+      console.log('\n\n👋 User cancelled the input.');
       this.rl?.close();
     };
     this.rl.on('SIGINT', onSigInt);
@@ -72,7 +77,7 @@ export class QuestionHandler {
         const answer = await this.rl.question(prompt);
         const trimmedAnswer = answer.trim();
         if (trimmedAnswer.length === 0) {
-          console.log('❌ Empty answer. Please provide a response.');
+          console.log('❌ Empty input. Please provide a response.');
           continue;
         }
         return trimmedAnswer;

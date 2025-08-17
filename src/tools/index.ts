@@ -1,26 +1,22 @@
 // src/tools/index.ts
 
 import { NotionClient } from '../clients/notion';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isUserInputTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
 import {
   type AgentTool,
-  AskQuestionTool,
-  CreateProjectTool,
-  CreateTaskTool,
   type ProjectToolResult,
-  QuestionResult,
   type TaskToolResult,
   type ToolResult,
 } from '../types/tools';
-import { QuestionHandler } from './question-handler';
+import { UserInputHandler } from './user-input-handler';
 
 export class ToolExecutor {
   private notionClient: NotionClient;
-  private questionHandler: QuestionHandler;
+  private userInputHandler: UserInputHandler;
 
   constructor() {
     this.notionClient = new NotionClient();
-    this.questionHandler = new QuestionHandler();
+    this.userInputHandler = new UserInputHandler();
   }
 
   async execute(tool: AgentTool): Promise<ToolResult> {
@@ -39,11 +35,8 @@ export class ToolExecutor {
           return result;
         }
 
-        case 'ask_question': {
-          if (!isAskQuestionTool(tool)) {
-            throw new Error('Invalid tool type for askQuestion');
-          }
-          const result = await this.questionHandler.execute(tool);
+        case 'user_input': {
+          const result = await this.userInputHandler.execute(tool);
           return result;
         }
 

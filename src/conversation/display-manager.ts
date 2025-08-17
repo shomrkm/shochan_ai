@@ -2,7 +2,7 @@ import type { ContextManager } from '../context/context-manager';
 import type { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
-import { isEnrichedQuestionToolResult } from '../types/toolGuards';
+import { isEnrichedUserInputToolResult } from '../types/toolGuards';
 
 /**
  * Manages all display and logging functionality for the conversation
@@ -93,7 +93,7 @@ export class DisplayManager {
   displayQuestionProcessingInfo(result: ProcessMessageResult): void {
     if (!this.hasCalledTool(result)) return;
 
-    if (isEnrichedQuestionToolResult(result.toolResult)) {
+    if (isEnrichedUserInputToolResult(result.toolResult)) {
       console.log(`⚡ Question processing took ${result.toolResult.executionTimeMs}ms`);
 
       if (result.toolResult.inputValidation?.warnings.length) {

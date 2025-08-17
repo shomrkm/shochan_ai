@@ -1,7 +1,7 @@
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
 import type { PromptContext } from '../types/prompt-types';
-import { isAskQuestionTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isUserInputTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 
 /**
@@ -60,51 +60,37 @@ export class ConversationManager {
       return { continue: false };
     }
 
-    if (isAskQuestionTool(result.toolCall)) {
-      return this.handleQuestionResult(result, collectedInfo);
+    if (isUserInputTool(result.toolCall)) {
+      return this.handleUserInputResult(result, collectedInfo);
     }
 
     return { continue: true };
   }
 
   /**
-   * Handle question tool result and update conversation state
+   * Handle user input tool result - much simpler now
    */
-  private handleQuestionResult(
+  private handleUserInputResult(
     result: ProcessMessageResult,
-    collectedInfo: Record<string, string>
+    _collectedInfo: Record<string, string>
   ): { continue: boolean; nextMessage?: string } {
     if (!this.hasCalledTool(result)) {
       return { continue: false };
     }
 
     this.questionCount++;
-    this.conversationStage = this.determineNextStage(collectedInfo);
 
-    if (this.isResultSuccessful(result) && this.getResultData(result)?.answer) {
-      const answer = this.getResultData(result).answer;
+    if (this.isResultSuccessful(result) && this.getResultData(result)?.user_response) {
+      const answer = this.getResultData(result).user_response;
+      console.log('📝 User provided input, continuing conversation...');
       return { continue: true, nextMessage: answer };
     } else {
-      console.log('❌ Failed to get user answer, ending conversation.');
+      console.log('❌ Failed to get user input, ending conversation.');
       return { continue: false };
     }
   }
 
-  /**
-   * Determine the next stage of the conversation based on collected information
-   */
-  determineNextStage(collectedInfo: Record<string, string>): PromptContext['conversationStage'] {
-    const hasBasicInfo = collectedInfo.feature || collectedInfo.title;
-    const hasDetails = collectedInfo.description || collectedInfo.feature;
-
-    if (hasBasicInfo && hasDetails && this.questionCount >= 2) {
-      return 'confirming';
-    } else if (this.questionCount >= 1) {
-      return 'gathering_info';
-    } else {
-      return 'initial';
-    }
-  }
+  // Note: Stage inference is no longer needed since LLM handles everything
 
   /**
    * Reset conversation state

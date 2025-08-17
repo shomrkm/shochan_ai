@@ -1,4 +1,4 @@
-import { isAskQuestionTool } from '../types/toolGuards';
+import { isUserInputTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 
 /**
@@ -13,12 +13,12 @@ export class CollectedInfoManager {
    * @param answer the answer from the user
    */
   updateCollectedInfo(toolCall: AgentTool, answer: string): void {
-    if (!isAskQuestionTool(toolCall)) {
-      throw new Error('Invalid tool type for askQuestion');
+    if (!isUserInputTool(toolCall)) {
+      throw new Error('Invalid tool type for user input');
     }
 
-    const question = toolCall.function.parameters.question;
-    const q = question.toLowerCase();
+    const message = toolCall.function.parameters.message;
+    const q = message.toLowerCase();
 
     if (q.includes('feature') || q.includes('functionality') || q.includes('what')) {
       this.collectedInfo.feature = answer;

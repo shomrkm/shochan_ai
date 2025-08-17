@@ -1,10 +1,10 @@
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type {
   AgentTool,
-  AskQuestionTool,
   CreateProjectTool,
   CreateTaskTool,
-  QuestionToolResult,
+  UserInputTool,
+  UserInputToolResult,
   ToolResult,
 } from './tools';
 
@@ -16,21 +16,14 @@ export function isCreateProjectTool(tool: AgentTool): tool is CreateProjectTool 
   return tool.function.name === 'create_project';
 }
 
-export function isAskQuestionTool(tool: AgentTool): tool is AskQuestionTool {
-  return tool.function.name === 'ask_question';
+export function isUserInputTool(tool: AgentTool): tool is UserInputTool {
+  return tool.function.name === 'user_input';
 }
 
-export function isQuestionToolResult(result: ToolResult): result is QuestionToolResult {
+export function isEnrichedUserInputToolResult(result: EnrichedToolResult): boolean {
   if (!result.data) return false;
 
-  return 'question' in result.data;
-}
-
-// Factor 4 Phase 3: Enhanced tool result type guards
-export function isEnrichedQuestionToolResult(result: EnrichedToolResult): boolean {
-  if (!result.data) return false;
-
-  return 'question' in result.data;
+  return 'message' in result.data;
 }
 
 export function isEnrichedTaskToolResult(result: EnrichedToolResult): boolean {
