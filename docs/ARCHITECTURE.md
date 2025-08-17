@@ -243,11 +243,11 @@ const systemPrompt = promptFunction.build(context);
 ```
 src/
 ├── agents/
-│   └── task-creator.ts           # Main orchestrator agent (refactored)
+│   └── task-creator.ts           # Main orchestrator agent (refactored to 270 lines)
 ├── clients/
 │   ├── claude.ts                 # Anthropic Claude API client
 │   └── notion.ts                 # Notion API client
-├── conversation/                 # Conversation management components (NEW!)
+├── conversation/                 # Conversation management components
 │   ├── conversation-manager.ts   # Conversation state and flow control
 │   ├── collected-info-manager.ts # User information collection and organization
 │   └── display-manager.ts        # Centralized display and logging functionality
@@ -255,6 +255,11 @@ src/
 │   ├── context-manager.ts        # Strategic context optimization
 │   ├── message-prioritizer.ts    # Message priority assessment
 │   └── token-counter.ts          # Token calculation utilities
+├── state/                        # Factor 5: Unified State Management
+│   ├── agent-thread.ts           # Event-driven thread management
+│   ├── thread-recovery.ts        # Thread recovery and checkpoint system
+│   ├── thread-serializer.ts      # Thread state serialization
+│   └── thread-storage.ts         # Persistent storage interface and implementation
 ├── prompts/                      # Factor 2: Prompt Management
 │   ├── prompt-functions.ts       # Dynamic prompt functions
 │   └── prompt-manager.ts         # Prompt orchestration
@@ -265,13 +270,15 @@ src/
 │   ├── tool-result-validator.ts  # Factor 4: Input/output validation
 │   └── question-handler.ts       # Interactive questioning
 ├── types/
-│   ├── conversation-types.ts     # Conversation-related types (NEW!)
+│   ├── conversation-types.ts     # Conversation-related types
 │   ├── context-types.ts          # Context management types
 │   ├── prompt-types.ts           # Prompt system types
+│   ├── thread-types.ts           # Thread and event types (Factor 5)
 │   ├── tools.ts                  # Tool system types
-│   └── toolGuards.ts            # Runtime type validation
+│   └── notion.ts                 # Notion-specific types
 ├── utils/
-│   └── notionUtils.ts           # Notion utility functions
+│   ├── notionUtils.ts           # Notion utility functions
+│   └── notionUtils.test.ts      # Notion utilities tests
 └── test-*.ts                    # Various test scenarios
 ```
 
@@ -322,10 +329,17 @@ flowchart TD
 - **Scalable conversation handling** through automatic summarization
 - **Real-time optimization** with minimal performance overhead
 
+### **Factor 5 Benefits**
+- **Event-driven architecture** for complete state auditability
+- **Thread recovery** from any point in conversation history
+- **Unified state model** integrating execution and business logic
+- **Persistent storage** for long-running agent conversations
+
 ### **Memory Efficiency**
 - Single source of truth for conversation history (ContextManager)
+- Event sourcing for compact state representation (AgentThreadManager)
 - Automatic cleanup of low-priority messages
-- Structured state encoding for compact representation
+- Checkpoint-based recovery reducing memory footprint
 
 ### **Factor 4: Tools are Just Structured Outputs** ✅
 
@@ -354,12 +368,40 @@ graph LR
 - **Performance monitoring**: Execution time, retry counts, statistics
 - **Error handling**: Structured errors with suggested actions
 
-## 🔮 Future Architecture (Factors 5-12)
+### **Factor 5: Unify Execution State with Business State** ✅
+
+**Purpose**: Unified state management through event-driven architecture
+
+```mermaid
+graph LR
+    A[TaskCreatorAgent] --> B[AgentThreadManager]
+    B --> C[ThreadRecoveryManager]
+    B --> D[ThreadSerializer]
+    B --> E[FileSystemThreadStorage]
+    C --> F[ThreadEvent Stream]
+    D --> G[Serialized State]
+    E --> H[Persistent Storage]
+```
+
+**Components**:
+- `AgentThreadManager`: Event-driven thread state management
+- `ThreadRecoveryManager`: Thread recovery and checkpoint capabilities
+- `ThreadSerializer`: Thread state serialization/deserialization
+- `FileSystemThreadStorage`: Persistent storage implementation
+
+**Key Features**:
+- **Event Sourcing**: All state changes as immutable events
+- **Thread Recovery**: Automatic recovery from failures or interruptions
+- **State Persistence**: Durable storage of agent threads
+- **Unified State**: Integration of execution and business state
+- **Checkpoint System**: Manual and automatic checkpoint creation
+
+## 🔮 Future Architecture (Factors 6-12)
 
 ### **Next Priorities**
-1. **Factor 5**: Unify Execution State with Business State
-2. **Factor 6**: Agent Interaction APIs
-3. **Factor 7**: Agents are Async Everywhere
+1. **Factor 6**: Agent Interaction APIs
+2. **Factor 7**: Enable Direct Human Contact
+3. **Factor 8**: Control Flow Within Agent
 
 ### **Planned Architectural Enhancements**
 - **Microservices Architecture**: Small, focused agents (Factor 10)
