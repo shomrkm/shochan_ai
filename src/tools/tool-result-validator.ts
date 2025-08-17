@@ -195,7 +195,11 @@ export class ToolResultValidator {
     }
 
     // Optional fields validation
-    if (hasProperty(data, 'user_response') && data.user_response !== undefined && !isString(data.user_response)) {
+    if (
+      hasProperty(data, 'user_response') &&
+      data.user_response !== undefined &&
+      !isString(data.user_response)
+    ) {
       errors.push('user_response must be a string if provided');
     }
 

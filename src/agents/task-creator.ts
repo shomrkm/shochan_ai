@@ -3,12 +3,12 @@ import { ContextManager } from '../context/context-manager';
 import { CollectedInfoManager } from '../conversation/collected-info-manager';
 import { ConversationManager } from '../conversation/conversation-manager';
 import { DisplayManager } from '../conversation/display-manager';
-import { PromptManager } from '../prompts/prompt-manager';
+import { buildSystemPrompt } from '../prompts/system-prompt';
 import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
 import type { PromptContext } from '../types/prompt-types';
-import { isUserInputTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isCreateProjectTool, isCreateTaskTool, isUserInputTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 
 /**
@@ -19,7 +19,6 @@ import type { AgentTool } from '../types/tools';
 export class TaskCreatorAgent {
   private claude: ClaudeClient;
   private toolExecutor: EnhancedToolExecutor;
-  private promptManager: PromptManager;
   private contextManager: ContextManager;
   private conversationManager: ConversationManager;
   private collectedInfoManager: CollectedInfoManager;
@@ -31,7 +30,6 @@ export class TaskCreatorAgent {
   constructor() {
     this.claude = new ClaudeClient();
     this.toolExecutor = new EnhancedToolExecutor();
-    this.promptManager = new PromptManager();
     this.conversationManager = new ConversationManager();
     this.collectedInfoManager = new CollectedInfoManager();
     this.displayManager = new DisplayManager();
@@ -185,7 +183,7 @@ export class TaskCreatorAgent {
     userMessage: string,
     optimizedHistory: any[]
   ) {
-    const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
+    const systemPrompt = buildSystemPrompt(promptContext);
 
     return await this.claude.generateToolCall(systemPrompt, userMessage, optimizedHistory);
   }
@@ -198,7 +196,7 @@ export class TaskCreatorAgent {
     userMessage: string,
     optimizedHistory: any[]
   ): Promise<ProcessMessageResult> {
-    const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
+    const systemPrompt = buildSystemPrompt(promptContext);
 
     const response = await this.claude.generateResponse(
       systemPrompt,

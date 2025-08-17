@@ -3,9 +3,9 @@ import type {
   AgentTool,
   CreateProjectTool,
   CreateTaskTool,
+  ToolResult,
   UserInputTool,
   UserInputToolResult,
-  ToolResult,
 } from './tools';
 
 export function isCreateTaskTool(tool: AgentTool): tool is CreateTaskTool {

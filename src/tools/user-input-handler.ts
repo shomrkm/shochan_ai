@@ -1,10 +1,7 @@
 import { stdin as input, stdout as output } from 'node:process';
 import { createInterface, type Interface as ReadlineInterface } from 'node:readline/promises';
-import type { 
-  AgentTool,
-  UserInputToolResult 
-} from '../types/tools';
 import { isUserInputTool } from '../types/toolGuards';
+import type { AgentTool, UserInputToolResult } from '../types/tools';
 
 export class UserInputHandler {
   private rl: ReadlineInterface | null = null;

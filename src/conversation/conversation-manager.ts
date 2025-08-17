@@ -1,7 +1,7 @@
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
 import type { PromptContext } from '../types/prompt-types';
-import { isUserInputTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isCreateProjectTool, isCreateTaskTool, isUserInputTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 
 /**

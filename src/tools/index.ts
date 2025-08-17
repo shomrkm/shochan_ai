@@ -1,13 +1,8 @@
 // src/tools/index.ts
 
 import { NotionClient } from '../clients/notion';
-import { isUserInputTool, isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
-import {
-  type AgentTool,
-  type ProjectToolResult,
-  type TaskToolResult,
-  type ToolResult,
-} from '../types/tools';
+import { isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import type { AgentTool, ProjectToolResult, TaskToolResult, ToolResult } from '../types/tools';
 import { UserInputHandler } from './user-input-handler';
 
 export class ToolExecutor {

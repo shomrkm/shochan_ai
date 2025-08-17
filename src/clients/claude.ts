@@ -55,17 +55,19 @@ export class ClaudeClient {
           },
           {
             name: 'user_input',
-            description: 'Request input from user when more information is needed to create task/project. Use this when you need clarification, more details, or confirmation from the user.',
+            description:
+              'Request input from user when more information is needed to create task/project. Use this when you need clarification, more details, or confirmation from the user.',
             input_schema: {
               type: 'object',
               properties: {
-                message: { 
-                  type: 'string', 
-                  description: 'Clear message explaining what information you need from the user and why' 
+                message: {
+                  type: 'string',
+                  description:
+                    'Clear message explaining what information you need from the user and why',
                 },
-                context: { 
-                  type: 'string', 
-                  description: 'Context of what you are trying to accomplish' 
+                context: {
+                  type: 'string',
+                  description: 'Context of what you are trying to accomplish',
                 },
               },
               required: ['message', 'context'],
@@ -140,5 +142,4 @@ export class ClaudeClient {
       throw error;
     }
   }
-
 }
