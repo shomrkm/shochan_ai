@@ -5,6 +5,9 @@ import { CollectedInfoManager } from '../conversation/collected-info-manager';
 import { DisplayManager } from '../conversation/display-manager';
 import { PromptManager } from '../prompts/prompt-manager';
 import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
+import { AgentThreadManager } from '../state/agent-thread';
+import { FileSystemThreadStorage } from '../state/thread-storage';
+import { ThreadRecoveryManager } from '../state/thread-recovery';
 import type { PromptContext } from '../types/prompt-types';
 import type { ProcessMessageResult } from '../types/conversation-types';
 import {
@@ -17,7 +20,8 @@ import type { EnrichedToolResult } from '../tools/tool-execution-context';
 
 /**
  * Main AI agent for creating tasks and projects through interactive conversation.
- * Implements Factor 3 (context management) and Factor 4 (structured tool outputs).
+ * Implements Factor 3 (context management), Factor 4 (structured tool outputs),
+ * and Factor 5 (unified execution state).
  * Refactored to use specialized components for different responsibilities.
  */
 export class TaskCreatorAgent {
@@ -28,11 +32,14 @@ export class TaskCreatorAgent {
   private conversationManager: ConversationManager;
   private collectedInfoManager: CollectedInfoManager;
   private displayManager: DisplayManager;
+  private threadManager: AgentThreadManager;
+  private storage: FileSystemThreadStorage;
+  private recoveryManager: ThreadRecoveryManager;
 
   /**
    * Initialize the TaskCreatorAgent with all necessary components
    */
-  constructor() {
+  constructor(threadId?: string) {
     this.claude = new ClaudeClient();
     this.toolExecutor = new EnhancedToolExecutor();
     this.promptManager = new PromptManager();
@@ -47,6 +54,11 @@ export class TaskCreatorAgent {
       maxHistoryMessages: 15,
       tokenBudgetRatio: 0.7,
     });
+
+    // Initialize Factor 5: Unified State Management
+    this.storage = new FileSystemThreadStorage('./agent-threads');
+    this.threadManager = new AgentThreadManager(threadId, this.storage, true);
+    this.recoveryManager = new ThreadRecoveryManager(this.storage, 3);
   }
 
   /**
@@ -54,7 +66,18 @@ export class TaskCreatorAgent {
    * @param userMessage the initial message from the user
    */
   async startConversation(userMessage: string): Promise<void> {
+    // Factor 5: Record conversation start
+    this.threadManager.startConversation();
+    
     this.initializeConversation();
+    
+    // Factor 5: Record initial user message
+    this.threadManager.addUserMessage(userMessage, {
+      isRecent: true,
+      containsDecision: false,
+      hasUserPreference: false,
+      toolCallResult: false
+    });
     
     let currentMessage = userMessage;
     const MAX_ITERATION = 8;
@@ -70,6 +93,9 @@ export class TaskCreatorAgent {
         result,
         this.collectedInfoManager.getCollectedInfo()
       );
+      
+      // Factor 5: Monitor stage changes
+      this.monitorStageChange();
       
       if (!shouldContinue.continue) {
         if (this.hasCalledTool(result) && (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))) {
@@ -99,6 +125,9 @@ export class TaskCreatorAgent {
    * Finalize conversation and display statistics
    */
   private finalizeConversation(iterations: number, maxIterations: number): void {
+    // Factor 5: Record conversation completion
+    this.threadManager.complete();
+    
     this.displayManager.displayConversationCompleted(iterations, maxIterations);
     this.displayManager.displayContextStats(this.contextManager);
     this.displayManager.displayExecutionStats(this.toolExecutor, this.conversationManager.getCurrentTraceId());
@@ -124,7 +153,7 @@ export class TaskCreatorAgent {
 
       return await this.executeToolCall(toolCall);
     } catch (error) {
-      return this.handleProcessingError(error);
+      return await this.handleProcessingError(error);
     }
   }
 
@@ -142,6 +171,12 @@ export class TaskCreatorAgent {
     const optimizedHistory = this.contextManager.getOptimizedMessages();
     
     if (userOptimizationResult.tokensSaved > 0) {
+      // Factor 5: Record context optimization
+      this.threadManager.addContextOptimization(
+        userOptimizationResult.tokensSaved,
+        userOptimizationResult.savingsPercentage || 0
+      );
+      
       this.displayManager.displayContextOptimization(
         userOptimizationResult.tokensSaved,
         userOptimizationResult.savingsPercentage
@@ -185,11 +220,21 @@ export class TaskCreatorAgent {
   ) {
     const systemPrompt = this.promptManager.buildSystemPrompt(promptContext);
     
-    return await this.claude.generateToolCall(
+    // Factor 5: Record prompt generation
+    this.threadManager.addPromptGenerated(systemPrompt, promptContext.conversationStage);
+    
+    const toolCall = await this.claude.generateToolCall(
       systemPrompt,
       userMessage,
       optimizedHistory
     );
+    
+    // Factor 5: Record tool call generation if generated
+    if (toolCall) {
+      this.threadManager.addToolCallGenerated(toolCall, systemPrompt, promptContext.conversationStage);
+    }
+    
+    return toolCall;
   }
 
   /**
@@ -209,6 +254,9 @@ export class TaskCreatorAgent {
     );
 
     this.displayManager.displayAgentResponse(response);
+
+    // Factor 5: Record agent response
+    this.threadManager.addAgentResponse(response, 'direct');
 
     this.contextManager.addMessage(
       { role: 'assistant', content: response },
@@ -251,13 +299,23 @@ export class TaskCreatorAgent {
    * Execute tool with enhanced context
    */
   private async executeToolWithContext(toolCall: any) {
-    return await this.toolExecutor.executeWithContext(toolCall, {
+    const startTime = Date.now();
+    
+    const result = await this.toolExecutor.executeWithContext(toolCall, {
       traceId: this.conversationManager.getCurrentTraceId() || undefined,
       enableDebugMode: false,
       validateInput: true,
       validateOutput: true,
       maxRetries: 2,
     });
+    
+    const executionTime = Date.now() - startTime;
+    const success = result && !result.error;
+    
+    // Factor 5: Record tool execution
+    this.threadManager.addToolExecuted(toolCall, result, success, executionTime);
+    
+    return result;
   }
 
   /**
@@ -267,6 +325,11 @@ export class TaskCreatorAgent {
     if (isAskQuestionTool(toolCall) && this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
       const answer = enrichedResult.data?.answer;
       if (answer && typeof answer === 'string') {
+        // Factor 5: Record information collection
+        const question = toolCall.function?.parameters?.question || 'Unknown question';
+        const category = 'general'; // Default category for collected info
+        this.threadManager.addInfoCollected(question, answer, category);
+        
         this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
         this.collectedInfoManager.displayCollectedInfo();
         this.displayManager.displayQuestionProcessingInfo({ toolCall, toolResult: enrichedResult });
@@ -287,12 +350,30 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Handle processing errors
+   * Handle processing errors with potential recovery
    */
-  private handleProcessingError(error: unknown): ProcessMessageResult {
+  private async handleProcessingError(error: unknown): Promise<ProcessMessageResult> {
     console.error('❌ Agent processing failed:', error);
+    
+    // Factor 5: Record error event
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const stack = error instanceof Error ? error.stack : undefined;
+    this.threadManager.addError(errorMessage, stack, 'Agent processing', true);
+    
+    // Try to get recovery recommendations
+    try {
+      const recommendations = await this.getRecoveryRecommendations();
+      if (recommendations) {
+        console.log(`💡 Recovery suggestions: ${recommendations.reasoning}`);
+        console.log(`🔧 Primary strategy: ${recommendations.primary}`);
+        console.log(`🔄 Alternatives: ${recommendations.alternatives.join(', ')}`);
+      }
+    } catch (recoveryError) {
+      console.log('⚠️  Could not get recovery recommendations');
+    }
+    
     return {
-      response: `申し訳ございません。処理中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      response: `申し訳ございません。処理中にエラーが発生しました: ${errorMessage}`,
     };
   }
 
@@ -329,6 +410,153 @@ export class TaskCreatorAgent {
     result: ProcessMessageResult
   ): result is { toolCall: AgentTool; toolResult: EnrichedToolResult } {
     return 'toolCall' in result && 'toolResult' in result;
+  }
+
+  /**
+   * Get current thread ID
+   */
+  getThreadId(): string {
+    return this.threadManager.getThreadId();
+  }
+
+  /**
+   * Get current thread state
+   */
+  getThreadState() {
+    return this.threadManager.getThread();
+  }
+
+  /**
+   * Get thread statistics
+   */
+  getThreadStatistics() {
+    return this.threadManager.getStatistics();
+  }
+
+  /**
+   * Create checkpoint for thread recovery
+   */
+  async createCheckpoint(label?: string): Promise<string> {
+    return await this.recoveryManager.createCheckpoint(this.threadManager, label);
+  }
+
+  /**
+   * Recover from a failed thread
+   */
+  async recoverThread(threadId: string, strategy?: any): Promise<boolean> {
+    try {
+      const result = await this.recoveryManager.recoverThread(threadId, strategy);
+      
+      if (result.success && result.restoredThread) {
+        // Replace current thread manager with recovered one
+        this.threadManager = result.restoredThread;
+        console.log(`✅ Thread recovered: ${result.message}`);
+        return true;
+      } else {
+        console.error(`❌ Thread recovery failed: ${result.message}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Thread recovery error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Resume a paused thread
+   */
+  async resumeThread(threadId: string, fromEventIndex?: number): Promise<boolean> {
+    try {
+      const result = await this.recoveryManager.resumeThread(threadId, fromEventIndex);
+      
+      if (result.success && result.restoredThread) {
+        this.threadManager = result.restoredThread;
+        console.log(`✅ Thread resumed: ${result.message}`);
+        return true;
+      } else {
+        console.error(`❌ Thread resume failed: ${result.message}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Thread resume error:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Fork current thread for alternative execution
+   */
+  async forkThread(label?: string, fromEventIndex?: number): Promise<string | null> {
+    try {
+      const result = await this.recoveryManager.forkThread(
+        this.threadManager.getThreadId(),
+        fromEventIndex,
+        label
+      );
+      
+      if (result.success && result.newThreadId) {
+        console.log(`✅ Thread forked: ${result.message}`);
+        return result.newThreadId;
+      } else {
+        console.error(`❌ Thread fork failed: ${result.message}`);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Thread fork error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get recovery recommendations for the current thread
+   */
+  async getRecoveryRecommendations(): Promise<any> {
+    try {
+      return await this.recoveryManager.getRecoveryRecommendations(
+        this.threadManager.getThreadId()
+      );
+    } catch (error) {
+      console.error('❌ Failed to get recovery recommendations:', error);
+      return null;
+    }
+  }
+
+  /**
+   * List all stored threads
+   */
+  async listStoredThreads(): Promise<string[]> {
+    return await this.storage.list();
+  }
+
+  /**
+   * Load an existing thread by ID
+   */
+  static async loadFromThread(threadId: string): Promise<TaskCreatorAgent> {
+    const agent = new TaskCreatorAgent(threadId);
+    
+    try {
+      // Try to load the existing thread
+      const existingThread = await agent.storage.load(threadId);
+      console.log(`✅ Loaded existing thread: ${threadId}`);
+      console.log(`📊 Thread stats: ${existingThread.events.length} events, status: ${existingThread.status}`);
+      
+      return agent;
+    } catch (error) {
+      console.log(`⚠️  Thread ${threadId} not found, starting fresh`);
+      return agent;
+    }
+  }
+
+  /**
+   * Monitor and record conversation stage changes
+   */
+  private monitorStageChange(): void {
+    const currentStage = this.conversationManager.getConversationStage();
+    const threadStage = this.threadManager.getCurrentConversationStage();
+    
+    if (currentStage !== threadStage) {
+      this.threadManager.addStageChanged(threadStage, currentStage);
+    }
   }
 
   /**
