@@ -33,9 +33,9 @@ export class QuestionHandler {
         data: {
           question,
           context,
-          asked_at: new Date(),
-          answer: userAnswer,
           question_type,
+          answer: userAnswer,
+          timestamp: new Date(),
         },
         timestamp: new Date(),
       };
@@ -47,7 +47,8 @@ export class QuestionHandler {
         data: {
           question,
           context,
-          asked_at: new Date(),
+          question_type,
+          timestamp: new Date(),
         },
         timestamp: new Date(),
       };
