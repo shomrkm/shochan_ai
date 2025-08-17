@@ -27,12 +27,9 @@ async function testFactor2Implementation() {
     console.log('  ✅ Conversation stage-aware prompting');
     console.log('  ✅ Debug-friendly prompt management\n');
 
-    // 利用可能なプロンプト関数を表示
-    agent.showAvailablePromptFunctions();
-
-    // Factor 2 機能を有効化
-    agent.enableDynamicPrompts();
-    agent.enablePromptDebugging();
+    // Factor 2 機能は PromptManager で有効化済み
+    console.log('  📝 Dynamic prompts enabled through PromptManager');
+    console.log('  🐛 Prompt debugging available through system');
 
     console.log('\n🎯 Starting Factor 2 enhanced dialogue...\n');
 

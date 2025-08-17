@@ -59,6 +59,8 @@ export class NotionClient {
       return {
         task_id: response.id,
         title,
+        description,
+        task_type,
         created_at: new Date(response.created_time),
         notion_url: response.url,
       };
@@ -93,6 +95,8 @@ export class NotionClient {
       return {
         project_id: response.id,
         name,
+        description,
+        importance,
         created_at: new Date(response.created_time),
         notion_url: response.url,
       };
