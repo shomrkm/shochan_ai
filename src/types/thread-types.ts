@@ -28,7 +28,8 @@ export type EventType =
   | 'error_occurred'      // Error happened
   | 'thread_completed'    // Thread finished
   | 'thread_paused'       // Thread paused
-  | 'thread_resumed';     // Thread resumed
+  | 'thread_resumed'      // Thread resumed
+  | 'checkpoint_created'; // Checkpoint created for recovery
 
 export interface EventMetadata {
   executionTimeMs?: number;
@@ -63,7 +64,8 @@ export type EventData =
   | ErrorEventData
   | ThreadCompletedEventData
   | ThreadPausedEventData
-  | ThreadResumedEventData;
+  | ThreadResumedEventData
+  | CheckpointCreatedEventData;
 
 export interface AgentThread {
   threadId: string;
@@ -169,6 +171,12 @@ export interface ThreadResumedEventData {
   resumedAt: Date;
 }
 
+export interface CheckpointCreatedEventData {
+  checkpointId: string;
+  label?: string;
+  eventIndex: number;
+}
+
 // Type Guards for runtime type checking
 export function isThreadCreatedEvent(event: ThreadEvent): event is ThreadEvent & { data: ThreadCreatedEventData } {
   return event.type === 'thread_created';
@@ -224,4 +232,8 @@ export function isThreadPausedEvent(event: ThreadEvent): event is ThreadEvent & 
 
 export function isThreadResumedEvent(event: ThreadEvent): event is ThreadEvent & { data: ThreadResumedEventData } {
   return event.type === 'thread_resumed';
+}
+
+export function isCheckpointCreatedEvent(event: ThreadEvent): event is ThreadEvent & { data: CheckpointCreatedEventData } {
+  return event.type === 'checkpoint_created';
 }

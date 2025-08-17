@@ -20,6 +20,9 @@ import type {
   ThreadCompletedEventData,
   ThreadPausedEventData,
   ThreadResumedEventData,
+  CheckpointCreatedEventData,
+} from '../types/thread-types';
+import {
   isStageChangedEvent,
   isUserMessageEvent,
   isAgentResponseEvent,
@@ -29,6 +32,7 @@ import type {
 } from '../types/thread-types';
 import type { AgentTool } from '../types/tools';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
+import type { ThreadStorage } from './thread-storage';
 
 /**
  * AgentThread: Unified state management for Factor 5
@@ -38,8 +42,13 @@ import type { EnrichedToolResult } from '../tools/tool-execution-context';
  */
 export class AgentThreadManager {
   private thread: AgentThread;
+  private storage?: ThreadStorage;
+  private autoSave: boolean = false;
 
-  constructor(threadId?: string) {
+  constructor(threadId?: string, storage?: ThreadStorage, autoSave: boolean = false) {
+    this.storage = storage;
+    this.autoSave = autoSave;
+    
     this.thread = {
       threadId: threadId || uuidv4(),
       createdAt: new Date(),
@@ -53,6 +62,18 @@ export class AgentThreadManager {
       threadId: this.thread.threadId,
       createdAt: this.thread.createdAt,
     });
+  }
+
+  /**
+   * Add checkpoint event (used by recovery system)
+   */
+  addCheckpoint(checkpointId: string, label?: string, eventIndex?: number): ThreadEvent {
+    const eventData: CheckpointCreatedEventData = {
+      checkpointId,
+      label,
+      eventIndex: eventIndex ?? this.thread.events.length,
+    };
+    return this.addEvent('checkpoint_created', eventData);
   }
 
   /**
@@ -77,6 +98,13 @@ export class AgentThreadManager {
     // Update derived state
     this.updateDerivedState();
     
+    // Auto-save if enabled
+    if (this.autoSave && this.storage) {
+      this.storage.save(this.thread.threadId, this.thread).catch(error => {
+        console.error('Auto-save failed:', error);
+      });
+    }
+    
     return event;
   }
 
@@ -95,9 +123,9 @@ export class AgentThreadManager {
     // Compute collected info
     const infoEvents = events.filter(isInfoCollectedEvent);
     this.thread.collectedInfo = infoEvents.reduce((acc, event) => {
-      acc[event.data.category] = event.data.answer;
+      (acc as Record<string, string>)[event.data.category] = event.data.answer;
       return acc;
-    }, {});
+    }, {} as Record<string, string>);
 
     // Compute question count
     const questionEvents = events.filter(e => {
