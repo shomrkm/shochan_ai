@@ -59,9 +59,7 @@ export class TaskCreatorAgent {
 
       const result = await this.processMessage(currentMessage);
 
-      const shouldContinue = this.handleConversationResult(result);
-
-      if (!shouldContinue.continue) {
+      if (!this.shouldContinueConversation(result)) {
         if (
           this.hasCalledTool(result) &&
           (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))
@@ -71,8 +69,9 @@ export class TaskCreatorAgent {
         break;
       }
 
-      if (shouldContinue.nextMessage) {
-        currentMessage = shouldContinue.nextMessage;
+      const nextMessage = this.extractUserResponse(result);
+      if (nextMessage) {
+        currentMessage = nextMessage;
       }
     }
 
@@ -290,32 +289,28 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Handle the result of processing a message and determine next action
+   * Determine whether the conversation should continue
    */
-  private handleConversationResult(result: ProcessMessageResult): { continue: boolean; nextMessage?: string } {
+  private shouldContinueConversation(result: ProcessMessageResult): boolean {
     if (!this.hasCalledTool(result)) {
       console.log('💬 Agent provided a response without tools.');
-      return { continue: false };
+      return false;
     }
 
     if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
       console.log('✅ Task/Project created successfully!');
-      return { continue: false };
+      return false;
     }
 
-    if (isUserInputTool(result.toolCall)) {
-      return this.handleUserInputResult(result);
-    }
-
-    return { continue: true };
+    return true;
   }
 
   /**
-   * Handle user input tool result
+   * Extract user response from user_input tool result
    */
-  private handleUserInputResult(result: ProcessMessageResult): { continue: boolean; nextMessage?: string } {
-    if (!this.hasCalledTool(result)) {
-      return { continue: false };
+  private extractUserResponse(result: ProcessMessageResult): string | null {
+    if (!this.hasCalledTool(result) || !isUserInputTool(result.toolCall)) {
+      return null;
     }
 
     this.questionCount++;
@@ -323,12 +318,13 @@ export class TaskCreatorAgent {
     if (this.isResultSuccessful(result) && this.getResultData(result)?.user_response) {
       const answer = this.getResultData(result).user_response;
       console.log('📝 User provided input, continuing conversation...');
-      return { continue: true, nextMessage: answer };
+      return answer;
     } else {
       console.log('❌ Failed to get user input, ending conversation.');
-      return { continue: false };
+      return null;
     }
   }
+
 
   /**
    * Reset conversation state
