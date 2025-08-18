@@ -1,6 +1,5 @@
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
-import type { PromptContext } from '../types/prompt-types';
 import { isCreateProjectTool, isCreateTaskTool, isUserInputTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 
@@ -8,7 +7,6 @@ import type { AgentTool } from '../types/tools';
  * Manages conversation state, flow control, and stage transitions
  */
 export class ConversationManager {
-  private conversationStage: PromptContext['conversationStage'] = 'initial';
   private currentTraceId: string | null = null;
   private questionCount: number = 0;
 
@@ -16,18 +14,11 @@ export class ConversationManager {
    * Initialize a new conversation
    */
   initializeConversation(): void {
-    this.conversationStage = 'initial';
     this.questionCount = 0;
     this.currentTraceId = `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     console.log(`🔍 Starting trace: ${this.currentTraceId}`);
   }
 
-  /**
-   * Get current conversation stage
-   */
-  getConversationStage(): PromptContext['conversationStage'] {
-    return this.conversationStage;
-  }
 
   /**
    * Get current trace ID
@@ -96,7 +87,6 @@ export class ConversationManager {
    * Reset conversation state
    */
   clearState(): void {
-    this.conversationStage = 'initial';
     this.questionCount = 0;
     this.currentTraceId = null;
   }

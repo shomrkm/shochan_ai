@@ -169,9 +169,8 @@ export class DisplayManager {
   /**
    * Display tool call information
    */
-  displayToolCall(toolName: string, conversationStage: string): void {
+  displayToolCall(toolName: string): void {
     console.log(`🤖 Claude generated tool call: ${toolName}`);
-    console.log(`📋 Using prompt stage: ${conversationStage}`);
   }
 
   /**

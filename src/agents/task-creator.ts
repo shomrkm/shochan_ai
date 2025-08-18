@@ -169,7 +169,6 @@ export class TaskCreatorAgent {
   private buildPromptContext(userMessage: string): PromptContext {
     return {
       userMessage,
-      conversationStage: this.conversationManager.getConversationStage(),
       collectedInfo: this.collectedInfoManager.getCollectedInfo(),
       questionCount: this.conversationManager.getQuestionCount(),
     };
@@ -233,10 +232,7 @@ export class TaskCreatorAgent {
    * Display tool call information
    */
   private displayToolCallInfo(toolCall: any): void {
-    this.displayManager.displayToolCall(
-      toolCall.function.name,
-      this.conversationManager.getConversationStage()
-    );
+    this.displayManager.displayToolCall(toolCall.function.name);
 
     if (toolCall.function.name === 'ask_question') {
       this.displayManager.displayQuestionTimeout();
