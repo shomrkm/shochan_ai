@@ -20,7 +20,6 @@ export class TaskCreatorAgent {
   private toolExecutor: EnhancedToolExecutor;
   private contextManager: ContextManager;
   private currentTraceId: string | null = null;
-  private questionCount: number = 0;
   private collectedInfoManager: CollectedInfoManager;
   private displayManager: DisplayManager;
 
@@ -81,7 +80,6 @@ export class TaskCreatorAgent {
   private initializeConversation(): void {
     this.displayManager.displayInitialization();
     this.clearHistory();
-    this.questionCount = 0;
     this.currentTraceId = `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     console.log(`🔍 Starting trace: ${this.currentTraceId}`);
   }
@@ -164,7 +162,6 @@ export class TaskCreatorAgent {
     return {
       userMessage,
       collectedInfo: this.collectedInfoManager.getCollectedInfo(),
-      questionCount: this.questionCount,
     };
   }
 
@@ -310,7 +307,6 @@ export class TaskCreatorAgent {
       return null;
     }
 
-    this.questionCount++;
 
     if (this.isResultSuccessful(result) && this.getResultData(result)?.user_response) {
       const answer = this.getResultData(result).user_response;
@@ -327,7 +323,6 @@ export class TaskCreatorAgent {
    * Reset conversation state
    */
   private clearState(): void {
-    this.questionCount = 0;
     this.currentTraceId = null;
   }
 

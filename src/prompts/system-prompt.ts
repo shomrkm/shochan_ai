@@ -25,7 +25,6 @@ You are a Notion GTD system task creation assistant.
 
 ## Current Context
 - User message: "${context.userMessage}"
-- Questions asked so far: ${context.questionCount}
 - Information collected: ${JSON.stringify(context.collectedInfo, null, 2)}
 
 ## Your Goal
