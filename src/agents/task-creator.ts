@@ -108,13 +108,15 @@ export class TaskCreatorAgent {
       const optimizedHistory = await this.processUserMessageContext(userMessage);
       const promptContext = this.buildPromptContext(userMessage);
 
-      const toolCall = await this.generateToolCall(promptContext, userMessage, optimizedHistory);
+      // Step 1: Determine next step using LLM
+      const nextStep = await this.determineNextStep(promptContext, userMessage, optimizedHistory);
 
-      if (!toolCall) {
+      if (!nextStep) {
         return await this.handleNoToolCall(promptContext, userMessage, optimizedHistory);
       }
 
-      return await this.executeToolCall(toolCall);
+      // Step 2: Execute the determined tool
+      return await this.executeTool(nextStep);
     } catch (error) {
       return this.handleProcessingError(error);
     }
@@ -166,9 +168,9 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Generate tool call using Claude API
+   * Determine next step using LLM - converts natural language to structured tool call
    */
-  private async generateToolCall(
+  private async determineNextStep(
     promptContext: PromptContext,
     userMessage: string,
     optimizedHistory: any[]
@@ -205,18 +207,53 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Execute tool call and handle results
+   * Execute the determined tool - routing logic for tool execution
    */
-  private async executeToolCall(toolCall: any): Promise<ProcessMessageResult> {
+  private async executeTool(toolCall: any): Promise<ProcessMessageResult> {
     this.displayToolCallInfo(toolCall);
 
+    // Routing logic for different tool types
+    if (toolCall.function.name === 'create_task') {
+      const result = await this.executeCreateTask(toolCall);
+      return { toolCall, toolResult: result };
+    } else if (toolCall.function.name === 'create_project') {
+      const result = await this.executeCreateProject(toolCall);
+      return { toolCall, toolResult: result };
+    } else if (toolCall.function.name === 'user_input') {
+      const result = await this.executeUserInput(toolCall);
+      return { toolCall, toolResult: result };
+    } else {
+      // Handle unrecognized function calls
+      throw new Error(`Unknown tool function: ${toolCall.function.name}`);
+    }
+  }
+
+  /**
+   * Execute create_task tool
+   */
+  private async executeCreateTask(toolCall: any) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-
-    this.handleQuestionToolResult(toolCall, enrichedResult);
-
     this.addToolResultToContext(toolCall);
+    return enrichedResult;
+  }
 
-    return { toolCall, toolResult: enrichedResult };
+  /**
+   * Execute create_project tool
+   */
+  private async executeCreateProject(toolCall: any) {
+    const enrichedResult = await this.executeToolWithContext(toolCall);
+    this.addToolResultToContext(toolCall);
+    return enrichedResult;
+  }
+
+  /**
+   * Execute user_input tool
+   */
+  private async executeUserInput(toolCall: any) {
+    const enrichedResult = await this.executeToolWithContext(toolCall);
+    this.handleUserInputResult(toolCall, enrichedResult);
+    this.addToolResultToContext(toolCall);
+    return enrichedResult;
   }
 
   /**
@@ -225,7 +262,7 @@ export class TaskCreatorAgent {
   private displayToolCallInfo(toolCall: any): void {
     this.displayManager.displayToolCall(toolCall.function.name);
 
-    if (toolCall.function.name === 'ask_question') {
+    if (toolCall.function.name === 'user_input') {
       this.displayManager.displayQuestionTimeout();
     }
   }
@@ -244,13 +281,10 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Handle question tool specific result processing
+   * Handle user input tool result processing
    */
-  private handleQuestionToolResult(toolCall: any, enrichedResult: any): void {
-    if (
-      isUserInputTool(toolCall) &&
-      this.isResultSuccessful({ toolCall, toolResult: enrichedResult })
-    ) {
+  private handleUserInputResult(toolCall: any, enrichedResult: any): void {
+    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
       const answer = enrichedResult.data?.user_response;
       if (answer && typeof answer === 'string') {
         this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
