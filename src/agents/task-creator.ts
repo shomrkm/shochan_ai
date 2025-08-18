@@ -1,7 +1,6 @@
 import { ClaudeClient } from '../clients/claude';
 import { ContextManager } from '../context/context-manager';
 import { CollectedInfoManager } from '../conversation/collected-info-manager';
-import { ConversationManager } from '../conversation/conversation-manager';
 import { DisplayManager } from '../conversation/display-manager';
 import { buildSystemPrompt } from '../prompts/system-prompt';
 import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
@@ -20,7 +19,8 @@ export class TaskCreatorAgent {
   private claude: ClaudeClient;
   private toolExecutor: EnhancedToolExecutor;
   private contextManager: ContextManager;
-  private conversationManager: ConversationManager;
+  private currentTraceId: string | null = null;
+  private questionCount: number = 0;
   private collectedInfoManager: CollectedInfoManager;
   private displayManager: DisplayManager;
 
@@ -30,7 +30,6 @@ export class TaskCreatorAgent {
   constructor() {
     this.claude = new ClaudeClient();
     this.toolExecutor = new EnhancedToolExecutor();
-    this.conversationManager = new ConversationManager();
     this.collectedInfoManager = new CollectedInfoManager();
     this.displayManager = new DisplayManager();
 
@@ -60,10 +59,7 @@ export class TaskCreatorAgent {
 
       const result = await this.processMessage(currentMessage);
 
-      const shouldContinue = this.conversationManager.handleConversationResult(
-        result,
-        this.collectedInfoManager.getCollectedInfo()
-      );
+      const shouldContinue = this.handleConversationResult(result);
 
       if (!shouldContinue.continue) {
         if (
@@ -89,7 +85,9 @@ export class TaskCreatorAgent {
   private initializeConversation(): void {
     this.displayManager.displayInitialization();
     this.clearHistory();
-    this.conversationManager.initializeConversation();
+    this.questionCount = 0;
+    this.currentTraceId = `conversation_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    console.log(`🔍 Starting trace: ${this.currentTraceId}`);
   }
 
   /**
@@ -100,7 +98,7 @@ export class TaskCreatorAgent {
     this.displayManager.displayContextStats(this.contextManager);
     this.displayManager.displayExecutionStats(
       this.toolExecutor,
-      this.conversationManager.getCurrentTraceId()
+      this.currentTraceId
     );
   }
 
@@ -170,7 +168,7 @@ export class TaskCreatorAgent {
     return {
       userMessage,
       collectedInfo: this.collectedInfoManager.getCollectedInfo(),
-      questionCount: this.conversationManager.getQuestionCount(),
+      questionCount: this.questionCount,
     };
   }
 
@@ -244,7 +242,7 @@ export class TaskCreatorAgent {
    */
   private async executeToolWithContext(toolCall: any) {
     return await this.toolExecutor.executeWithContext(toolCall, {
-      traceId: this.conversationManager.getCurrentTraceId() || undefined,
+      traceId: this.currentTraceId || undefined,
       enableDebugMode: false,
       validateInput: true,
       validateOutput: true,
@@ -292,11 +290,61 @@ export class TaskCreatorAgent {
   }
 
   /**
+   * Handle the result of processing a message and determine next action
+   */
+  private handleConversationResult(result: ProcessMessageResult): { continue: boolean; nextMessage?: string } {
+    if (!this.hasCalledTool(result)) {
+      console.log('💬 Agent provided a response without tools.');
+      return { continue: false };
+    }
+
+    if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
+      console.log('✅ Task/Project created successfully!');
+      return { continue: false };
+    }
+
+    if (isUserInputTool(result.toolCall)) {
+      return this.handleUserInputResult(result);
+    }
+
+    return { continue: true };
+  }
+
+  /**
+   * Handle user input tool result
+   */
+  private handleUserInputResult(result: ProcessMessageResult): { continue: boolean; nextMessage?: string } {
+    if (!this.hasCalledTool(result)) {
+      return { continue: false };
+    }
+
+    this.questionCount++;
+
+    if (this.isResultSuccessful(result) && this.getResultData(result)?.user_response) {
+      const answer = this.getResultData(result).user_response;
+      console.log('📝 User provided input, continuing conversation...');
+      return { continue: true, nextMessage: answer };
+    } else {
+      console.log('❌ Failed to get user input, ending conversation.');
+      return { continue: false };
+    }
+  }
+
+  /**
+   * Reset conversation state
+   */
+  private clearState(): void {
+    this.questionCount = 0;
+    this.currentTraceId = null;
+  }
+
+
+  /**
    * Clear conversation history and reset agent state
    */
   private clearHistory(): void {
     this.collectedInfoManager.clearCollectedInfo();
-    this.conversationManager.clearState();
+    this.clearState();
 
     this.contextManager = new ContextManager({
       enableSummarization: true,
@@ -315,6 +363,14 @@ export class TaskCreatorAgent {
   private isResultSuccessful(result: ProcessMessageResult): boolean {
     if (!this.hasCalledTool(result)) return false;
     return result.toolResult.success;
+  }
+
+  /**
+   * Get result data safely
+   */
+  private getResultData(result: ProcessMessageResult): any {
+    if (!this.hasCalledTool(result)) return null;
+    return result.toolResult.data;
   }
 
   /**
