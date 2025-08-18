@@ -9,6 +9,7 @@ import type { ProcessMessageResult } from '../types/conversation-types';
 import type { PromptContext } from '../types/prompt-types';
 import { isCreateProjectTool, isCreateTaskTool, isUserInputTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
+import type Anthropic from '@anthropic-ai/sdk';
 
 /**
  * Main AI agent for creating tasks and projects through interactive conversation.
@@ -173,7 +174,7 @@ export class TaskCreatorAgent {
   private async determineNextStep(
     promptContext: PromptContext,
     userMessage: string,
-    optimizedHistory: any[]
+    optimizedHistory: Anthropic.MessageParam[]
   ) {
     const systemPrompt = buildSystemPrompt(promptContext);
 
@@ -186,7 +187,7 @@ export class TaskCreatorAgent {
   private async handleNoToolCall(
     promptContext: PromptContext,
     userMessage: string,
-    optimizedHistory: any[]
+    optimizedHistory: Anthropic.MessageParam[]
   ): Promise<ProcessMessageResult> {
     const systemPrompt = buildSystemPrompt(promptContext);
 
@@ -209,29 +210,29 @@ export class TaskCreatorAgent {
   /**
    * Execute the determined tool - routing logic for tool execution
    */
-  private async executeTool(toolCall: any): Promise<ProcessMessageResult> {
+  private async executeTool(toolCall: AgentTool): Promise<ProcessMessageResult> {
     this.displayToolCallInfo(toolCall);
 
     // Routing logic for different tool types
-    if (toolCall.function.name === 'create_task') {
+    if (isCreateTaskTool(toolCall)) {
       const result = await this.executeCreateTask(toolCall);
       return { toolCall, toolResult: result };
-    } else if (toolCall.function.name === 'create_project') {
+    } else if (isCreateProjectTool(toolCall)) {
       const result = await this.executeCreateProject(toolCall);
       return { toolCall, toolResult: result };
-    } else if (toolCall.function.name === 'user_input') {
+    } else if (isUserInputTool(toolCall)) {
       const result = await this.executeUserInput(toolCall);
       return { toolCall, toolResult: result };
     } else {
       // Handle unrecognized function calls
-      throw new Error(`Unknown tool function: ${toolCall.function.name}`);
+      throw new Error(`Unknown tool function: ${(toolCall as AgentTool).function.name}`);
     }
   }
 
   /**
    * Execute create_task tool
    */
-  private async executeCreateTask(toolCall: any) {
+  private async executeCreateTask(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
     this.addToolResultToContext(toolCall);
     return enrichedResult;
@@ -240,7 +241,7 @@ export class TaskCreatorAgent {
   /**
    * Execute create_project tool
    */
-  private async executeCreateProject(toolCall: any) {
+  private async executeCreateProject(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
     this.addToolResultToContext(toolCall);
     return enrichedResult;
@@ -249,7 +250,7 @@ export class TaskCreatorAgent {
   /**
    * Execute user_input tool
    */
-  private async executeUserInput(toolCall: any) {
+  private async executeUserInput(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
     this.handleUserInputResult(toolCall, enrichedResult);
     this.addToolResultToContext(toolCall);
@@ -259,7 +260,7 @@ export class TaskCreatorAgent {
   /**
    * Display tool call information
    */
-  private displayToolCallInfo(toolCall: any): void {
+  private displayToolCallInfo(toolCall: AgentTool): void {
     this.displayManager.displayToolCall(toolCall.function.name);
 
     if (toolCall.function.name === 'user_input') {
@@ -270,7 +271,7 @@ export class TaskCreatorAgent {
   /**
    * Execute tool with enhanced context
    */
-  private async executeToolWithContext(toolCall: any) {
+  private async executeToolWithContext(toolCall: AgentTool) {
     return await this.toolExecutor.executeWithContext(toolCall, {
       traceId: this.currentTraceId || undefined,
       enableDebugMode: false,
@@ -283,9 +284,12 @@ export class TaskCreatorAgent {
   /**
    * Handle user input tool result processing
    */
-  private handleUserInputResult(toolCall: any, enrichedResult: any): void {
+  private handleUserInputResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
     if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
-      const answer = enrichedResult.data?.user_response;
+      const data = enrichedResult.data;
+      const answer = data && typeof data === 'object' && 'user_response' in data 
+        ? (data as { user_response: unknown }).user_response 
+        : null;
       if (answer && typeof answer === 'string') {
         this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
         this.collectedInfoManager.displayCollectedInfo();
@@ -299,7 +303,7 @@ export class TaskCreatorAgent {
   /**
    * Add tool result to conversation context
    */
-  private addToolResultToContext(toolCall: any): void {
+  private addToolResultToContext(toolCall: AgentTool): void {
     this.contextManager.addMessage(
       { role: 'assistant', content: `Used tool: ${toolCall.function.name}` },
       { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: true }
@@ -342,8 +346,9 @@ export class TaskCreatorAgent {
     }
 
 
-    if (this.isResultSuccessful(result) && this.getResultData(result)?.user_response) {
-      const answer = this.getResultData(result).user_response;
+    const resultData = this.getResultData(result);
+    if (this.isResultSuccessful(result) && resultData && typeof resultData === 'object' && 'user_response' in resultData) {
+      const answer = (resultData as { user_response: string }).user_response;
       console.log('📝 User provided input, continuing conversation...');
       return answer;
     } else {
@@ -390,7 +395,7 @@ export class TaskCreatorAgent {
   /**
    * Get result data safely
    */
-  private getResultData(result: ProcessMessageResult): any {
+  private getResultData(result: ProcessMessageResult): unknown {
     if (!this.hasCalledTool(result)) return null;
     return result.toolResult.data;
   }
