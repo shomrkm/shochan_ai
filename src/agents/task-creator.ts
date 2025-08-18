@@ -60,10 +60,7 @@ export class TaskCreatorAgent {
       const result = await this.processMessage(currentMessage);
 
       if (!this.shouldContinueConversation(result)) {
-        if (
-          this.hasCalledTool(result) &&
-          (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))
-        ) {
+        if (this.hasCalledTool(result)) {
           this.displayManager.displayEnrichedResultSummary(result.toolResult);
         }
         break;
