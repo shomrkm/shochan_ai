@@ -62,6 +62,31 @@ This is a **personal learning project** designed to systematically study and imp
 
 ## 🚀 Getting Started
 
+### Interactive Mode (Recommended)
+
+Start an interactive session where you can continuously create tasks and projects:
+
+```bash
+npm run interactive
+```
+
+This mode allows you to:
+- 🔄 **Continuous conversation** - Create multiple tasks/projects in one session  
+- ✅ **Natural language input** - Just describe what you want to create
+- 🛑 **Graceful exit** - Press `Ctrl+C` anytime to exit
+- 💬 **Follow-up actions** - Keep creating after each successful task/project
+
+Example session:
+```
+🎯 Your request: Create a task to review quarterly reports
+✅ Task created successfully!
+💬 You can continue to create more tasks/projects or press Ctrl+C to exit.
+
+🎯 What would you like to do next? Create a project for mobile app redesign
+✅ Project created successfully!
+💬 You can continue to create more tasks/projects or press Ctrl+C to exit.
+```
+
 ### Prerequisites
 
 - Node.js 18+ and npm

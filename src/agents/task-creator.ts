@@ -10,6 +10,7 @@ import type { PromptContext } from '../types/prompt-types';
 import { isCreateProjectTool, isCreateTaskTool, isUserInputTool } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 import type Anthropic from '@anthropic-ai/sdk';
+import { InputHelper } from '../utils/input-helper';
 
 /**
  * Main AI agent for creating tasks and projects through interactive conversation.
@@ -69,6 +70,15 @@ export class TaskCreatorAgent {
       const nextMessage = this.extractUserResponse(result);
       if (nextMessage) {
         currentMessage = nextMessage;
+      } else if (this.hasCalledTool(result) && (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))) {
+        // Task/Project created successfully, ask for next input
+        const newMessage = await this.promptForNextAction();
+        if (newMessage) {
+          currentMessage = newMessage;
+        } else {
+          // User chose to exit (Ctrl+C)
+          break;
+        }
       }
     }
 
@@ -331,10 +341,29 @@ export class TaskCreatorAgent {
 
     if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
       console.log('✅ Task/Project created successfully!');
-      return false;
+      console.log('💬 You can continue to create more tasks/projects or press Ctrl+C to exit.');
+      return true; // Continue conversation instead of ending
     }
 
     return true;
+  }
+
+  /**
+   * Prompt user for next action after task/project creation
+   */
+  private async promptForNextAction(): Promise<string | null> {
+    const inputHelper = InputHelper.getInstance();
+    
+    console.log('\n' + '='.repeat(60));
+    console.log('🎯 What would you like to do next?');
+    console.log('='.repeat(60));
+    console.log('💡 You can:');
+    console.log('  - Create another task or project');
+    console.log('  - Ask me anything about task management');
+    console.log('  - Press Ctrl+C to exit');
+    console.log('='.repeat(60));
+    
+    return await inputHelper.getUserInput('\n💬 Your request: ');
   }
 
   /**

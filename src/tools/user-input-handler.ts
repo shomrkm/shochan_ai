@@ -1,13 +1,12 @@
-import { stdin as input, stdout as output } from 'node:process';
-import { createInterface, type Interface as ReadlineInterface } from 'node:readline/promises';
 import { isUserInputTool } from '../types/toolGuards';
 import type { AgentTool, UserInputToolResult } from '../types/tools';
+import { InputHelper } from '../utils/input-helper';
 
 export class UserInputHandler {
-  private rl: ReadlineInterface | null = null;
+  private inputHelper: InputHelper;
 
   constructor() {
-    // Create the readline interface only when needed.
+    this.inputHelper = InputHelper.getInstance();
   }
 
   async execute(tool: AgentTool): Promise<UserInputToolResult> {
@@ -25,8 +24,16 @@ export class UserInputHandler {
     console.log('='.repeat(60));
 
     try {
-      // Wait for the user's answer.
-      const userResponse = await this.getUserInput('\n💬 Your input: ');
+      let userResponse: string | null = null;
+      
+      // Keep asking until we get a valid response
+      while (!userResponse) {
+        userResponse = await this.inputHelper.getUserInput('\n💬 Your input: ');
+        
+        if (!userResponse) {
+          console.log('❌ Empty input. Please provide a response.');
+        }
+      }
 
       console.log(`✅ Thank you! You said: "${userResponse}"`);
       console.log('='.repeat(60) + '\n');
@@ -54,42 +61,6 @@ export class UserInputHandler {
         },
         timestamp: new Date(),
       };
-    } finally {
-      await this.cleanup();
-    }
-  }
-
-  private async getUserInput(prompt: string): Promise<string> {
-    this.rl = createInterface({ input, output });
-
-    // When Ctrl+C is pressed, the input is cancelled.
-    const onSigInt = () => {
-      console.log('\n\n👋 User cancelled the input.');
-      this.rl?.close();
-    };
-    this.rl.on('SIGINT', onSigInt);
-
-    try {
-      while (true) {
-        const answer = await this.rl.question(prompt);
-        const trimmedAnswer = answer.trim();
-        if (trimmedAnswer.length === 0) {
-          console.log('❌ Empty input. Please provide a response.');
-          continue;
-        }
-        return trimmedAnswer;
-      }
-    } finally {
-      this.rl.off('SIGINT', onSigInt);
-      this.rl.close();
-      this.rl = null;
-    }
-  }
-
-  private async cleanup(): Promise<void> {
-    if (this.rl) {
-      this.rl.close();
-      this.rl = null;
     }
   }
 }
