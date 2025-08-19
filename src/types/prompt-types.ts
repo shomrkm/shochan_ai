@@ -1,4 +1,6 @@
+import type Anthropic from '@anthropic-ai/sdk';
+
 export interface PromptContext {
   userMessage: string;
-  collectedInfo: Record<string, string>;
+  conversationHistory: Anthropic.MessageParam[];
 }

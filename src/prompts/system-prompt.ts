@@ -24,8 +24,8 @@ You are a Notion GTD system task creation assistant.
    - action_plan: Action plan (optional)
 
 ## Current Context
-- User message: "${context.userMessage}"
-- Information collected: ${JSON.stringify(context.collectedInfo, null, 2)}
+- Current user message: "${context.userMessage}"
+- Conversation history: ${context.conversationHistory.length} previous messages
 
 ## Your Goal
 Help the user create a task or project by gathering the essential information:

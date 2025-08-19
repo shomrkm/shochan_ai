@@ -46,7 +46,6 @@ This is a **personal learning project** designed to systematically study and imp
 
 - **`TaskCreatorAgent`**: Main orchestrator agent with clean separation of concerns
 - **`ConversationManager`**: Conversation state and flow control management
-- **`CollectedInfoManager`**: User information collection and organization
 - **`DisplayManager`**: Centralized display and logging functionality
 - **`ContextManager`**: Strategic context window optimization (Factor 3)
 - **`EnhancedToolExecutor`**: Structured tool execution with validation (Factor 4)
@@ -221,7 +220,7 @@ See [PLAN.md](./PLAN.md) for the comprehensive development plan covering all 12 
 ## 🌟 Key Features
 
 - **Clean Architecture**: Refactored with separation of concerns and single responsibility principle
-- **Modular Components**: ConversationManager, CollectedInfoManager, DisplayManager for specialized tasks
+- **Modular Components**: Simplified architecture with direct conversation history management
 - **Dynamic Conversation Management**: Adapts prompts based on conversation stage
 - **Type-Safe Architecture**: Full TypeScript implementation with strict typing
 - **Enhanced Maintainability**: Easy to extend, test, and modify individual components

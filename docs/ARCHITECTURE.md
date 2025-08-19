@@ -11,7 +11,6 @@ graph TB
     
     %% Conversation Management Components (NEW!)
     ConversationMgr[ConversationManager<br/>会話管理]
-    InfoMgr[CollectedInfoManager<br/>情報収集管理]
     DisplayMgr[DisplayManager<br/>表示管理]
     
     %% Factor 1: Core Components
@@ -90,7 +89,7 @@ graph TB
 
 ### **Conversation Management Layer** (NEW!)
 - **ConversationManager**: Conversation state and flow control
-- **CollectedInfoManager**: User information collection and organization  
+  
 - **DisplayManager**: Centralized display and logging functionality
 
 ### **Service Layer**
@@ -189,7 +188,6 @@ The TaskCreatorAgent has been refactored following clean architecture principles
 **After Refactoring:**
 - **TaskCreatorAgent** (270 lines): Pure orchestrator with 8 focused methods
 - **ConversationManager**: Handles conversation state and flow control
-- **CollectedInfoManager**: Manages user information collection
 - **DisplayManager**: Centralizes all display and logging functionality
 
 ### **Benefits Achieved:**
@@ -208,7 +206,7 @@ constructor() {
   this.promptManager = new PromptManager();
   this.contextManager = new ContextManager(); // Factor 3
   this.conversationManager = new ConversationManager(); // NEW!
-  this.collectedInfoManager = new CollectedInfoManager(); // NEW!
+  // Simplified: Uses conversation history directly
   this.displayManager = new DisplayManager(); // NEW!
 }
 ```

@@ -1,5 +1,4 @@
 import { ClaudeClient } from '../clients/claude';
-import { CollectedInfoManager } from '../conversation/collected-info-manager';
 import { DisplayManager } from '../conversation/display-manager';
 import { buildSystemPrompt } from '../prompts/system-prompt';
 import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
@@ -21,7 +20,6 @@ export class TaskCreatorAgent {
   private toolExecutor: EnhancedToolExecutor;
   private conversationHistory: Anthropic.MessageParam[] = [];
   private currentTraceId: string | null = null;
-  private collectedInfoManager: CollectedInfoManager;
   private displayManager: DisplayManager;
 
   /**
@@ -30,7 +28,6 @@ export class TaskCreatorAgent {
   constructor() {
     this.claude = new ClaudeClient();
     this.toolExecutor = new EnhancedToolExecutor();
-    this.collectedInfoManager = new CollectedInfoManager();
     this.displayManager = new DisplayManager();
   }
 
@@ -138,7 +135,7 @@ export class TaskCreatorAgent {
   private buildPromptContext(userMessage: string): PromptContext {
     return {
       userMessage,
-      collectedInfo: this.collectedInfoManager.getCollectedInfo(),
+      conversationHistory: this.conversationHistory,
     };
   }
 
@@ -262,8 +259,7 @@ export class TaskCreatorAgent {
         ? (data as { user_response: unknown }).user_response 
         : null;
       if (answer && typeof answer === 'string') {
-        this.collectedInfoManager.updateCollectedInfo(toolCall, answer);
-        this.collectedInfoManager.displayCollectedInfo();
+        console.log(`📝 User provided: ${answer}`);
         this.displayManager.displayQuestionProcessingInfo({ toolCall, toolResult: enrichedResult });
       } else {
         this.displayManager.displayQuestionErrorInfo({ toolCall, toolResult: enrichedResult });
@@ -361,7 +357,6 @@ export class TaskCreatorAgent {
    * Clear conversation history and reset agent state
    */
   private clearHistory(): void {
-    this.collectedInfoManager.clearCollectedInfo();
     this.clearState();
     this.conversationHistory = [];
     this.displayManager.displayHistoryCleared();
