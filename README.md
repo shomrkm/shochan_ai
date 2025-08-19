@@ -20,18 +20,14 @@ This is a **personal learning project** designed to systematically study and imp
 - Integration with Anthropic Claude API for intelligent processing
 
 ### Factor 2: Own Your Prompts
-- Dynamic prompt management system with conversation stage awareness
-- Structured prompt functions for different conversation phases:
-  - `initial`: Handling ambiguous user requests
-  - `gathering_info`: Efficient information collection
-  - `confirming`: Pre-creation confirmation
-  - `executing`: Actual task/project creation
+- Unified system prompt management with context-aware generation
+- Single comprehensive prompt that adapts based on conversation history
+- Simplified prompt architecture using conversation context directly
 
 ### Factor 3: Own Your Context Window
-- Efficient conversation history management with 30-60% token savings
-- Priority-based message retention and automatic summarization
-- Real-time context statistics and optimization
-- Strategic context window adjustment
+- Direct conversation history management using standard OpenAI/Anthropic format
+- Simple MessageParam[] array for conversation context
+- Efficient context passing to LLM for decision making
 
 ### Factor 4: Tools are Just Structured Outputs
 - Enhanced tool execution with comprehensive validation
@@ -44,20 +40,18 @@ This is a **personal learning project** designed to systematically study and imp
 
 ### Core Components
 
-- **`TaskCreatorAgent`**: Main orchestrator agent with clean separation of concerns
-- **`ConversationManager`**: Conversation state and flow control management
+- **`TaskCreatorAgent`**: Main orchestrator agent implementing 12-factor pattern with `determineNextStep()` and `executeTool()`
 - **`DisplayManager`**: Centralized display and logging functionality
-- **`ContextManager`**: Strategic context window optimization (Factor 3)
 - **`EnhancedToolExecutor`**: Structured tool execution with validation (Factor 4)
-- **`PromptManager`**: Dynamic prompt selection and management
 - **`ClaudeClient`**: Anthropic Claude API integration
 - **`NotionClient`**: Notion API integration for GTD system
+- **`InputHelper`**: Unified input handling to prevent character duplication
 
 ### Available Tools
 
-1. **`create_task`**: Creates tasks in Notion GTD system
-2. **`ask_question`**: Interactive user questioning for information gathering
-3. **`create_project`**: Creates projects with importance levels
+1. **`create_task`**: Creates tasks in Notion GTD system with title, description, task_type, etc.
+2. **`user_input`**: Unified tool for requesting user input when more information is needed
+3. **`create_project`**: Creates projects with name, description, and importance levels
 
 ## 🚀 Getting Started
 
@@ -174,35 +168,30 @@ npm run check:fix
 ```
 src/
 ├── agents/
-│   └── task-creator.ts           # Main orchestrator agent (refactored)
+│   └── task-creator.ts           # Main orchestrator agent with 12-factor pattern
 ├── clients/
 │   ├── claude.ts                 # Anthropic Claude API client
 │   └── notion.ts                 # Notion API client
-├── conversation/                 # Conversation management components
-│   ├── conversation-manager.ts   # Conversation state and flow control
-│   ├── collected-info-manager.ts # User information collection
-│   └── display-manager.ts        # Display and logging functionality
-├── context/                      # Factor 3: Context Management
-│   ├── context-manager.ts        # Strategic context optimization
-│   ├── message-prioritizer.ts    # Message priority assessment
-│   └── token-counter.ts          # Token calculation utilities
+├── conversation/
+│   └── display-manager.ts        # Centralized display and logging functionality
+├── prompts/
+│   └── system-prompt.ts          # Unified system prompt management
 ├── tools/                        # Factor 1 & 4: Tool System
 │   ├── index.ts                  # Legacy tool execution engine
-│   ├── enhanced-tool-executor.ts # Factor 4: Enhanced execution with validation
-│   ├── tool-execution-context.ts # Factor 4: Execution context management
-│   ├── tool-result-validator.ts  # Factor 4: Input/output validation
-│   └── question-handler.ts       # Interactive questioning
-├── prompts/                      # Factor 2: Prompt Management
-│   ├── prompt-functions.ts       # Dynamic prompt functions
-│   └── prompt-manager.ts         # Prompt orchestration
+│   ├── enhanced-tool-executor.ts # Enhanced execution with validation
+│   ├── tool-execution-context.ts # Execution context management
+│   ├── tool-result-validator.ts  # Input/output validation
+│   └── user-input-handler.ts     # User input handling
 ├── types/
 │   ├── conversation-types.ts     # Conversation-related types
-│   ├── context-types.ts          # Context management types
+│   ├── notion.ts                 # Notion API types
 │   ├── prompt-types.ts           # Prompt system types
 │   ├── tools.ts                  # Tool system types
 │   └── toolGuards.ts            # Runtime type validation
 ├── utils/
+│   ├── input-helper.ts           # Unified input handling
 │   └── notionUtils.ts           # Notion utility functions
+├── interactive.ts               # Interactive mode entry point
 └── test-*.ts                    # Various test scenarios
 ```
 

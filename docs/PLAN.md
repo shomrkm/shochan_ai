@@ -1,35 +1,53 @@
 # 🎯 AI Agent Development Plan
 
-A comprehensive development plan based on analyzing the entire project and the principles of 12-factor agents.
+A comprehensive development plan based on the simplified 12-factor agents architecture implementation.
 
 ## 📊 Current Implementation Status
 
-**✅ Completed (Factor 1-4)**
-- **Factor 1**: Natural language to tool call conversion system
-- **Factor 2**: Prompt management system (dynamic prompt functionality)  
-- **Factor 3**: Context window management (token optimization, message prioritization)
-- **Factor 4**: Tools are just structured outputs (enhanced tool execution, validation, tracing)
+**✅ Completed (Simplified Factor 1-4)**
+- **Factor 1**: Natural language to tool call conversion with 12-factor pattern (`determineNextStep()` → `executeTool()`)
+- **Factor 2**: Unified system prompt management using conversation history directly
+- **Factor 3**: Standard conversation history management with `Anthropic.MessageParam[]`
+- **Factor 4**: Enhanced tool execution with validation and structured outputs
 
-**📁 Key Components**
-- `TaskCreatorAgent`: Main agent with Factor 3-4 integration
-- `PromptManager`: Dynamic prompt selection and management
-- `ContextManager`: Strategic context window optimization (Factor 3)
+**📁 Key Components (Simplified)**
+- `TaskCreatorAgent`: Main orchestrator implementing 12-factor pattern
+- `SystemPrompt`: Unified prompt generation (`buildSystemPrompt()`)
 - `EnhancedToolExecutor`: Structured tool outputs with validation (Factor 4)
+- `DisplayManager`: Centralized display and logging
+- `InputHelper`: Unified input handling (singleton pattern)
 - `ClaudeClient`: Anthropic Claude API integration
-- `NotionClient`: Notion API integration and GTD system
+- `NotionClient`: Notion API integration for GTD system
 
 ## 🗺️ Future Development Plan
 
-### ✅ **Phase 1: Factor 3-4 Implementation (Core Feature Enhancement) - COMPLETED**
+### ✅ **Phase 1: Simplified 12-Factor Implementation - COMPLETED**
+
+**✅ Factor 1: Natural Language to Tool Calls**
+```typescript
+// ✅ IMPLEMENTED - 12-factor pattern implementation
+- ✅ Clear separation: determineNextStep() → executeTool()
+- ✅ Three unified tools: create_task, user_input, create_project
+- ✅ Type-safe tool routing with runtime validation
+- ✅ Continuous conversation support (no auto-exit after task creation)
+```
+
+**✅ Factor 2: Own Your Prompts**
+```typescript
+// ✅ IMPLEMENTED - Unified system prompt
+- ✅ Single buildSystemPrompt() function handles all scenarios
+- ✅ Context-aware prompt generation using conversation history
+- ✅ No complex phase-specific prompt management
+- ✅ Direct LLM decision making based on conversation context
+```
 
 **✅ Factor 3: Own Your Context Window**
 ```typescript
-// ✅ IMPLEMENTED - Context management system
-- ✅ Efficient conversation history management and token optimization (30-60% token savings)
-- ✅ Priority-based information retention strategies
-- ✅ Dynamic context window adjustment functionality
-- ✅ Automatic summarization with configurable thresholds
-- ✅ Real-time context statistics and monitoring
+// ✅ IMPLEMENTED - Standard conversation history
+- ✅ Direct Anthropic.MessageParam[] usage
+- ✅ Standard OpenAI/Anthropic conversation format
+- ✅ No complex token optimization overhead
+- ✅ LLM-driven context usage (let Claude handle optimization internally)
 ```
 
 **✅ Factor 4: Tools are Just Structured Outputs**
@@ -39,7 +57,7 @@ A comprehensive development plan based on analyzing the entire project and the p
 - ✅ Input/output validation with type guards
 - ✅ Comprehensive error handling with suggestions
 - ✅ Distributed tracing and execution context management
-- ✅ Tool-specific timeout configuration (ask_question: 10min, API calls: 30s)
+- ✅ Tool-specific timeout configuration (user_input: 10min, API calls: 30s)
 - ✅ Performance monitoring and retry mechanisms
 ```
 
@@ -113,26 +131,32 @@ A comprehensive development plan based on analyzing the entire project and the p
 - Enhanced testability
 ```
 
-## 🚀 Recommended Implementation Order
+## 🚀 Next Implementation Priorities
 
-### **Highest Priority (Next 2-3 weeks)**
-1. **Factor 3: Context Window Management**
-   - Efficient conversation history management
-   - Token usage optimization
+### **Current Status: Factors 1-4 Complete ✅**
+All core 12-factor principles (1-4) have been implemented with a simplified, production-ready architecture.
 
-2. **Code Quality Improvement**
-   - Enhanced test coverage
-   - Strengthened error handling
-   - Improved TypeScript type safety
+### **Immediate Priorities (Next 1-2 weeks)**
+1. **Code Quality Enhancement**
+   - Enhanced test coverage for simplified architecture
+   - Integration tests for 12-factor pattern flow
+   - Error handling improvements
+
+2. **User Experience Improvements**
+   - Better error messages and user guidance
+   - Enhanced interactive mode features
+   - Input validation improvements
 
 ### **Short-term Goals (1-2 months)**
-3. **Factor 4: Structured Tool Outputs**
-   - Standardization of tool execution results
-   - Structured error information
+3. **Factor 5: State Management**
+   - Execution state persistence for complex workflows
+   - Transaction management across multiple tool calls
+   - Recovery mechanisms for interrupted conversations
 
-4. **Factor 5: State Management**
-   - Execution state persistence
-   - Complex workflow support
+4. **Performance Optimization**
+   - Response time improvements
+   - Memory usage optimization
+   - API call efficiency
 
 ### **Medium-term Goals (2-4 months)**
 5. **Factor 6-7: Human Interaction**
@@ -148,14 +172,21 @@ A comprehensive development plan based on analyzing the entire project and the p
    - Full-scale trigger system
    - Migration to stateless design
 
-## 💡 Implementation Tips
+## 💡 Architecture Lessons Learned
 
-1. **Incremental Implementation**: Implement each Factor independently without affecting existing functionality
-2. **Test-Driven Development**: Always develop new features with accompanying tests
-3. **Documentation**: Update design documents when implementing each Factor
-4. **Practicality Focus**: Design as actually usable features, not just for learning purposes
+### **Successful Simplification Approach**
+1. **Less is More**: Removed ~500+ lines of complex abstraction code
+2. **Standard Formats**: Using `Anthropic.MessageParam[]` directly improved compatibility
+3. **LLM-Driven Decisions**: Let Claude handle context optimization rather than pre-processing
+4. **12-Factor Pattern**: Clear `determineNextStep()` → `executeTool()` separation improved maintainability
 
-This plan enables systematic learning of 12-factor agents principles while building a practical AI agent system.
+### **Future Development Guidelines**
+1. **Incremental Enhancement**: Build upon the stable simplified foundation
+2. **Test-Driven Development**: Maintain test coverage as new features are added
+3. **User-Centric Design**: Focus on practical usability over theoretical completeness
+4. **Standard Compliance**: Maintain compatibility with OpenAI/Anthropic best practices
+
+This simplified architecture provides a solid foundation for implementing advanced 12-factor agents principles while maintaining practical usability.
 
 ## 📚 参考リソース
 
