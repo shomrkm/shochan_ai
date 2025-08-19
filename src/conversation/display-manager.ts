@@ -1,4 +1,3 @@
-import type { ContextManager } from '../context/context-manager';
 import type { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
@@ -15,20 +14,6 @@ export class DisplayManager {
     console.log(`\n🔄 Conversation iteration ${current}/${max}`);
   }
 
-  /**
-   * Display context manager statistics
-   */
-  displayContextStats(contextManager: ContextManager): void {
-    const stats = contextManager.getContextStats();
-    console.log('\n📊 Context Window Statistics:');
-    console.log(
-      `📏 Tokens: ${stats.currentTokens}/${stats.maxTokens} (${stats.utilizationPercentage.toFixed(1)}% utilized)`
-    );
-    console.log(`💬 Messages: ${stats.messageCount}`);
-    console.log(`🔄 Has Summary: ${stats.hasSummary ? 'Yes' : 'No'}`);
-    console.log(`⚡ Available: ${stats.availableTokens} tokens`);
-    console.log('');
-  }
 
   /**
    * Display tool execution statistics
@@ -173,14 +158,6 @@ export class DisplayManager {
     console.log(`🤖 Claude generated tool call: ${toolName}`);
   }
 
-  /**
-   * Display context optimization information
-   */
-  displayContextOptimization(tokensSaved: number, savingsPercentage: number): void {
-    console.log(
-      `🔧 Context optimized: saved ${tokensSaved} tokens (${savingsPercentage.toFixed(1)}%)`
-    );
-  }
 
   /**
    * Display timeout warning for ask_question tool

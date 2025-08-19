@@ -1,5 +1,4 @@
 import { ClaudeClient } from '../clients/claude';
-import { ContextManager } from '../context/context-manager';
 import { CollectedInfoManager } from '../conversation/collected-info-manager';
 import { DisplayManager } from '../conversation/display-manager';
 import { buildSystemPrompt } from '../prompts/system-prompt';
@@ -20,7 +19,7 @@ import { InputHelper } from '../utils/input-helper';
 export class TaskCreatorAgent {
   private claude: ClaudeClient;
   private toolExecutor: EnhancedToolExecutor;
-  private contextManager: ContextManager;
+  private conversationHistory: Anthropic.MessageParam[] = [];
   private currentTraceId: string | null = null;
   private collectedInfoManager: CollectedInfoManager;
   private displayManager: DisplayManager;
@@ -33,14 +32,6 @@ export class TaskCreatorAgent {
     this.toolExecutor = new EnhancedToolExecutor();
     this.collectedInfoManager = new CollectedInfoManager();
     this.displayManager = new DisplayManager();
-
-    this.contextManager = new ContextManager({
-      enableSummarization: true,
-      summaryThreshold: 8,
-      priorityThreshold: 'medium',
-      maxHistoryMessages: 15,
-      tokenBudgetRatio: 0.7,
-    });
   }
 
   /**
@@ -100,7 +91,7 @@ export class TaskCreatorAgent {
    */
   private finalizeConversation(iterations: number, maxIterations: number): void {
     this.displayManager.displayConversationCompleted(iterations, maxIterations);
-    this.displayManager.displayContextStats(this.contextManager);
+    console.log(`💬 Conversation history: ${this.conversationHistory.length} messages`);
     this.displayManager.displayExecutionStats(
       this.toolExecutor,
       this.currentTraceId
@@ -134,38 +125,11 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Process user message context and optimize conversation history
+   * Add user message to conversation history
    */
   private async processUserMessageContext(userMessage: string) {
-    const userMessageContext = this.createUserMessageContext(userMessage);
-
-    const userOptimizationResult = this.contextManager.addMessage(
-      { role: 'user', content: userMessage },
-      userMessageContext
-    );
-
-    const optimizedHistory = this.contextManager.getOptimizedMessages();
-
-    if (userOptimizationResult.tokensSaved > 0) {
-      this.displayManager.displayContextOptimization(
-        userOptimizationResult.tokensSaved,
-        userOptimizationResult.savingsPercentage
-      );
-    }
-
-    return optimizedHistory;
-  }
-
-  /**
-   * Create user message context for optimization
-   */
-  private createUserMessageContext(userMessage: string) {
-    return {
-      isRecent: true,
-      containsDecision: /decide|choose|select|yes|no|confirm/i.test(userMessage),
-      hasUserPreference: /prefer|like|want|need/i.test(userMessage),
-      toolCallResult: false,
-    };
+    this.conversationHistory.push({ role: 'user', content: userMessage });
+    return this.conversationHistory;
   }
 
   /**
@@ -184,11 +148,11 @@ export class TaskCreatorAgent {
   private async determineNextStep(
     promptContext: PromptContext,
     userMessage: string,
-    optimizedHistory: Anthropic.MessageParam[]
+    conversationHistory: Anthropic.MessageParam[]
   ) {
     const systemPrompt = buildSystemPrompt(promptContext);
 
-    return await this.claude.generateToolCall(systemPrompt, userMessage, optimizedHistory);
+    return await this.claude.generateToolCall(systemPrompt, userMessage, conversationHistory);
   }
 
   /**
@@ -197,22 +161,19 @@ export class TaskCreatorAgent {
   private async handleNoToolCall(
     promptContext: PromptContext,
     userMessage: string,
-    optimizedHistory: Anthropic.MessageParam[]
+    conversationHistory: Anthropic.MessageParam[]
   ): Promise<ProcessMessageResult> {
     const systemPrompt = buildSystemPrompt(promptContext);
 
     const response = await this.claude.generateResponse(
       systemPrompt,
       userMessage,
-      optimizedHistory
+      conversationHistory
     );
 
     this.displayManager.displayAgentResponse(response);
 
-    this.contextManager.addMessage(
-      { role: 'assistant', content: response },
-      { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: false }
-    );
+    this.conversationHistory.push({ role: 'assistant', content: response });
 
     return { response };
   }
@@ -314,10 +275,11 @@ export class TaskCreatorAgent {
    * Add tool result to conversation context
    */
   private addToolResultToContext(toolCall: AgentTool): void {
-    this.contextManager.addMessage(
-      { role: 'assistant', content: `Used tool: ${toolCall.function.name}` },
-      { isRecent: true, containsDecision: false, hasUserPreference: false, toolCallResult: true }
-    );
+    // Add assistant message with tool call (simplified for our use case)
+    this.conversationHistory.push({
+      role: 'assistant',
+      content: `Used tool: ${toolCall.function.name} with parameters: ${JSON.stringify(toolCall.function.parameters)}`,
+    });
   }
 
   /**
@@ -401,15 +363,7 @@ export class TaskCreatorAgent {
   private clearHistory(): void {
     this.collectedInfoManager.clearCollectedInfo();
     this.clearState();
-
-    this.contextManager = new ContextManager({
-      enableSummarization: true,
-      summaryThreshold: 8,
-      priorityThreshold: 'medium',
-      maxHistoryMessages: 15,
-      tokenBudgetRatio: 0.7,
-    });
-
+    this.conversationHistory = [];
     this.displayManager.displayHistoryCleared();
   }
 
