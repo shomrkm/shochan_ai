@@ -48,13 +48,16 @@ export class ContextManager {
    * Add tool execution result to context history using Anthropic standard format
    */
   addToolExecution(toolCall: AgentTool, toolResult: ToolResult): void {
+    // Generate a single ID for both tool_use and tool_result
+    const toolId = `tool_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+
     // Add assistant message with tool call
     this.conversationHistory.push({
       role: 'assistant',
       content: [
         {
           type: 'tool_use',
-          id: `tool_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+          id: toolId,
           name: toolCall.function.name,
           input: toolCall.function.parameters,
         },
@@ -68,7 +71,7 @@ export class ContextManager {
       content: [
         {
           type: 'tool_result',
-          tool_use_id: `tool_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+          tool_use_id: toolId,
           content: toolResultContent,
         },
       ],

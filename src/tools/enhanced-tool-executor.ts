@@ -44,6 +44,7 @@ export class EnhancedToolExecutor {
       const inputValidation = this.performInputValidation(tool, options.validateInput ?? true);
       if (!inputValidation.isValid) {
         return this.createErrorResult<T>(
+          tool,
           startTime,
           'INPUT_VALIDATION_FAILED',
           `Input validation failed: ${inputValidation.errors.join(', ')}`,
@@ -65,6 +66,7 @@ export class EnhancedToolExecutor {
 
       // Create and return enriched result
       return this.createSuccessResult<T>(
+        tool,
         startTime,
         executionResult.success,
         executionResult.data as T,
@@ -74,7 +76,7 @@ export class EnhancedToolExecutor {
       );
 
     } catch (error) {
-      return this.handleExecutionError<T>(startTime, error);
+      return this.handleExecutionError<T>(tool, startTime, error);
     }
   }
 
@@ -216,6 +218,7 @@ export class EnhancedToolExecutor {
    * Create success result
    */
   private createSuccessResult<T>(
+    tool: AgentTool,
     startTime: Date,
     success: boolean,
     data?: T,
@@ -235,8 +238,8 @@ export class EnhancedToolExecutor {
       status: success ? 'success' : 'partial_success',
       message: message || (success ? 'Tool executed successfully' : 'Tool execution completed with issues'),
       metadata: {
-        toolName: 'unknown',
-        inputParameters: {},
+        toolName: tool.function.name,
+        inputParameters: tool.function.parameters,
         retryCount: 0,
       },
     };
@@ -255,6 +258,7 @@ export class EnhancedToolExecutor {
    * Create error result
    */
   private createErrorResult<T>(
+    tool: AgentTool,
     startTime: Date,
     errorCode: string,
     errorMessage: string,
@@ -272,8 +276,8 @@ export class EnhancedToolExecutor {
       status: this.mapErrorCodeToStatus(errorCode),
       message: `Tool execution failed: ${errorMessage}`,
       metadata: {
-        toolName: 'unknown',
-        inputParameters: {},
+        toolName: tool.function.name,
+        inputParameters: tool.function.parameters,
         retryCount: 0,
       },
       error: {
@@ -295,9 +299,10 @@ export class EnhancedToolExecutor {
   /**
    * Handle execution errors
    */
-  private handleExecutionError<T>(startTime: Date, error: unknown): EnrichedToolResult<T> {
+  private handleExecutionError<T>(tool: AgentTool, startTime: Date, error: unknown): EnrichedToolResult<T> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown execution error';
     return this.createErrorResult<T>(
+      tool,
       startTime,
       'EXECUTION_ERROR',
       errorMessage,

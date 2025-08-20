@@ -68,6 +68,13 @@ export class TaskCreatorAgent {
           break;
         }
         currentMessage = newMessage;
+      } else if (!this.hasCalledTool(result)) {
+        // Handle direct responses - prompt for next input
+        const newMessage = await this.promptForNextAction();
+        if(!newMessage) {
+          break;
+        }
+        currentMessage = newMessage;
       }
     }
 
@@ -281,7 +288,7 @@ export class TaskCreatorAgent {
   private shouldContinueConversation(result: ProcessMessageResult): boolean {
     if (!this.hasCalledTool(result)) {
       console.log('💬 Agent provided a response without tools.');
-      return false;
+      return true; // Continue conversation even for direct responses
     }
 
     if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
