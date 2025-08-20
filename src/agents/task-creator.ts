@@ -1,13 +1,13 @@
 import { ClaudeClient } from '../clients/claude';
+import { ContextManager } from '../conversation/context-manager';
 import { DisplayManager } from '../conversation/display-manager';
 import { buildSystemPrompt } from '../prompts/system-prompt';
 import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
+import { isCreateProjectTool, isCreateTaskTool, isUserInputTool, isUserInputResultData } from '../types/toolGuards';
 import type { PromptContext } from '../types/prompt-types';
-import { isCreateProjectTool, isCreateTaskTool, isUserInputTool, isUserInputResultData, isNotionTaskResultData, isNotionProjectResultData } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
-import type Anthropic from '@anthropic-ai/sdk';
 import { InputHelper } from '../utils/input-helper';
 
 /**
@@ -18,7 +18,7 @@ import { InputHelper } from '../utils/input-helper';
 export class TaskCreatorAgent {
   private claude: ClaudeClient;
   private toolExecutor: EnhancedToolExecutor;
-  private conversationHistory: Anthropic.MessageParam[] = [];
+  private contextManager: ContextManager;
   private currentTraceId: string | null = null;
   private displayManager: DisplayManager;
 
@@ -28,6 +28,7 @@ export class TaskCreatorAgent {
   constructor() {
     this.claude = new ClaudeClient();
     this.toolExecutor = new EnhancedToolExecutor();
+    this.contextManager = new ContextManager();
     this.displayManager = new DisplayManager();
   }
 
@@ -88,7 +89,8 @@ export class TaskCreatorAgent {
    */
   private finalizeConversation(iterations: number, maxIterations: number): void {
     this.displayManager.displayConversationCompleted(iterations, maxIterations);
-    console.log(`💬 Conversation history: ${this.conversationHistory.length} messages`);
+    const messageCount = this.contextManager.getConversationHistory().length;
+    console.log(`💬 Conversation: ${messageCount} messages`);
     this.displayManager.displayExecutionStats(
       this.toolExecutor,
       this.currentTraceId
@@ -104,14 +106,14 @@ export class TaskCreatorAgent {
     this.displayManager.displayUserMessage(userMessage);
 
     try {
-      const optimizedHistory = await this.processUserMessageContext(userMessage);
-      const promptContext = this.buildPromptContext(userMessage);
+      this.contextManager.addUserMessage(userMessage);
+      const promptContext = this.contextManager.buildPromptContext(userMessage);
 
       // Step 1: Determine next step using LLM
-      const nextStep = await this.determineNextStep(promptContext, userMessage, optimizedHistory);
+      const nextStep = await this.determineNextStep(promptContext, userMessage);
 
       if (!nextStep) {
-        return await this.handleNoToolCall(promptContext, userMessage, optimizedHistory);
+        return await this.handleNoToolCall(promptContext, userMessage);
       }
 
       // Step 2: Execute the determined tool
@@ -121,35 +123,18 @@ export class TaskCreatorAgent {
     }
   }
 
-  /**
-   * Add user message to conversation history
-   */
-  private async processUserMessageContext(userMessage: string) {
-    this.conversationHistory.push({ role: 'user', content: userMessage });
-    return this.conversationHistory;
-  }
 
-  /**
-   * Build prompt context from current conversation state
-   */
-  private buildPromptContext(userMessage: string): PromptContext {
-    return {
-      userMessage,
-      conversationHistory: this.conversationHistory,
-    };
-  }
 
   /**
    * Determine next step using LLM - converts natural language to structured tool call
    */
   private async determineNextStep(
     promptContext: PromptContext,
-    userMessage: string,
-    conversationHistory: Anthropic.MessageParam[]
+    userMessage: string
   ) {
     const systemPrompt = buildSystemPrompt(promptContext);
 
-    return await this.claude.generateToolCall(systemPrompt, userMessage, conversationHistory);
+    return await this.claude.generateToolCall(systemPrompt, userMessage, promptContext.conversationHistory as any);
   }
 
   /**
@@ -157,20 +142,19 @@ export class TaskCreatorAgent {
    */
   private async handleNoToolCall(
     promptContext: PromptContext,
-    userMessage: string,
-    conversationHistory: Anthropic.MessageParam[]
+    userMessage: string
   ): Promise<ProcessMessageResult> {
     const systemPrompt = buildSystemPrompt(promptContext);
 
     const response = await this.claude.generateResponse(
       systemPrompt,
       userMessage,
-      conversationHistory
+      promptContext.conversationHistory as any
     );
 
     this.displayManager.displayAgentResponse(response);
 
-    this.conversationHistory.push({ role: 'assistant', content: response });
+    this.contextManager.addAssistantResponse(response);
 
     return { response };
   }
@@ -202,7 +186,7 @@ export class TaskCreatorAgent {
    */
   private async executeCreateTask(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.addToolResultToContext(toolCall, enrichedResult);
+    this.contextManager.addToolExecution(toolCall, enrichedResult);
     return enrichedResult;
   }
 
@@ -211,7 +195,7 @@ export class TaskCreatorAgent {
    */
   private async executeCreateProject(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.addToolResultToContext(toolCall, enrichedResult);
+    this.contextManager.addToolExecution(toolCall, enrichedResult);
     return enrichedResult;
   }
 
@@ -221,7 +205,7 @@ export class TaskCreatorAgent {
   private async executeUserInput(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
     this.handleUserInputResult(toolCall, enrichedResult);
-    this.addToolResultToContext(toolCall, enrichedResult);
+    this.contextManager.addToolExecution(toolCall, enrichedResult);
     return enrichedResult;
   }
 
@@ -264,82 +248,6 @@ export class TaskCreatorAgent {
     }
   }
 
-  /**
-   * Add tool result to conversation context with enriched execution data
-   */
-  private addToolResultToContext(toolCall: AgentTool, toolResult: EnrichedToolResult): void {
-    // Add assistant message with tool call following Anthropic standard format
-    this.conversationHistory.push({
-      role: 'assistant',
-      content: [
-        {
-          type: 'tool_use',
-          id: toolResult.context.executionId,
-          name: toolCall.function.name,
-          input: toolCall.function.parameters,
-        },
-      ],
-    });
-
-    // Add tool result message with execution context
-    const toolResultContent = this.buildToolResultContent(toolCall, toolResult);
-    this.conversationHistory.push({
-      role: 'user',
-      content: [
-        {
-          type: 'tool_result',
-          tool_use_id: toolResult.context.executionId,
-          content: toolResultContent,
-        },
-      ],
-    });
-  }
-
-  /**
-   * Build structured tool result content for context
-   */
-  private buildToolResultContent(toolCall: AgentTool, toolResult: EnrichedToolResult): string {
-    const resultSummary: Record<string, any> = {
-      success: toolResult.success,
-      status: toolResult.status,
-      executionTime: `${toolResult.executionTimeMs}ms`,
-      timestamp: toolResult.endTime.toISOString(),
-    };
-
-    // Add tool-specific result data
-    if (toolResult.success && toolResult.data) {
-      switch (toolCall.function.name) {
-        case 'create_task':
-          if (isNotionTaskResultData(toolResult.data)) {
-            resultSummary.taskId = toolResult.data.id;
-            resultSummary.taskTitle = toolResult.data.properties?.Title?.title?.[0]?.plain_text || 'Unknown';
-          }
-          break;
-        case 'create_project':
-          if (isNotionProjectResultData(toolResult.data)) {
-            resultSummary.projectId = toolResult.data.id;
-            resultSummary.projectName = toolResult.data.properties?.Name?.title?.[0]?.plain_text || 'Unknown';
-          }
-          break;
-        case 'user_input':
-          if (isUserInputResultData(toolResult.data)) {
-            resultSummary.userResponse = toolResult.data.user_response;
-          }
-          break;
-      }
-    }
-
-    // Add error information if present
-    if (!toolResult.success && toolResult.error) {
-      resultSummary.error = {
-        code: toolResult.error.code,
-        message: toolResult.error.message,
-        recoverable: toolResult.error.recoverable,
-      };
-    }
-
-    return JSON.stringify(resultSummary, null, 2);
-  }
 
 
   /**
@@ -422,7 +330,7 @@ export class TaskCreatorAgent {
    */
   private clearHistory(): void {
     this.clearState();
-    this.conversationHistory = [];
+    this.contextManager.clear();
     this.displayManager.displayHistoryCleared();
   }
 
