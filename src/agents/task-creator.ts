@@ -58,15 +58,15 @@ export class TaskCreatorAgent {
       const nextMessage = this.extractUserResponse(result);
       if (nextMessage) {
         currentMessage = nextMessage;
-      } else if (this.hasCalledTool(result) && (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))) {
-        // Task/Project created successfully, ask for next input
+        continue;
+      }
+
+      if (this.hasCalledTool(result) && (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))) {
         const newMessage = await this.promptForNextAction();
-        if (newMessage) {
-          currentMessage = newMessage;
-        } else {
-          // User chose to exit (Ctrl+C)
+        if(!newMessage) {
           break;
         }
+        currentMessage = newMessage;
       }
     }
 
