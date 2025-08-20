@@ -26,16 +26,31 @@ export function isEnrichedUserInputToolResult(result: EnrichedToolResult): boole
   return 'message' in result.data;
 }
 
+// Type guard for user input tool result data (for context building)
+export function isUserInputResultData(data: unknown): data is { user_response: string } {
+  return typeof data === 'object' && data !== null && 'user_response' in data;
+}
+
 export function isEnrichedTaskToolResult(result: EnrichedToolResult): boolean {
   if (!result.data) return false;
 
   return 'task_id' in result.data && 'title' in result.data;
 }
 
+// Type guard for Notion task result data (for context building)
+export function isNotionTaskResultData(data: unknown): data is { id: string; properties?: any } {
+  return typeof data === 'object' && data !== null && 'id' in data;
+}
+
 export function isEnrichedProjectToolResult(result: EnrichedToolResult): boolean {
   if (!result.data) return false;
 
   return 'project_id' in result.data && 'name' in result.data;
+}
+
+// Type guard for Notion project result data (for context building)
+export function isNotionProjectResultData(data: unknown): data is { id: string; properties?: any } {
+  return typeof data === 'object' && data !== null && 'id' in data;
 }
 
 // Helper function to check if result has enriched structure

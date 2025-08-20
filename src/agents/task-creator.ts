@@ -5,7 +5,7 @@ import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
 import type { PromptContext } from '../types/prompt-types';
-import { isCreateProjectTool, isCreateTaskTool, isUserInputTool } from '../types/toolGuards';
+import { isCreateProjectTool, isCreateTaskTool, isUserInputTool, isUserInputResultData, isNotionTaskResultData, isNotionProjectResultData } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
 import type Anthropic from '@anthropic-ai/sdk';
 import { InputHelper } from '../utils/input-helper';
@@ -202,7 +202,7 @@ export class TaskCreatorAgent {
    */
   private async executeCreateTask(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.addToolResultToContext(toolCall);
+    this.addToolResultToContext(toolCall, enrichedResult);
     return enrichedResult;
   }
 
@@ -211,7 +211,7 @@ export class TaskCreatorAgent {
    */
   private async executeCreateProject(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.addToolResultToContext(toolCall);
+    this.addToolResultToContext(toolCall, enrichedResult);
     return enrichedResult;
   }
 
@@ -221,7 +221,7 @@ export class TaskCreatorAgent {
   private async executeUserInput(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
     this.handleUserInputResult(toolCall, enrichedResult);
-    this.addToolResultToContext(toolCall);
+    this.addToolResultToContext(toolCall, enrichedResult);
     return enrichedResult;
   }
 
@@ -255,11 +255,8 @@ export class TaskCreatorAgent {
   private handleUserInputResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
     if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
       const data = enrichedResult.data;
-      const answer = data && typeof data === 'object' && 'user_response' in data 
-        ? (data as { user_response: unknown }).user_response 
-        : null;
-      if (answer && typeof answer === 'string') {
-        console.log(`📝 User provided: ${answer}`);
+      if (isUserInputResultData(data)) {
+        console.log(`📝 User provided: ${data.user_response}`);
         this.displayManager.displayQuestionProcessingInfo({ toolCall, toolResult: enrichedResult });
       } else {
         this.displayManager.displayQuestionErrorInfo({ toolCall, toolResult: enrichedResult });
@@ -268,15 +265,82 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Add tool result to conversation context
+   * Add tool result to conversation context with enriched execution data
    */
-  private addToolResultToContext(toolCall: AgentTool): void {
-    // Add assistant message with tool call (simplified for our use case)
+  private addToolResultToContext(toolCall: AgentTool, toolResult: EnrichedToolResult): void {
+    // Add assistant message with tool call following Anthropic standard format
     this.conversationHistory.push({
       role: 'assistant',
-      content: `Used tool: ${toolCall.function.name} with parameters: ${JSON.stringify(toolCall.function.parameters)}`,
+      content: [
+        {
+          type: 'tool_use',
+          id: toolResult.context.executionId,
+          name: toolCall.function.name,
+          input: toolCall.function.parameters,
+        },
+      ],
+    });
+
+    // Add tool result message with execution context
+    const toolResultContent = this.buildToolResultContent(toolCall, toolResult);
+    this.conversationHistory.push({
+      role: 'user',
+      content: [
+        {
+          type: 'tool_result',
+          tool_use_id: toolResult.context.executionId,
+          content: toolResultContent,
+        },
+      ],
     });
   }
+
+  /**
+   * Build structured tool result content for context
+   */
+  private buildToolResultContent(toolCall: AgentTool, toolResult: EnrichedToolResult): string {
+    const resultSummary: Record<string, any> = {
+      success: toolResult.success,
+      status: toolResult.status,
+      executionTime: `${toolResult.executionTimeMs}ms`,
+      timestamp: toolResult.endTime.toISOString(),
+    };
+
+    // Add tool-specific result data
+    if (toolResult.success && toolResult.data) {
+      switch (toolCall.function.name) {
+        case 'create_task':
+          if (isNotionTaskResultData(toolResult.data)) {
+            resultSummary.taskId = toolResult.data.id;
+            resultSummary.taskTitle = toolResult.data.properties?.Title?.title?.[0]?.plain_text || 'Unknown';
+          }
+          break;
+        case 'create_project':
+          if (isNotionProjectResultData(toolResult.data)) {
+            resultSummary.projectId = toolResult.data.id;
+            resultSummary.projectName = toolResult.data.properties?.Name?.title?.[0]?.plain_text || 'Unknown';
+          }
+          break;
+        case 'user_input':
+          if (isUserInputResultData(toolResult.data)) {
+            resultSummary.userResponse = toolResult.data.user_response;
+          }
+          break;
+      }
+    }
+
+    // Add error information if present
+    if (!toolResult.success && toolResult.error) {
+      resultSummary.error = {
+        code: toolResult.error.code,
+        message: toolResult.error.message,
+        recoverable: toolResult.error.recoverable,
+      };
+    }
+
+    return JSON.stringify(resultSummary, null, 2);
+  }
+
 
   /**
    * Handle processing errors
@@ -334,8 +398,8 @@ export class TaskCreatorAgent {
 
 
     const resultData = this.getResultData(result);
-    if (this.isResultSuccessful(result) && resultData && typeof resultData === 'object' && 'user_response' in resultData) {
-      const answer = (resultData as { user_response: string }).user_response;
+    if (this.isResultSuccessful(result) && isUserInputResultData(resultData)) {
+      const answer = resultData.user_response;
       console.log('📝 User provided input, continuing conversation...');
       return answer;
     } else {
