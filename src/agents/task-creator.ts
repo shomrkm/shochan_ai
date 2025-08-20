@@ -7,7 +7,7 @@ import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
 import { isCreateProjectTool, isCreateTaskTool, isUserInputTool, isUserInputResultData } from '../types/toolGuards';
 import type { PromptContext } from '../types/prompt-types';
-import type { AgentTool } from '../types/tools';
+import type { AgentTool, ToolResult } from '../types/tools';
 import { InputHelper } from '../utils/input-helper';
 
 /**
@@ -186,7 +186,7 @@ export class TaskCreatorAgent {
    */
   private async executeCreateTask(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.contextManager.addToolExecution(toolCall, enrichedResult);
+    this.contextManager.addToolExecution(toolCall, this.convertToToolResult(enrichedResult));
     return enrichedResult;
   }
 
@@ -195,7 +195,7 @@ export class TaskCreatorAgent {
    */
   private async executeCreateProject(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.contextManager.addToolExecution(toolCall, enrichedResult);
+    this.contextManager.addToolExecution(toolCall, this.convertToToolResult(enrichedResult));
     return enrichedResult;
   }
 
@@ -205,7 +205,7 @@ export class TaskCreatorAgent {
   private async executeUserInput(toolCall: AgentTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
     this.handleUserInputResult(toolCall, enrichedResult);
-    this.contextManager.addToolExecution(toolCall, enrichedResult);
+    this.contextManager.addToolExecution(toolCall, this.convertToToolResult(enrichedResult));
     return enrichedResult;
   }
 
@@ -249,6 +249,21 @@ export class TaskCreatorAgent {
   }
 
 
+
+  /**
+   * Convert EnrichedToolResult to ToolResult for context management
+   */
+  private convertToToolResult(enrichedResult: EnrichedToolResult): ToolResult {
+    return {
+      success: enrichedResult.success,
+      message: enrichedResult.message || (enrichedResult.success ? 'Success' : 'Failed'),
+      data: enrichedResult.data,
+      timestamp: enrichedResult.endTime,
+      executionTime: enrichedResult.executionTimeMs,
+      status: enrichedResult.status,
+      error: enrichedResult.error,
+    };
+  }
 
   /**
    * Handle processing errors

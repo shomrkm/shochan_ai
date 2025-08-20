@@ -1,38 +1,30 @@
 /**
  * Factor 4: Tools are Just Structured Outputs
- * Enhanced tool executor with validation, context, and structured outputs
+ * Simplified tool executor with basic validation and structured outputs
  */
 
 import type { AgentTool } from '../types/tools';
 import { ToolExecutor } from './index'; // Legacy tool executor
-import {
-  type EnrichedToolResult,
-  type ToolExecutionContext,
-  ToolExecutionContextBuilder,
-  ToolExecutionContextManager,
-} from './tool-execution-context';
+import type { EnrichedToolResult } from './tool-execution-context';
 import { ToolResultValidator } from './tool-result-validator';
 
 /**
- * Enhanced tool executor implementing Factor 4 principles
+ * Simplified tool executor implementing Factor 4 principles
  */
 export class EnhancedToolExecutor {
   private legacyExecutor: ToolExecutor;
-  private contextManager: ToolExecutionContextManager;
 
   constructor() {
     this.legacyExecutor = new ToolExecutor();
-    this.contextManager = new ToolExecutionContextManager();
   }
 
   /**
-   * Execute tool with Factor 4 enhancements
+   * Execute tool with basic enhancements
    */
   async executeWithContext<T = Record<string, unknown>>(
     tool: AgentTool,
     options: {
       traceId?: string;
-      parentExecutionId?: string;
       timeout?: number;
       maxRetries?: number;
       retryDelayMs?: number;
@@ -41,272 +33,59 @@ export class EnhancedToolExecutor {
       validateOutput?: boolean;
     } = {}
   ): Promise<EnrichedToolResult<T>> {
-    const context = this.buildExecutionContext(tool, options);
-    this.contextManager.registerContext(context);
+    const startTime = new Date();
 
-    this.logDebugStart(context);
+    if (options.enableDebugMode) {
+      console.log(`🔍 [DEBUG] Executing tool: ${tool.function.name}`);
+    }
 
     try {
       // Input validation phase
-      const inputValidation = await this.performInputValidation<T>(tool, context);
-      if (inputValidation) {
-        return inputValidation;
+      const inputValidation = this.performInputValidation(tool, options.validateInput ?? true);
+      if (!inputValidation.isValid) {
+        return this.createErrorResult<T>(
+          startTime,
+          'INPUT_VALIDATION_FAILED',
+          `Input validation failed: ${inputValidation.errors.join(', ')}`,
+          { validationErrors: inputValidation.errors },
+          inputValidation
+        );
       }
 
-      // Execution phase
-      const executionResult = await this.executeWithRetry(tool, context);
+      // Execution phase with retry logic
+      const executionResult = await this.executeWithRetry(
+        tool, 
+        options.maxRetries ?? 2, 
+        options.retryDelayMs ?? 1000,
+        options.timeout
+      );
 
       // Output validation phase
-      const outputValidation = this.performOutputValidation(tool, context, executionResult);
+      const outputValidation = this.performOutputValidation(tool, executionResult, options.validateOutput ?? true);
 
       // Create and return enriched result
-      return this.buildEnrichedResult<T>(
-        context,
-        executionResult,
+      return this.createSuccessResult<T>(
+        startTime,
+        executionResult.success,
+        executionResult.data as T,
+        executionResult.message,
         inputValidation,
         outputValidation
       );
+
     } catch (error) {
-      return this.handleExecutionError<T>(context, error);
-    } finally {
-      this.contextManager.completeContext(context.executionId);
+      return this.handleExecutionError<T>(startTime, error);
     }
   }
 
   /**
-   * Build execution context from tool and options
+   * Perform input validation
    */
-  private buildExecutionContext(
-    tool: AgentTool,
-    options: {
-      traceId?: string;
-      parentExecutionId?: string;
-      timeout?: number;
-      maxRetries?: number;
-      retryDelayMs?: number;
-      enableDebugMode?: boolean;
-      validateInput?: boolean;
-      validateOutput?: boolean;
-    }
-  ): ToolExecutionContext {
-    let contextBuilder = ToolExecutionContextBuilder.create(tool.function.name).withInputParameters(
-      tool.function.parameters
-    );
-
-    // Apply all options
-    if (options.traceId) {
-      contextBuilder = contextBuilder.withTraceId(options.traceId);
-    }
-    if (options.parentExecutionId) {
-      contextBuilder = contextBuilder.withParentExecutionId(options.parentExecutionId);
-    }
-    if (options.timeout) {
-      contextBuilder = contextBuilder.withTimeout(options.timeout);
-    } else {
-      // Apply default timeout based on tool type
-      contextBuilder = contextBuilder.withTimeout(this.getDefaultToolTimeout(tool.function.name));
-    }
-    if (options.maxRetries !== undefined) {
-      contextBuilder = contextBuilder.withRetrySettings(
-        options.maxRetries,
-        options.retryDelayMs || 1000
-      );
-    }
-    if (options.validateInput !== undefined || options.validateOutput !== undefined) {
-      contextBuilder = contextBuilder.withValidationSettings(
-        options.validateInput ?? true,
-        options.validateOutput ?? true
-      );
-    }
-    if (options.enableDebugMode) {
-      contextBuilder = contextBuilder.enableDebugMode();
+  private performInputValidation(tool: AgentTool, validateInput: boolean) {
+    if (!validateInput) {
+      return { isValid: true, errors: [], warnings: [] };
     }
 
-    return contextBuilder.build();
-  }
-
-  /**
-   * Log debug information at execution start
-   */
-  private logDebugStart(context: ToolExecutionContext): void {
-    if (context.debugMode) {
-      console.log(
-        `🔍 [DEBUG] Starting execution: ${context.executionId} for tool: ${context.toolName}`
-      );
-    }
-  }
-
-  /**
-   * Perform input validation phase
-   */
-  private async performInputValidation<T>(
-    tool: AgentTool,
-    context: ToolExecutionContext
-  ): Promise<EnrichedToolResult<T> | null> {
-    if (!context.validateInput) {
-      return null;
-    }
-
-    const inputValidation = this.validateToolInput(tool);
-    if (!inputValidation.isValid) {
-      const errorResult = this.createErrorResult<T>(
-        context,
-        'INPUT_VALIDATION_FAILED',
-        `Input validation failed: ${inputValidation.errors.join(', ')}`,
-        { validationErrors: inputValidation.errors }
-      );
-      errorResult.inputValidation = inputValidation;
-      return errorResult;
-    }
-
-    return null; // Validation passed
-  }
-
-  /**
-   * Perform output validation phase
-   */
-  private performOutputValidation(
-    tool: AgentTool,
-    context: ToolExecutionContext,
-    executionResult: { success: boolean; data?: unknown; message: string }
-  ) {
-    if (!context.validateOutput || !executionResult.success || !executionResult.data) {
-      return null;
-    }
-
-    const outputValidation = this.validateToolOutput(tool.function.name, executionResult.data);
-    if (!outputValidation.isValid) {
-      console.warn(
-        `⚠️ Output validation warnings for ${context.toolName}:`,
-        outputValidation.warnings
-      );
-    }
-
-    return outputValidation;
-  }
-
-  /**
-   * Build enriched result with all validation data
-   */
-  private buildEnrichedResult<T>(
-    context: ToolExecutionContext,
-    executionResult: { success: boolean; data?: unknown; message: string },
-    inputValidation: any,
-    outputValidation: any
-  ): EnrichedToolResult<T> {
-    const enrichedResult = this.createSuccessResult<T>(
-      context,
-      executionResult.success,
-      executionResult.data as T,
-      executionResult.message
-    );
-
-    // Add validation results
-    if (inputValidation) {
-      enrichedResult.inputValidation = inputValidation;
-    }
-    if (outputValidation) {
-      enrichedResult.outputValidation = outputValidation;
-    }
-
-    this.logDebugComplete(context, enrichedResult);
-    return enrichedResult;
-  }
-
-  /**
-   * Handle execution errors
-   */
-  private handleExecutionError<T>(
-    context: ToolExecutionContext,
-    error: unknown
-  ): EnrichedToolResult<T> {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown execution error';
-    const errorResult = this.createErrorResult<T>(context, 'EXECUTION_ERROR', errorMessage, {
-      originalError: error instanceof Error ? error.stack : String(error),
-    });
-
-    if (context.debugMode) {
-      console.error(`❌ [DEBUG] Execution failed: ${context.executionId} - ${errorMessage}`);
-    }
-
-    return errorResult;
-  }
-
-  /**
-   * Log debug completion information
-   */
-  private logDebugComplete<T>(context: ToolExecutionContext, result: EnrichedToolResult<T>): void {
-    if (context.debugMode) {
-      console.log(
-        `✅ [DEBUG] Completed execution: ${context.executionId} in ${result.executionTimeMs}ms`
-      );
-    }
-  }
-
-  /**
-   * Execute with retry logic
-   */
-  private async executeWithRetry(
-    tool: AgentTool,
-    context: ToolExecutionContext
-  ): Promise<{ success: boolean; data?: unknown; message: string }> {
-    let lastError: Error | null = null;
-
-    for (let attempt = 0; attempt <= context.maxRetries; attempt++) {
-      context.currentRetry = attempt;
-
-      if (attempt > 0) {
-        if (context.debugMode) {
-          console.log(
-            `🔄 [DEBUG] Retry attempt ${attempt}/${context.maxRetries} for ${context.executionId}`
-          );
-        }
-        await this.sleep(context.retryDelayMs);
-      }
-
-      try {
-        // Check timeout
-        const timeoutPromise = context.timeoutMs
-          ? this.createTimeoutPromise(context.timeoutMs)
-          : null;
-
-        // Execute tool
-        const executionPromise = this.legacyExecutor.execute(tool);
-
-        const result = timeoutPromise
-          ? await Promise.race([executionPromise, timeoutPromise])
-          : await executionPromise;
-
-        return {
-          success: result.success,
-          data: result.data,
-          message:
-            result.message ||
-            (result.success ? 'Tool executed successfully' : 'Tool execution failed'),
-        };
-      } catch (error) {
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        // Check if error is recoverable
-        if (!this.isRecoverableError(lastError)) {
-          throw lastError;
-        }
-
-        // Continue to retry for recoverable errors
-      }
-    }
-
-    // All retries exhausted
-    throw new Error(
-      `All ${context.maxRetries + 1} attempts failed. Last error: ${lastError?.message}`
-    );
-  }
-
-  /**
-   * Validate tool input
-   */
-  private validateToolInput(tool: AgentTool) {
-    // Basic parameter validation
     const errors: string[] = [];
     const warnings: string[] = [];
 
@@ -342,16 +121,10 @@ export class EnhancedToolExecutor {
         break;
 
       case 'user_input':
-        if (
-          !tool.function.parameters.message ||
-          typeof tool.function.parameters.message !== 'string'
-        ) {
+        if (!tool.function.parameters.message || typeof tool.function.parameters.message !== 'string') {
           errors.push('Message is required and must be a string');
         }
-        if (
-          !tool.function.parameters.context ||
-          typeof tool.function.parameters.context !== 'string'
-        ) {
+        if (!tool.function.parameters.context || typeof tool.function.parameters.context !== 'string') {
           errors.push('Context is required and must be a string');
         }
         break;
@@ -365,21 +138,62 @@ export class EnhancedToolExecutor {
   }
 
   /**
-   * Get default timeout value based on tool type
+   * Perform output validation
    */
-  private getDefaultToolTimeout(toolName: string): number {
-    switch (toolName) {
-      case 'user_input':
-        // Human input requires more time - 10 minutes
-        return 600000;
-      case 'create_task':
-      case 'create_project':
-        // API calls should be faster - 30 seconds
-        return 30000;
-      default:
-        // Default timeout for unknown tools - 1 minute
-        return 60000;
+  private performOutputValidation(tool: AgentTool, executionResult: any, validateOutput: boolean) {
+    if (!validateOutput || !executionResult.success || !executionResult.data) {
+      return null;
     }
+
+    const outputValidation = this.validateToolOutput(tool.function.name, executionResult.data);
+    if (!outputValidation.isValid) {
+      console.warn(`⚠️ Output validation warnings for ${tool.function.name}:`, outputValidation.warnings);
+    }
+
+    return outputValidation;
+  }
+
+  /**
+   * Execute with retry logic
+   */
+  private async executeWithRetry(
+    tool: AgentTool,
+    maxRetries: number,
+    retryDelayMs: number,
+    timeoutMs?: number
+  ): Promise<{ success: boolean; data?: unknown; message: string }> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (attempt > 0) {
+        await this.sleep(retryDelayMs);
+      }
+
+      try {
+        // Execute tool with optional timeout
+        const executionPromise = this.legacyExecutor.execute(tool);
+        
+        const result = timeoutMs
+          ? await Promise.race([executionPromise, this.createTimeoutPromise(timeoutMs)])
+          : await executionPromise;
+
+        return {
+          success: result.success,
+          data: result.data,
+          message: result.message || (result.success ? 'Tool executed successfully' : 'Tool execution failed'),
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Check if error is recoverable
+        if (!this.isRecoverableError(lastError)) {
+          throw lastError;
+        }
+      }
+    }
+
+    // All retries exhausted
+    throw new Error(`All ${maxRetries + 1} attempts failed. Last error: ${lastError?.message}`);
   }
 
   /**
@@ -402,57 +216,65 @@ export class EnhancedToolExecutor {
    * Create success result
    */
   private createSuccessResult<T>(
-    context: ToolExecutionContext,
+    startTime: Date,
     success: boolean,
     data?: T,
-    message?: string
+    message?: string,
+    inputValidation?: any,
+    outputValidation?: any
   ): EnrichedToolResult<T> {
     const endTime = new Date();
-    const executionTimeMs = endTime.getTime() - context.startTime.getTime();
+    const executionTimeMs = endTime.getTime() - startTime.getTime();
 
-    return {
+    const result: EnrichedToolResult<T> = {
       success,
       data,
-      context,
-      startTime: context.startTime,
+      startTime,
       endTime,
       executionTimeMs,
       status: success ? 'success' : 'partial_success',
-      message:
-        message ||
-        (success ? 'Tool executed successfully' : 'Tool execution completed with issues'),
+      message: message || (success ? 'Tool executed successfully' : 'Tool execution completed with issues'),
       metadata: {
-        toolName: context.toolName,
-        inputParameters: context.inputParameters,
-        retryCount: context.currentRetry,
+        toolName: 'unknown',
+        inputParameters: {},
+        retryCount: 0,
       },
     };
+
+    if (inputValidation) {
+      result.inputValidation = inputValidation;
+    }
+    if (outputValidation) {
+      result.outputValidation = outputValidation;
+    }
+
+    return result;
   }
 
   /**
    * Create error result
    */
   private createErrorResult<T>(
-    context: ToolExecutionContext,
+    startTime: Date,
     errorCode: string,
     errorMessage: string,
-    errorDetails?: Record<string, unknown>
+    errorDetails?: Record<string, unknown>,
+    inputValidation?: any
   ): EnrichedToolResult<T> {
     const endTime = new Date();
-    const executionTimeMs = endTime.getTime() - context.startTime.getTime();
+    const executionTimeMs = endTime.getTime() - startTime.getTime();
 
-    return {
+    const result: EnrichedToolResult<T> = {
       success: false,
-      context,
-      startTime: context.startTime,
+      startTime,
       endTime,
       executionTimeMs,
       status: this.mapErrorCodeToStatus(errorCode),
       message: `Tool execution failed: ${errorMessage}`,
       metadata: {
-        toolName: context.toolName,
-        inputParameters: context.inputParameters,
-        retryCount: context.currentRetry,
+        toolName: 'unknown',
+        inputParameters: {},
+        retryCount: 0,
       },
       error: {
         code: errorCode,
@@ -462,6 +284,25 @@ export class EnhancedToolExecutor {
         suggestedAction: this.getSuggestedAction(errorCode),
       },
     };
+
+    if (inputValidation) {
+      result.inputValidation = inputValidation;
+    }
+
+    return result;
+  }
+
+  /**
+   * Handle execution errors
+   */
+  private handleExecutionError<T>(startTime: Date, error: unknown): EnrichedToolResult<T> {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown execution error';
+    return this.createErrorResult<T>(
+      startTime,
+      'EXECUTION_ERROR',
+      errorMessage,
+      { originalError: error instanceof Error ? error.stack : String(error) }
+    );
   }
 
   /**
@@ -480,7 +321,6 @@ export class EnhancedToolExecutor {
   }
 
   private isRecoverableError(error: Error): boolean {
-    // Define which errors are recoverable (can be retried)
     const recoverablePatterns = [
       /timeout/i,
       /network/i,
@@ -521,20 +361,6 @@ export class EnhancedToolExecutor {
       default:
         return 'Review error details and tool configuration';
     }
-  }
-
-  /**
-   * Get execution statistics from context manager
-   */
-  getExecutionStats() {
-    return this.contextManager.getExecutionStats();
-  }
-
-  /**
-   * Get contexts by trace ID
-   */
-  getContextsByTrace(traceId: string) {
-    return this.contextManager.getContextsByTrace(traceId);
   }
 
   /**

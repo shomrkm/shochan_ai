@@ -16,28 +16,13 @@ export class DisplayManager {
 
 
   /**
-   * Display tool execution statistics
+   * Display simplified execution completion message
    */
   displayExecutionStats(toolExecutor: EnhancedToolExecutor, currentTraceId: string | null): void {
-    const stats = toolExecutor.getExecutionStats();
-
-    console.log('\n📊 Tool Execution Statistics:');
-    console.log(`🎯 Active Contexts: ${stats.activeContexts}`);
-    console.log(`📈 Total Executions: ${stats.totalExecutions}`);
-    console.log(`🔄 Average Retry Rate: ${stats.averageRetryRate.toFixed(2)}`);
-
-    if (stats.topExecutedTools.length > 0) {
-      console.log('🏆 Top Executed Tools:');
-      stats.topExecutedTools.forEach((tool, index) => {
-        console.log(`   ${index + 1}. ${tool.toolName}: ${tool.count} times`);
-      });
-    }
-
+    console.log('\n✅ Tool execution completed successfully');
     if (currentTraceId) {
-      const traceContexts = toolExecutor.getContextsByTrace(currentTraceId);
-      console.log(`🔍 Trace "${currentTraceId}": ${traceContexts.length} executions`);
+      console.log(`🔍 Trace ID: ${currentTraceId}`);
     }
-
     console.log('');
   }
 

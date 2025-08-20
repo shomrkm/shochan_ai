@@ -7,9 +7,8 @@
  * - Statistical analysis and debugging support
  */
 
-import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { PromptContext } from '../types/prompt-types';
-import type { AgentTool } from '../types/tools';
+import type { AgentTool, ToolResult } from '../types/tools';
 import { isUserInputResultData, isNotionTaskResultData, isNotionProjectResultData } from '../types/toolGuards';
 import type Anthropic from '@anthropic-ai/sdk';
 
@@ -48,14 +47,14 @@ export class ContextManager {
   /**
    * Add tool execution result to context history using Anthropic standard format
    */
-  addToolExecution(toolCall: AgentTool, toolResult: EnrichedToolResult): void {
+  addToolExecution(toolCall: AgentTool, toolResult: ToolResult): void {
     // Add assistant message with tool call
     this.conversationHistory.push({
       role: 'assistant',
       content: [
         {
           type: 'tool_use',
-          id: toolResult.context.executionId,
+          id: `tool_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           name: toolCall.function.name,
           input: toolCall.function.parameters,
         },
@@ -69,7 +68,7 @@ export class ContextManager {
       content: [
         {
           type: 'tool_result',
-          tool_use_id: toolResult.context.executionId,
+          tool_use_id: `tool_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
           content: toolResultContent,
         },
       ],
@@ -106,12 +105,12 @@ export class ContextManager {
    * Build structured tool result content for context storage
    * @private
    */
-  private buildToolResultContent(toolCall: AgentTool, toolResult: EnrichedToolResult): string {
+  private buildToolResultContent(toolCall: AgentTool, toolResult: ToolResult): string {
     const resultSummary: Record<string, any> = {
       success: toolResult.success,
       status: toolResult.status,
-      executionTime: `${toolResult.executionTimeMs}ms`,
-      timestamp: toolResult.endTime.toISOString(),
+      executionTime: toolResult.executionTime ? `${toolResult.executionTime}ms` : 'unknown',
+      timestamp: toolResult.timestamp.toISOString(),
     };
 
     // Add tool-specific result data
