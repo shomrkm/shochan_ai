@@ -25,11 +25,11 @@ export class UserInputHandler {
 
     try {
       let userResponse: string | null = null;
-      
+
       // Keep asking until we get a valid response
       while (!userResponse) {
         userResponse = await this.inputHelper.getUserInput('\n💬 Your input: ');
-        
+
         if (!userResponse) {
           console.log('❌ Empty input. Please provide a response.');
         }

@@ -8,17 +8,17 @@ export type EventType =
   | 'user_message'
   | 'user_input_request'
   | 'user_input_response'
-  
+
   // Tool executions
   | 'create_task'
   | 'create_project'
   | 'user_input'
-  
+
   // Tool results
   | 'create_task_result'
-  | 'create_project_result' 
+  | 'create_project_result'
   | 'user_input_result'
-  
+
   // Agent responses
   | 'agent_response'
   | 'conversation_end'
@@ -97,21 +97,21 @@ export interface ErrorData {
 
 // Event type to data mapping for strict type safety
 export interface EventTypeDataMap {
-  'user_message': UserMessageData;
-  'user_input_request': UserMessageData; // Can reuse UserMessageData structure
-  'user_input_response': UserMessageData; // Can reuse UserMessageData structure
-  
-  'create_task': CreateTaskData;
-  'create_project': CreateProjectData;
-  'user_input': UserInputData;
-  
-  'create_task_result': CreateTaskResultData;
-  'create_project_result': CreateProjectResultData;
-  'user_input_result': UserInputResultData;
-  
-  'agent_response': AgentResponseData;
-  'conversation_end': AgentResponseData; // Can reuse AgentResponseData structure
-  'error': ErrorData;
+  user_message: UserMessageData;
+  user_input_request: UserMessageData; // Can reuse UserMessageData structure
+  user_input_response: UserMessageData; // Can reuse UserMessageData structure
+
+  create_task: CreateTaskData;
+  create_project: CreateProjectData;
+  user_input: UserInputData;
+
+  create_task_result: CreateTaskResultData;
+  create_project_result: CreateProjectResultData;
+  user_input_result: UserInputResultData;
+
+  agent_response: AgentResponseData;
+  conversation_end: AgentResponseData; // Can reuse AgentResponseData structure
+  error: ErrorData;
 }
 
 // Union type for all event data (derived from mapping)

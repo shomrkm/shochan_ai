@@ -20,10 +20,7 @@ export class Event<K extends EventType = EventType> {
 }
 
 // Helper function for type-safe event creation
-export function createEvent<K extends EventType>(
-  type: K, 
-  data: EventTypeDataMap[K]
-): Event<K> {
+export function createEvent<K extends EventType>(type: K, data: EventTypeDataMap[K]): Event<K> {
   return new Event(type, data);
 }
 
@@ -53,17 +50,14 @@ export class Thread {
     return this.events[this.events.length - 1];
   }
 
-
   toPrompt(): string {
     const sessionInfo = YamlUtils.formatToYaml({
       thread_id: this.id,
       start_time: this.startTime.toISOString(),
-      event_count: this.events.length
+      event_count: this.events.length,
     });
 
-    const eventsXML = this.events
-      .map(event => event.toXML())
-      .join('\n\n');
+    const eventsXML = this.events.map((event) => event.toXML()).join('\n\n');
 
     return `<conversation_context>
 <session_info>

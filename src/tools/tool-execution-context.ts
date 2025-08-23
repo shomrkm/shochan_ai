@@ -6,7 +6,7 @@
 import type { ToolExecutionMetadata, ToolExecutionStatus } from '../types/tools';
 
 /**
- * Simplified tool execution result 
+ * Simplified tool execution result
  */
 export interface EnrichedToolResult<T = Record<string, unknown>> {
   // Core result

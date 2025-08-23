@@ -7,17 +7,20 @@
  * - Statistical analysis and debugging support
  */
 
-import type { PromptContext } from '../types/prompt-types';
-import type { AgentTool, ToolResult } from '../types/tools';
-import { isUserInputResultData, isNotionTaskResultData, isNotionProjectResultData } from '../types/toolGuards';
 import type Anthropic from '@anthropic-ai/sdk';
-
+import type { PromptContext } from '../types/prompt-types';
+import {
+  isNotionProjectResultData,
+  isNotionTaskResultData,
+  isUserInputResultData,
+} from '../types/toolGuards';
+import type { AgentTool, ToolResult } from '../types/tools';
 
 /**
  * Comprehensive context manager for AI agent interactions
  * Implements Factor 3 principles with unified context management across:
  * - Conversation flows
- * - Tool execution tracking 
+ * - Tool execution tracking
  * - Statistical analysis
  * - Prompt context generation
  */
@@ -28,9 +31,9 @@ export class ContextManager {
    * Add user message to context history
    */
   addUserMessage(message: string): void {
-    this.conversationHistory.push({ 
-      role: 'user', 
-      content: message 
+    this.conversationHistory.push({
+      role: 'user',
+      content: message,
     });
   }
 
@@ -38,9 +41,9 @@ export class ContextManager {
    * Add assistant response to context history
    */
   addAssistantResponse(response: string): void {
-    this.conversationHistory.push({ 
-      role: 'assistant', 
-      content: response 
+    this.conversationHistory.push({
+      role: 'assistant',
+      content: response,
     });
   }
 
@@ -76,7 +79,6 @@ export class ContextManager {
         },
       ],
     });
-
   }
 
   /**
@@ -95,7 +97,6 @@ export class ContextManager {
   getConversationHistory(): Anthropic.MessageParam[] {
     return [...this.conversationHistory];
   }
-
 
   /**
    * Clear context history
@@ -122,13 +123,15 @@ export class ContextManager {
         case 'create_task':
           if (isNotionTaskResultData(toolResult.data)) {
             resultSummary.taskId = toolResult.data.id;
-            resultSummary.taskTitle = toolResult.data.properties?.Title?.title?.[0]?.plain_text || 'Unknown';
+            resultSummary.taskTitle =
+              toolResult.data.properties?.Title?.title?.[0]?.plain_text || 'Unknown';
           }
           break;
         case 'create_project':
           if (isNotionProjectResultData(toolResult.data)) {
             resultSummary.projectId = toolResult.data.id;
-            resultSummary.projectName = toolResult.data.properties?.Name?.title?.[0]?.plain_text || 'Unknown';
+            resultSummary.projectName =
+              toolResult.data.properties?.Name?.title?.[0]?.plain_text || 'Unknown';
           }
           break;
         case 'user_input':
@@ -150,7 +153,6 @@ export class ContextManager {
 
     return JSON.stringify(resultSummary, null, 2);
   }
-
 
   /**
    * Export complete context data for analysis or persistence

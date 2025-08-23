@@ -1,6 +1,7 @@
 // src/utils/input-helper.ts
-import { createInterface } from 'node:readline/promises';
+
 import { stdin, stdout } from 'node:process';
+import { createInterface } from 'node:readline/promises';
 
 /**
  * Shared input helper to avoid readline interface conflicts
@@ -36,7 +37,7 @@ export class InputHelper {
       };
 
       rl.on('SIGINT', onSigInt);
-      
+
       const answer = await rl.question(prompt);
       return answer.trim() || null;
     } catch (error) {

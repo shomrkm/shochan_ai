@@ -55,14 +55,18 @@ export class EnhancedToolExecutor {
 
       // Execution phase with retry logic
       const executionResult = await this.executeWithRetry(
-        tool, 
-        options.maxRetries ?? 2, 
+        tool,
+        options.maxRetries ?? 2,
         options.retryDelayMs ?? 1000,
         options.timeout
       );
 
       // Output validation phase
-      const outputValidation = this.performOutputValidation(tool, executionResult, options.validateOutput ?? true);
+      const outputValidation = this.performOutputValidation(
+        tool,
+        executionResult,
+        options.validateOutput ?? true
+      );
 
       // Create and return enriched result
       return this.createSuccessResult<T>(
@@ -74,7 +78,6 @@ export class EnhancedToolExecutor {
         inputValidation,
         outputValidation
       );
-
     } catch (error) {
       return this.handleExecutionError<T>(tool, startTime, error);
     }
@@ -123,10 +126,16 @@ export class EnhancedToolExecutor {
         break;
 
       case 'user_input':
-        if (!tool.function.parameters.message || typeof tool.function.parameters.message !== 'string') {
+        if (
+          !tool.function.parameters.message ||
+          typeof tool.function.parameters.message !== 'string'
+        ) {
           errors.push('Message is required and must be a string');
         }
-        if (!tool.function.parameters.context || typeof tool.function.parameters.context !== 'string') {
+        if (
+          !tool.function.parameters.context ||
+          typeof tool.function.parameters.context !== 'string'
+        ) {
           errors.push('Context is required and must be a string');
         }
         break;
@@ -149,7 +158,10 @@ export class EnhancedToolExecutor {
 
     const outputValidation = this.validateToolOutput(tool.function.name, executionResult.data);
     if (!outputValidation.isValid) {
-      console.warn(`⚠️ Output validation warnings for ${tool.function.name}:`, outputValidation.warnings);
+      console.warn(
+        `⚠️ Output validation warnings for ${tool.function.name}:`,
+        outputValidation.warnings
+      );
     }
 
     return outputValidation;
@@ -174,7 +186,7 @@ export class EnhancedToolExecutor {
       try {
         // Execute tool with optional timeout
         const executionPromise = this.legacyExecutor.execute(tool);
-        
+
         const result = timeoutMs
           ? await Promise.race([executionPromise, this.createTimeoutPromise(timeoutMs)])
           : await executionPromise;
@@ -182,7 +194,9 @@ export class EnhancedToolExecutor {
         return {
           success: result.success,
           data: result.data,
-          message: result.message || (result.success ? 'Tool executed successfully' : 'Tool execution failed'),
+          message:
+            result.message ||
+            (result.success ? 'Tool executed successfully' : 'Tool execution failed'),
         };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
@@ -236,7 +250,9 @@ export class EnhancedToolExecutor {
       endTime,
       executionTimeMs,
       status: success ? 'success' : 'partial_success',
-      message: message || (success ? 'Tool executed successfully' : 'Tool execution completed with issues'),
+      message:
+        message ||
+        (success ? 'Tool executed successfully' : 'Tool execution completed with issues'),
       metadata: {
         toolName: tool.function.name,
         inputParameters: tool.function.parameters,
@@ -299,15 +315,15 @@ export class EnhancedToolExecutor {
   /**
    * Handle execution errors
    */
-  private handleExecutionError<T>(tool: AgentTool, startTime: Date, error: unknown): EnrichedToolResult<T> {
+  private handleExecutionError<T>(
+    tool: AgentTool,
+    startTime: Date,
+    error: unknown
+  ): EnrichedToolResult<T> {
     const errorMessage = error instanceof Error ? error.message : 'Unknown execution error';
-    return this.createErrorResult<T>(
-      tool,
-      startTime,
-      'EXECUTION_ERROR',
-      errorMessage,
-      { originalError: error instanceof Error ? error.stack : String(error) }
-    );
+    return this.createErrorResult<T>(tool, startTime, 'EXECUTION_ERROR', errorMessage, {
+      originalError: error instanceof Error ? error.stack : String(error),
+    });
   }
 
   /**

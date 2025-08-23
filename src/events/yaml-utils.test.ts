@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest';
-import { YamlUtils } from './yaml-utils';
+import { describe, expect, it } from 'vitest';
 import type { CreateProjectData, CreateTaskData, UserMessageData } from './types';
+import { YamlUtils } from './yaml-utils';
 
 describe('YamlUtils', () => {
   describe('formatToYaml', () => {
     it('should format simple object to YAML with correct indentation', () => {
       const data: UserMessageData = {
         message: 'Hello World',
-        timestamp: '2025-08-23T10:35:00Z'
+        timestamp: '2025-08-23T10:35:00Z',
       };
 
       const result = YamlUtils.formatToYaml(data);
-      
+
       expect(result).toBe(`message: Hello World
 timestamp: '2025-08-23T10:35:00Z'`);
     });
@@ -20,38 +20,38 @@ timestamp: '2025-08-23T10:35:00Z'`);
       const data: CreateTaskData = {
         title: '新しいタスク',
         description: 'タスクの説明です',
-        task_type: 'Today'
+        task_type: 'Today',
       };
 
       const result = YamlUtils.formatToYaml(data);
-      
+
       expect(result).toContain('title: 新しいタスク');
       expect(result).toContain('description: タスクの説明です');
       expect(result).toContain('task_type: Today');
     });
 
-    it('should handle null values correctly', () => {
+    it('should handle undefined values correctly', () => {
       const data: CreateProjectData = {
         name: 'Test Project',
         description: 'A test project',
         importance: '⭐⭐⭐',
-        action_plan: null as any
+        action_plan: undefined,
       };
 
       const result = YamlUtils.formatToYaml(data);
-      
-      expect(result).toContain('action_plan: null');
+
+      expect(result).not.toContain('action_plan:');
     });
 
     it('should handle star characters in importance field', () => {
       const data: CreateProjectData = {
         name: 'AI Project',
         description: 'AI research project',
-        importance: '⭐⭐⭐⭐⭐'
+        importance: '⭐⭐⭐⭐⭐',
       };
 
       const result = YamlUtils.formatToYaml(data);
-      
+
       expect(result).toContain('importance: ⭐⭐⭐⭐⭐');
     });
 
@@ -60,11 +60,11 @@ timestamp: '2025-08-23T10:35:00Z'`);
         success: true,
         execution_time: 1200,
         task_id: 'task_123',
-        count: 0
+        count: 0,
       };
 
       const result = YamlUtils.formatToYaml(data);
-      
+
       expect(result).toContain('success: true');
       expect(result).toContain('execution_time: 1200');
       expect(result).toContain('task_id: task_123');
@@ -75,7 +75,7 @@ timestamp: '2025-08-23T10:35:00Z'`);
       const data = 'Simple string data';
 
       const result = YamlUtils.formatToYaml(data);
-      
+
       expect(result).toBe('Simple string data');
     });
   });
@@ -86,11 +86,11 @@ timestamp: '2025-08-23T10:35:00Z'`);
       const data: CreateProjectData = {
         name: 'Test Project',
         description: 'Project description',
-        importance: '⭐⭐⭐'
+        importance: '⭐⭐⭐',
       };
 
       const result = YamlUtils.generateXMLTag(tagName, data);
-      
+
       expect(result).toBe(`<create_project>
 name: Test Project
 description: Project description
@@ -101,7 +101,7 @@ importance: ⭐⭐⭐
     it('should handle empty data', () => {
       const emptyData: Record<string, never> = {};
       const result = YamlUtils.generateXMLTag('empty_event', emptyData);
-      
+
       expect(result).toBe(`<empty_event>
 {}
 </empty_event>`);

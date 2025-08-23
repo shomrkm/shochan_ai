@@ -35,10 +35,10 @@ async function startInteractiveSession() {
     }
 
     console.log('🔗 All connections successful!\n');
-    
+
     // Get initial user message
     const inputHelper = InputHelper.getInstance();
-    
+
     console.log('='.repeat(60));
     console.log('💬 What would you like to create?');
     console.log('='.repeat(60));
@@ -47,15 +47,14 @@ async function startInteractiveSession() {
     console.log('  • "I need a project for mobile app redesign"');
     console.log('  • "Help me organize my weekend tasks"');
     console.log('='.repeat(60));
-    
+
     const initialMessage = await inputHelper.getUserInput('\n🎯 Your request: ');
-    
+
     if (initialMessage) {
       await agent.startConversation(initialMessage);
     } else {
       console.log('👋 No input provided. Goodbye!');
     }
-
   } catch (error) {
     if (!isShuttingDown) {
       console.error('❌ Session failed:', error);

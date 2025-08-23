@@ -14,7 +14,6 @@ export class DisplayManager {
     console.log(`\n🔄 Conversation iteration ${current}/${max}`);
   }
 
-
   /**
    * Display simplified execution completion message
    */
@@ -142,7 +141,6 @@ export class DisplayManager {
   displayToolCall(toolName: string): void {
     console.log(`🤖 Claude generated tool call: ${toolName}`);
   }
-
 
   /**
    * Display timeout warning for ask_question tool

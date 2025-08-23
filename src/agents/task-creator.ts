@@ -5,8 +5,13 @@ import { buildSystemPrompt } from '../prompts/system-prompt';
 import { EnhancedToolExecutor } from '../tools/enhanced-tool-executor';
 import type { EnrichedToolResult } from '../tools/tool-execution-context';
 import type { ProcessMessageResult } from '../types/conversation-types';
-import { isCreateProjectTool, isCreateTaskTool, isUserInputTool, isUserInputResultData } from '../types/toolGuards';
 import type { PromptContext } from '../types/prompt-types';
+import {
+  isCreateProjectTool,
+  isCreateTaskTool,
+  isUserInputResultData,
+  isUserInputTool,
+} from '../types/toolGuards';
 import type { AgentTool, ToolResult } from '../types/tools';
 import { InputHelper } from '../utils/input-helper';
 
@@ -62,16 +67,19 @@ export class TaskCreatorAgent {
         continue;
       }
 
-      if (this.hasCalledTool(result) && (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))) {
+      if (
+        this.hasCalledTool(result) &&
+        (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))
+      ) {
         const newMessage = await this.promptForNextAction();
-        if(!newMessage) {
+        if (!newMessage) {
           break;
         }
         currentMessage = newMessage;
       } else if (!this.hasCalledTool(result)) {
         // Handle direct responses - prompt for next input
         const newMessage = await this.promptForNextAction();
-        if(!newMessage) {
+        if (!newMessage) {
           break;
         }
         currentMessage = newMessage;
@@ -98,10 +106,7 @@ export class TaskCreatorAgent {
     this.displayManager.displayConversationCompleted(iterations, maxIterations);
     const messageCount = this.contextManager.getConversationHistory().length;
     console.log(`💬 Conversation: ${messageCount} messages`);
-    this.displayManager.displayExecutionStats(
-      this.toolExecutor,
-      this.currentTraceId
-    );
+    this.displayManager.displayExecutionStats(this.toolExecutor, this.currentTraceId);
   }
 
   /**
@@ -130,18 +135,17 @@ export class TaskCreatorAgent {
     }
   }
 
-
-
   /**
    * Determine next step using LLM - converts natural language to structured tool call
    */
-  private async determineNextStep(
-    promptContext: PromptContext,
-    userMessage: string
-  ) {
+  private async determineNextStep(promptContext: PromptContext, userMessage: string) {
     const systemPrompt = buildSystemPrompt(promptContext);
 
-    return await this.claude.generateToolCall(systemPrompt, userMessage, promptContext.conversationHistory as any);
+    return await this.claude.generateToolCall(
+      systemPrompt,
+      userMessage,
+      promptContext.conversationHistory as any
+    );
   }
 
   /**
@@ -255,8 +259,6 @@ export class TaskCreatorAgent {
     }
   }
 
-
-
   /**
    * Convert EnrichedToolResult to ToolResult for context management
    */
@@ -305,7 +307,7 @@ export class TaskCreatorAgent {
    */
   private async promptForNextAction(): Promise<string | null> {
     const inputHelper = InputHelper.getInstance();
-    
+
     console.log('\n' + '='.repeat(60));
     console.log('🎯 What would you like to do next?');
     console.log('='.repeat(60));
@@ -314,7 +316,7 @@ export class TaskCreatorAgent {
     console.log('  - Ask me anything about task management');
     console.log('  - Press Ctrl+C to exit');
     console.log('='.repeat(60));
-    
+
     return await inputHelper.getUserInput('\n💬 Your request: ');
   }
 
@@ -325,7 +327,6 @@ export class TaskCreatorAgent {
     if (!this.hasCalledTool(result) || !isUserInputTool(result.toolCall)) {
       return null;
     }
-
 
     const resultData = this.getResultData(result);
     if (this.isResultSuccessful(result) && isUserInputResultData(resultData)) {
@@ -338,14 +339,12 @@ export class TaskCreatorAgent {
     }
   }
 
-
   /**
    * Reset conversation state
    */
   private clearState(): void {
     this.currentTraceId = null;
   }
-
 
   /**
    * Clear conversation history and reset agent state

@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { Thread } from './thread';
-import type { UserMessageData, CreateTaskData, CreateProjectResultData } from './types';
+import type { CreateProjectResultData, CreateTaskData, UserMessageData } from './types';
 
 describe('Thread Class', () => {
   let thread: Thread;
@@ -38,13 +38,13 @@ describe('Thread Class', () => {
     it('should add events and maintain order', () => {
       const userData: UserMessageData = {
         message: 'Hello',
-        timestamp: '2025-08-23T10:35:00Z'
+        timestamp: '2025-08-23T10:35:00Z',
       };
 
       const taskData: CreateTaskData = {
         title: 'New Task',
         description: 'Task description',
-        task_type: 'Today'
+        task_type: 'Today',
       };
 
       const userEvent = thread.addEvent('user_message', userData);
@@ -62,7 +62,7 @@ describe('Thread Class', () => {
       const taskData: CreateTaskData = {
         title: 'Test Task',
         description: 'Description',
-        task_type: 'Next Actions'
+        task_type: 'Next Actions',
       };
 
       const event = thread.addEvent('create_task', taskData);
@@ -75,12 +75,12 @@ describe('Thread Class', () => {
     it('should handle multiple events of the same type', () => {
       const userData1: UserMessageData = {
         message: 'First message',
-        timestamp: '2025-08-23T10:35:00Z'
+        timestamp: '2025-08-23T10:35:00Z',
       };
 
       const userData2: UserMessageData = {
-        message: 'Second message', 
-        timestamp: '2025-08-23T10:36:00Z'
+        message: 'Second message',
+        timestamp: '2025-08-23T10:36:00Z',
       };
 
       thread.addEvent('user_message', userData1);
@@ -99,7 +99,7 @@ describe('Thread Class', () => {
     it('should return readonly array of events', () => {
       const userData: UserMessageData = {
         message: 'Test',
-        timestamp: '2025-08-23T10:35:00Z'
+        timestamp: '2025-08-23T10:35:00Z',
       };
 
       thread.addEvent('user_message', userData);
@@ -109,14 +109,14 @@ describe('Thread Class', () => {
       expect(events).toHaveLength(1);
       expect(userMessages).toHaveLength(1);
       expect(userMessages[0].data.message).toBe('Test');
-      
+
       // Should be readonly - this is tested by TypeScript, not runtime
       expect(Array.isArray(events)).toBe(true);
     });
 
     it('should handle empty thread gracefully', () => {
       const events = thread.getEvents();
-      
+
       expect(events).toHaveLength(0);
       expect(Array.isArray(events)).toBe(true);
     });
@@ -137,7 +137,7 @@ describe('Thread Class', () => {
     it('should include events in XML format', () => {
       const userData: UserMessageData = {
         message: 'Hello World',
-        timestamp: '2025-08-23T10:35:00Z'
+        timestamp: '2025-08-23T10:35:00Z',
       };
 
       const resultData: CreateProjectResultData = {
@@ -148,9 +148,9 @@ describe('Thread Class', () => {
         importance: '⭐⭐⭐',
         created_at: '2025-08-23T10:35:00Z',
         notion_url: 'https://notion.so/proj_123',
-        action_plan: null as any,
-        error: null as any,
-        execution_time: 1200
+        action_plan: undefined,
+        error: undefined,
+        execution_time: 1200,
       };
 
       thread.addEvent('user_message', userData);
@@ -173,24 +173,24 @@ describe('Thread Class', () => {
       // Simulate a full conversation
       thread.addEvent('user_message', {
         message: 'プロジェクトを作成したい',
-        timestamp: '2025-08-23T10:35:00Z'
+        timestamp: '2025-08-23T10:35:00Z',
       });
 
       thread.addEvent('user_input', {
         message: 'プロジェクトの詳細を教えてください',
-        context: 'project_creation'
+        context: 'project_creation',
       });
 
       thread.addEvent('user_input_result', {
         success: true,
         user_response: 'AIに関する研究プロジェクト',
-        execution_time: 245
+        execution_time: 245,
       });
 
       thread.addEvent('create_project', {
         name: 'AI研究プロジェクト',
         description: '機械学習の研究を行う',
-        importance: '⭐⭐⭐⭐'
+        importance: '⭐⭐⭐⭐',
       });
 
       thread.addEvent('create_project_result', {
@@ -201,9 +201,9 @@ describe('Thread Class', () => {
         importance: '⭐⭐⭐⭐',
         created_at: '2025-08-23T10:35:00Z',
         notion_url: 'https://notion.so/proj_456',
-        action_plan: null as any,
-        error: null as any,
-        execution_time: 1200
+        action_plan: undefined,
+        error: undefined,
+        execution_time: 1200,
       });
 
       const result = thread.toPrompt();
@@ -221,7 +221,7 @@ describe('Thread Class', () => {
 
     it('should format session info as YAML', () => {
       const result = thread.toPrompt();
-      
+
       // Session info should be in YAML format
       expect(result).toMatch(/thread_id: thread_\d+_\w{9}/);
       expect(result).toMatch(/start_time: '\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z'/);

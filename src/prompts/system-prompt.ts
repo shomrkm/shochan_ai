@@ -62,16 +62,16 @@ Remember: Be helpful but efficient. Don't make users answer unnecessary question
  */
 const buildContextualInformation = (context: PromptContext): string => {
   const toolExecutions = extractToolExecutions(context.conversationHistory);
-  
+
   if (toolExecutions.length === 0) {
     return '';
   }
 
   let contextInfo = '\n## Previous Tool Executions\n';
-  
+
   toolExecutions.forEach((execution, index) => {
     contextInfo += `\n${index + 1}. **${execution.toolName}** (${execution.status})\n`;
-    
+
     if (execution.success) {
       switch (execution.toolName) {
         case 'create_task':
@@ -93,7 +93,7 @@ const buildContextualInformation = (context: PromptContext): string => {
     } else {
       contextInfo += `   ❌ Failed: ${execution.error?.message || 'Unknown error'}\n`;
     }
-    
+
     contextInfo += `   ⏱️ Execution time: ${execution.executionTime}\n`;
   });
 
@@ -103,7 +103,9 @@ const buildContextualInformation = (context: PromptContext): string => {
 /**
  * Extract tool execution information from conversation history
  */
-const extractToolExecutions = (history: any[]): Array<{
+const extractToolExecutions = (
+  history: any[]
+): Array<{
   toolName: string;
   status: string;
   success: boolean;
@@ -116,11 +118,11 @@ const extractToolExecutions = (history: any[]): Array<{
   error?: { message: string };
 }> => {
   const executions: any[] = [];
-  
+
   for (let i = 0; i < history.length - 1; i++) {
     const message = history[i];
     const nextMessage = history[i + 1];
-    
+
     // Look for tool_use messages followed by tool_result messages
     if (
       message.role === 'assistant' &&
@@ -132,7 +134,7 @@ const extractToolExecutions = (history: any[]): Array<{
     ) {
       const toolUse = message.content[0];
       const toolResult = nextMessage.content[0];
-      
+
       try {
         const resultData = JSON.parse(toolResult.content);
         executions.push({
@@ -153,6 +155,6 @@ const extractToolExecutions = (history: any[]): Array<{
       }
     }
   }
-  
+
   return executions;
 };
