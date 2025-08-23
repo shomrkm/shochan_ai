@@ -53,13 +53,6 @@ export class Thread {
     return this.events[this.events.length - 1];
   }
 
-  getUserMessages(): Event<'user_message'>[] {
-    return this.getEventsByType('user_message');
-  }
-
-  getCreateTaskEvents(): Event<'create_task'>[] {
-    return this.getEventsByType('create_task');
-  }
 
   toPrompt(): string {
     const sessionInfo = YamlUtils.formatToYaml({

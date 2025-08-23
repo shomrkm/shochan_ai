@@ -87,7 +87,7 @@ describe('Thread Class', () => {
       thread.addEvent('user_message', userData2);
 
       const events = thread.getEvents();
-      const userMessages = thread.getUserMessages();
+      const userMessages = thread.getEventsByType('user_message');
       expect(events).toHaveLength(2);
       expect(userMessages).toHaveLength(2);
       expect(userMessages[0].data.message).toBe('First message');
@@ -104,7 +104,7 @@ describe('Thread Class', () => {
 
       thread.addEvent('user_message', userData);
       const events = thread.getEvents();
-      const userMessages = thread.getUserMessages();
+      const userMessages = thread.getEventsByType('user_message');
 
       expect(events).toHaveLength(1);
       expect(userMessages).toHaveLength(1);
