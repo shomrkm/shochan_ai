@@ -45,8 +45,39 @@ export class Thread {
     return [...this.events];
   }
 
+  getEventsByType<K extends EventType>(type: K): Event<K>[] {
+    return this.events.filter((event): event is Event<K> => event.type === type);
+  }
+
+  getLastEvent(): Event | undefined {
+    return this.events[this.events.length - 1];
+  }
+
+  getUserMessages(): Event<'user_message'>[] {
+    return this.getEventsByType('user_message');
+  }
+
+  getCreateTaskEvents(): Event<'create_task'>[] {
+    return this.getEventsByType('create_task');
+  }
+
   toPrompt(): string {
-    // TODO: Implement based on tests
-    return '';
+    const sessionInfo = YamlUtils.formatToYaml({
+      thread_id: this.id,
+      start_time: this.startTime.toISOString(),
+      event_count: this.events.length
+    });
+
+    const eventsXML = this.events
+      .map(event => event.toXML())
+      .join('\n\n');
+
+    return `<conversation_context>
+<session_info>
+${sessionInfo}
+</session_info>
+
+${eventsXML}
+</conversation_context>`;
   }
 }
