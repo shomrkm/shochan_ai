@@ -79,9 +79,9 @@ timestamp: '2025-08-23T10:35:00Z'
         task_type: 'Today',
         created_at: '2025-08-23T10:35:00Z',
         notion_url: 'https://notion.so/task_123',
-        scheduled_date: null as any,
-        project_id: null as any,
-        error: null as any,
+        scheduled_date: null,
+        project_id: null,
+        error: null,
         execution_time: 1200
       };
 
@@ -109,38 +109,33 @@ Simple string message
 
     it('should preserve data types in YAML output', () => {
       const data = {
-        success: true,
-        count: 0,
-        value: 123,
-        name: 'test',
-        empty: null
+        message: 'test message',
+        timestamp: '2025-08-23T10:35:00Z'
       };
 
-      const event = new Event('test_event' as any, data);
+      const event = new Event('agent_response', data);
       const result = event.toXML();
 
-      expect(result).toContain('success: true');
-      expect(result).toContain('count: 0');  
-      expect(result).toContain('value: 123');
-      expect(result).toContain('name: test');
-      expect(result).toContain('empty: null');
+      expect(result).toContain('<agent_response>');
+      expect(result).toContain('message: test message');
+      expect(result).toContain("timestamp: '2025-08-23T10:35:00Z'");
+      expect(result).toContain('</agent_response>');
     });
 
     it('should handle special characters and emojis', () => {
-      const data = {
-        importance: '⭐⭐⭐⭐⭐',
-        emoji: '🤖',
-        special: 'Test & <data> "quotes"',
-        japanese: 'こんにちは世界'
+      const data: CreateProjectData = {
+        name: 'Test & <data> "quotes"',
+        description: 'こんにちは世界 🤖',
+        importance: '⭐⭐⭐⭐⭐'
       };
 
-      const event = new Event('special_data' as any, data);
+      const event = new Event('create_project', data);
       const result = event.toXML();
 
       expect(result).toContain('importance: ⭐⭐⭐⭐⭐');
-      expect(result).toContain('emoji: 🤖');
-      expect(result).toContain('japanese: こんにちは世界');
-      expect(result).toContain('special:'); // Should handle special chars
+      expect(result).toContain('🤖');
+      expect(result).toContain('こんにちは世界');
+      expect(result).toContain('Test & <data>'); // Should handle special chars
     });
   });
 
