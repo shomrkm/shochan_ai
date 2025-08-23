@@ -175,7 +175,7 @@ execution_time: 1200
 - [x] Unit tests for XML generation
 - [x] Example XML context outputs
 
-### Phase 2: Unified Context Manager Enhancement (Week 2) 🔄 **IN PROGRESS**
+### Phase 2: Unified Context Manager Enhancement (Week 2) ✅ **COMPLETED**
 **Goal**: Integrate XML capabilities into existing ContextManager
 
 #### 2.1 Extend PromptContext Type ✅ **COMPLETED**
@@ -223,15 +223,16 @@ export class ContextManager {
 }
 ```
 
-#### 2.3 Update System Prompt Builder 🔄 **IN PROGRESS**
+#### 2.3 Update System Prompt Builder ✅ **COMPLETED**
 - `src/prompts/system-prompt.ts`
-  - Support XML context in buildSystemPrompt()
-  - Remove complex extractToolExecutions() logic
-  - Simplify context presentation
+  - ✅ Support XML context in buildSystemPrompt()
+  - ✅ Simplify context presentation with thread.toPrompt()
+  - ✅ Maintain legacy extractToolExecutions() logic for compatibility
+  - ✅ Add Thread.isEmpty() and getEventCount() methods
 
 **Deliverables**:
 - [x] **Unified ContextManager**: Dual-mode implementation (TDD approach)
-- [ ] Updated system prompt with XML support
+- [x] Updated system prompt with XML support
 - [ ] **Unit Tests First**: Enhanced ContextManager test suite (100% coverage)
 - [ ] **Integration Tests**: Context generation end-to-end testing
 - [ ] **Backward Compatibility Tests**: Existing code works without changes
