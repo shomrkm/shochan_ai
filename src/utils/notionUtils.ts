@@ -21,14 +21,14 @@ export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): Notion
           },
         ],
       },
-      タスク種別: {
+      task_type: {
         select: {
           name: task_type,
         },
       },
       ...(scheduled_date
         ? {
-            実施予定日: {
+            due_date: {
               date: {
                 start: scheduled_date,
               },
@@ -37,7 +37,7 @@ export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): Notion
         : {}),
       ...(project_id
         ? {
-            プロジェクト: {
+            project: {
               relation: [
                 {
                   id: project_id,
@@ -76,7 +76,7 @@ export function buildProjectCreatePageParams(
       database_id: databaseId,
     },
     properties: {
-      名前: {
+      name: {
         title: [
           {
             text: {
@@ -85,19 +85,19 @@ export function buildProjectCreatePageParams(
           },
         ],
       },
-      重要度: {
+      importance: {
         select: {
           name: importance,
         },
       },
-      ステータス: {
+      status: {
         status: {
           name: 'Not started',
         },
       },
       ...(action_plan
         ? {
-            アクションプラン: {
+            action_plan: {
               rich_text: [
                 {
                   text: {

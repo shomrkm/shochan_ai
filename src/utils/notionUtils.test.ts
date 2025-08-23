@@ -14,14 +14,14 @@ describe('notionUtils', () => {
       expect(params.parent).toEqual({ database_id: 'db_tasks' });
       expect(params.properties).toMatchObject({
         Name: { title: [{ text: { content: 'T1' } }] },
-        タスク種別: { select: { name: '種類A' } },
+        task_type: { select: { name: '種類A' } },
       });
       expect(params.children?.[0]).toMatchObject({
         type: 'paragraph',
         paragraph: { rich_text: [{ text: { content: 'Desc' } }] },
       });
-      expect(params.properties).not.toHaveProperty('実施予定日');
-      expect(params.properties).not.toHaveProperty('プロジェクト');
+      expect(params.properties).not.toHaveProperty('due_date');
+      expect(params.properties).not.toHaveProperty('project');
     });
 
     it('includes optional scheduled_date and project_id when provided', () => {
@@ -35,8 +35,8 @@ describe('notionUtils', () => {
       });
 
       expect(params.properties).toMatchObject({
-        実施予定日: { date: { start: '2025-01-01' } },
-        プロジェクト: { relation: [{ id: 'proj_123' }] },
+        due_date: { date: { start: '2025-01-01' } },
+        project: { relation: [{ id: 'proj_123' }] },
       });
     });
   });
@@ -52,15 +52,15 @@ describe('notionUtils', () => {
 
       expect(params.parent).toEqual({ database_id: 'db_projects' });
       expect(params.properties).toMatchObject({
-        名前: { title: [{ text: { content: 'P1' } }] },
-        重要度: { select: { name: 'High' } },
-        ステータス: { status: { name: 'Not started' } },
+        name: { title: [{ text: { content: 'P1' } }] },
+        importance: { select: { name: 'High' } },
+        status: { status: { name: 'Not started' } },
       });
       expect(params.children?.[0]).toMatchObject({
         type: 'paragraph',
         paragraph: { rich_text: [{ text: { content: 'Project desc' } }] },
       });
-      expect(params.properties).not.toHaveProperty('アクションプラン');
+      expect(params.properties).not.toHaveProperty('action_plan');
     });
 
     it('includes optional action_plan when provided', () => {
@@ -73,7 +73,7 @@ describe('notionUtils', () => {
       });
 
       expect(params.properties).toMatchObject({
-        アクションプラン: { rich_text: [{ text: { content: 'Do X then Y' } }] },
+        action_plan: { rich_text: [{ text: { content: 'Do X then Y' } }] },
       });
     });
   });
