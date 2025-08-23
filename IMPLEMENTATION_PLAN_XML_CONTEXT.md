@@ -18,6 +18,7 @@ Implement XML-based context management following 12-factor agents principles to 
 - 🎯 Event-based Thread model with YAML-in-XML serialization following 12-factor agents standards
 - 🎯 Type-safe event data structures with proper YAML formatting
 - 🎯 Structured context presentation to LLM using standard YAML syntax
+- 🎯 **Unified ContextManager**: Single class with dual-mode capability (legacy + XML)
 - 🎯 Backward compatibility with existing system
 
 ---
@@ -41,8 +42,7 @@ Implement XML-based context management following 12-factor agents principles to 
 src/
 ├── types/prompt-types.ts           # Extend PromptContext
 ├── conversation/
-│   ├── context-manager.ts          # Current implementation
-│   └── enhanced-context-manager.ts # New XML-based implementation
+│   └── context-manager.ts          # Unified implementation (legacy + XML modes)
 ├── prompts/system-prompt.ts        # Update context building
 └── agents/task-creator.ts          # Gradual integration
 ```
@@ -82,41 +82,21 @@ export interface CreateProjectData {
 #### 2. Thread Model
 ```typescript
 // src/events/thread.ts
-import * as yaml from 'js-yaml';
-
 export class Event<T extends EventData = EventData> {
   toXML(): string {
-    const yamlContent = this.stringifyToYaml(this.data);
-    return `<${this.type}>\n${yamlContent}\n</${this.type}>`;
-  }
-
-  private stringifyToYaml(data: EventData): string {
-    if (typeof data === 'string') {
-      return data;
-    }
-    
-    // Proper YAML formatting following 12-factor agents standard
-    return yaml.dump(data, {
-      indent: 2,
-      lineWidth: 80,
-      noRefs: true,
-      sortKeys: false,
-      defaultFlowStyle: false
-    }).trim();
+    return `<${this.type}>
+${this.stringifyToYaml(this.data)}
+</${this.type}>`;
   }
 }
 
 export class Thread {
   toPrompt(): string {
-    const sessionInfo = yaml.dump({
-      thread_id: this.id,
-      start_time: this.startTime.toISOString(),
-      event_count: this.events.length
-    }, { indent: 2 }).trim();
-
     return `<conversation_context>
 <session_info>
-${sessionInfo}
+thread_id: "${this.id}"
+start_time: "${this.startTime.toISOString()}"
+event_count: ${this.events.length}
 </session_info>
 
 ${this.events.map(e => e.toXML()).join('\n\n')}
@@ -125,50 +105,42 @@ ${this.events.map(e => e.toXML()).join('\n\n')}
 }
 ```
 
-#### 3. YAML-in-XML Context Example (Following 12-Factor Agents Standard)
+#### 3. XML Context Example
 ```xml
 <conversation_context>
 <session_info>
-thread_id: thread_1724398500_abc123
-start_time: '2025-08-23T10:35:00Z'
+thread_id: "thread_1724398500_abc123"
+start_time: "2025-08-23T10:35:00Z"
 event_count: 5
 </session_info>
 
 <user_message>
-message: 新しいプロジェクトを作成したい
-timestamp: '2025-08-23T10:35:00Z'
+message: "新しいプロジェクトを作成したい"
+timestamp: "2025-08-23T10:35:00Z"
 </user_message>
 
 <user_input>
-message: プロジェクトの詳細を教えてください
-context: project_creation
+message: "プロジェクトの詳細を教えてください"
+context: "project_creation"
 </user_input>
 
 <user_input_result>
 success: true
-user_response: AIに関する研究プロジェクトです
+user_response: "AIに関する研究プロジェクトです"
 execution_time: 245
-error: null
 </user_input_result>
 
 <create_project>
-name: AI研究プロジェクト
-description: 機械学習の研究を行うプロジェクト
-importance: ⭐⭐⭐⭐
-action_plan: null
+name: "AI研究プロジェクト"
+description: "機械学習の研究を行うプロジェクト"
+importance: "⭐⭐⭐⭐"
 </create_project>
 
 <create_project_result>
 success: true
-project_id: proj_456
-name: AI研究プロジェクト
-description: 機械学習の研究を行うプロジェクト
-importance: ⭐⭐⭐⭐
-created_at: '2025-08-23T10:35:00Z'
-notion_url: https://notion.so/proj_456
-action_plan: null
+project_id: "proj_456"
+notion_url: "https://notion.so/proj_456"
 execution_time: 1200
-error: null
 </create_project_result>
 </conversation_context>
 ```
@@ -188,26 +160,23 @@ error: null
 
 #### 1.2 Implement Event/Thread Classes  
 - `src/events/thread.ts`
-  - Event class with YAML-in-XML serialization using js-yaml
+  - Event class with XML serialization
   - Thread class with event management
-  - toPrompt() method for structured XML context generation
+  - toPrompt() method for XML context generation
 
-#### 1.3 Create YAML Utilities
-- `src/events/yaml-utils.ts`
-  - Proper YAML formatting using js-yaml library
-  - Custom YAML serialization options for consistency
-  - XML tag generation with YAML content
+#### 1.3 Create XML Builder Utilities
+- `src/events/xml-builder.ts`
+  - YAML-style data formatting
+  - XML tag generation utilities
+  - Context header/footer generation
 
 **Deliverables**:
-- [ ] **Unit Tests First**: Complete test suites for Event/Thread classes (100% coverage)
-- [ ] Event/Thread implementation with proper YAML formatting (TDD approach)
-- [ ] YAML utilities with comprehensive edge case testing
-- [ ] Example XML context outputs following 12-factor agents standard
-- [ ] js-yaml integration and configuration
-- [ ] **Test Validation**: All tests passing before moving to Phase 2
+- [ ] Complete Event/Thread implementation
+- [ ] Unit tests for XML generation
+- [ ] Example XML context outputs
 
-### Phase 2: Enhanced Context Manager (Week 2) 
-**Goal**: Create XML-based context management
+### Phase 2: Unified Context Manager Enhancement (Week 2) 
+**Goal**: Integrate XML capabilities into existing ContextManager
 
 #### 2.1 Extend PromptContext Type
 - `src/types/prompt-types.ts`
@@ -215,17 +184,45 @@ error: null
 export interface PromptContext {
   userMessage: string;
   conversationHistory: Anthropic.MessageParam[]; // Legacy compatibility
-  xmlContext?: string; // New XML-based context
+  xmlContext?: string; // New YAML-in-XML context
   thread?: Thread; // Access to full thread
 }
 ```
 
-#### 2.2 Implement EnhancedContextManager
-- `src/conversation/enhanced-context-manager.ts`
-  - Event-based context tracking
-  - XML context generation
-  - Legacy compatibility methods
-  - Backward compatibility with existing ContextManager
+#### 2.2 Enhance Existing ContextManager
+- `src/conversation/context-manager.ts` (統合実装)
+```typescript
+export class ContextManager {
+  private thread: Thread;
+  private conversationHistory: Anthropic.MessageParam[] = [];
+  private useXMLContext: boolean = false; // Feature flag
+
+  constructor(options: { xmlMode?: boolean } = {}) {
+    this.thread = new Thread();
+    this.useXMLContext = options.xmlMode ?? false;
+  }
+
+  // Existing methods maintained for backward compatibility
+  addUserMessage(message: string): void {
+    this.conversationHistory.push({ role: 'user', content: message });
+    this.thread.addEvent('user_message', { message, timestamp: new Date().toISOString() });
+  }
+
+  // New XML methods
+  buildPromptContext(userMessage: string): PromptContext {
+    return {
+      userMessage,
+      conversationHistory: this.useXMLContext ? [] : this.conversationHistory,
+      xmlContext: this.useXMLContext ? this.thread.toPrompt() : undefined,
+      thread: this.thread
+    };
+  }
+
+  // Mode switching
+  enableXMLMode(): void { this.useXMLContext = true; }
+  disableXMLMode(): void { this.useXMLContext = false; }
+}
+```
 
 #### 2.3 Update System Prompt Builder
 - `src/prompts/system-prompt.ts`
@@ -234,21 +231,27 @@ export interface PromptContext {
   - Simplify context presentation
 
 **Deliverables**:
-- [ ] **Unit Tests First**: EnhancedContextManager test suite (100% coverage)
-- [ ] EnhancedContextManager implementation (TDD approach)
+- [ ] **Unit Tests First**: Enhanced ContextManager test suite (100% coverage)
+- [ ] **Unified ContextManager**: Dual-mode implementation (TDD approach)
 - [ ] **Integration Tests**: Context generation end-to-end testing
 - [ ] Updated system prompt with XML support
-- [ ] **Backward Compatibility Tests**: Legacy ContextManager integration
+- [ ] **Backward Compatibility Tests**: Existing code works without changes
 - [ ] **Performance Benchmarks**: Baseline measurements established
+- [ ] **Migration Guide**: Documentation for enabling XML mode
 
 ### Phase 3: TaskCreatorAgent Integration (Week 3)
 **Goal**: Gradual migration to XML context
 
-#### 3.1 Add XML Context Support
+#### 3.1 Enable XML Mode in TaskCreatorAgent
 - `src/agents/task-creator.ts`
-  - Optional EnhancedContextManager usage
-  - Feature flag for XML vs traditional context
-  - Dual-mode operation during transition
+```typescript
+constructor(options: { xmlMode?: boolean } = {}) {
+  this.claude = new ClaudeClient();
+  this.toolExecutor = new EnhancedToolExecutor();
+  this.contextManager = new ContextManager({ xmlMode: options.xmlMode });
+  // No other changes needed - same methods work!
+}
+```
 
 #### 3.2 Event Recording Integration
 - Update tool execution methods:
@@ -262,12 +265,9 @@ export interface PromptContext {
 - Maintain backward compatibility
 
 **Deliverables**:
-- [ ] **Unit Tests First**: TaskCreatorAgent modifications test suite
-- [ ] **Integration Tests**: End-to-end conversation flow testing
-- [ ] Dual-mode TaskCreatorAgent implementation (TDD approach)
-- [ ] Complete event recording for all tools with validation tests
-- [ ] **A/B Testing Framework**: Comprehensive comparison testing
-- [ ] **Regression Tests**: Ensure no functionality loss
+- [ ] Dual-mode TaskCreatorAgent
+- [ ] Complete event recording for all tools
+- [ ] A/B testing capability (XML vs traditional)
 
 ### Phase 4: Testing & Optimization (Week 4)
 **Goal**: Validate and optimize implementation
@@ -292,28 +292,29 @@ export interface PromptContext {
 - [ ] Quality metrics comparison
 - [ ] Developer tools for context inspection
 
-### Phase 5: Production Migration (Week 5)
-**Goal**: Complete migration and cleanup
+### Phase 5: Production Migration & Cleanup (Week 5)
+**Goal**: Enable XML by default and cleanup
 
 #### 5.1 Default Migration
-- Switch default context manager to Enhanced
-- Feature flag removal
-- Legacy code cleanup
+- Change ContextManager default to XML mode: `{ xmlMode: true }`
+- Update TaskCreatorAgent to use XML by default
+- **No breaking changes**: Legacy compatibility maintained
 
-#### 5.2 Documentation Updates
-- Update README with XML context examples
-- Add debugging guides
-- Create context management best practices
+#### 5.2 Performance Optimization
+- Remove legacy conversationHistory storage when xmlMode enabled
+- Optimize YAML generation performance
+- Fine-tune XML context for token efficiency
 
-#### 5.3 Monitoring & Maintenance
-- Performance monitoring setup
-- Error tracking improvements
-- User experience metrics
+#### 5.3 Documentation & Monitoring
+- Update README with YAML-in-XML context examples
+- Add debugging guides for XML context inspection
+- Performance monitoring and alerting setup
 
 **Deliverables**:
-- [ ] Complete migration to XML context
-- [ ] Updated documentation
-- [ ] Production monitoring setup
+- [ ] **Seamless Migration**: XML enabled by default with zero breaking changes
+- [ ] **Code Cleanup**: Optimized unified ContextManager
+- [ ] **Complete Documentation**: Migration guide and best practices
+- [ ] **Production Monitoring**: Performance tracking and alerting
 
 ---
 
@@ -385,97 +386,27 @@ export interface PromptContext {
 
 ### Required Dependencies
 ```json
-// package.json additions - REQUIRED for proper YAML formatting
+// package.json additions (if needed)
 {
-  "dependencies": {
-    "js-yaml": "^4.1.0"
-  },
   "devDependencies": {
+    "js-yaml": "^4.1.0",
     "@types/js-yaml": "^4.0.5"
   }
 }
 ```
 
-### Testing Strategy (Test-Driven Development)
-
-#### Unit Testing with Vitest
-**Requirement**: All classes MUST have comprehensive unit tests before implementation
-
-##### Event System Tests (`src/events/types.test.ts`)
-```typescript
-describe('Event Types', () => {
-  test('should create valid EventData interfaces')
-  test('should enforce type safety for each EventType')
-  test('should handle optional fields correctly')
-})
-```
-
-##### Event Class Tests (`src/events/thread.test.ts`)
-```typescript
-describe('Event Class', () => {
-  test('should create event with correct timestamp and ID')
-  test('should serialize simple data to YAML format')
-  test('should handle complex nested data structures')
-  test('should format XML tags correctly')
-  test('should handle null/undefined values properly')
-})
-
-describe('Thread Class', () => {
-  test('should initialize with correct thread ID and timestamp')
-  test('should add events and maintain order')
-  test('should generate valid XML context')
-  test('should handle empty thread gracefully')
-  test('should provide accurate execution statistics')
-  test('should filter events by type correctly')
-})
-```
-
-##### YAML Utils Tests (`src/events/yaml-utils.test.ts`)
-```typescript
-describe('YAML Utilities', () => {
-  test('should format YAML with consistent indentation')
-  test('should handle Japanese text correctly')
-  test('should preserve data types (strings, numbers, booleans)')
-  test('should format arrays and objects properly')
-  test('should handle special characters in XML context')
-})
-```
-
-##### Enhanced Context Manager Tests (`src/conversation/enhanced-context-manager.test.ts`)
-```typescript
-describe('EnhancedContextManager', () => {
-  test('should maintain backward compatibility with legacy methods')
-  test('should generate correct XML context')
-  test('should handle dual-mode operation')
-  test('should record events in correct sequence')
-  test('should build prompt context with XML data')
-})
-```
-
-#### Integration Testing
-- Context generation end-to-end flows
-- TaskCreatorAgent integration with XML context
-- System prompt building with XML input
-- LLM interaction with structured context
-
-#### Performance Testing  
-- YAML generation performance benchmarks
-- Memory usage comparison (current vs XML)
-- Context window size monitoring
-- Token usage measurement
-
-#### Test Coverage Requirements
-- **Unit Tests**: 100% coverage for all Event/Thread classes
-- **Integration Tests**: 95% coverage for context management flows
-- **E2E Tests**: Critical user journey coverage
-- **Performance Tests**: Baseline establishment and regression detection
+### Testing Strategy
+- Unit tests for Event/Thread classes
+- Integration tests for context generation
+- E2E tests for TaskCreatorAgent flows
+- Performance benchmarks
+- A/B testing framework
 
 ### Code Quality Standards
 - 100% TypeScript strict mode compliance
-- **Test-First Development**: Write tests before implementation
 - Comprehensive JSDoc documentation
 - ESLint/Prettier configuration maintenance
-- **Mandatory**: All PRs must include corresponding test updates
+- Test coverage >90% for new code
 
 ---
 
@@ -484,13 +415,12 @@ describe('EnhancedContextManager', () => {
 ### File Organization
 ```
 src/
-├── events/                    # New YAML-in-XML context system
+├── events/                    # New XML context system
 │   ├── types.ts              # Event type definitions
-│   ├── thread.ts             # Event/Thread classes with js-yaml integration
-│   └── yaml-utils.ts         # YAML formatting utilities
+│   ├── thread.ts             # Event/Thread classes
+│   └── xml-builder.ts        # XML utilities
 ├── conversation/
-│   ├── context-manager.ts    # Legacy (maintain)
-│   └── enhanced-context-manager.ts # YAML-in-XML based
+│   └── context-manager.ts    # Unified (legacy + YAML-in-XML modes)
 └── types/
     └── prompt-types.ts       # Extended with XML support
 ```
@@ -503,33 +433,22 @@ src/
 5. **Rollback Plan**: Quick revert to traditional approach if needed
 
 ### Coding Standards
-- **Test-Driven Development**: Write comprehensive unit tests before implementation
-- Follow existing project conventions (Vitest, TypeScript strict mode)
+- Follow existing project conventions
 - Maintain backward compatibility during transition
-- Comprehensive error handling with test coverage
+- Comprehensive error handling
 - Clear documentation and examples
 - Type safety as first priority
-- **Mandatory Code Review**: All implementations must pass tests before PR approval
 
 ---
 
 ## 🚀 Getting Started
 
-### Phase 1 Kickoff Tasks (Test-Driven Development)
-1. Add js-yaml dependency: `npm install js-yaml @types/js-yaml`
-2. Create `src/events/` directory structure with test files
-3. **Write Unit Tests First**:
-   - `src/events/types.test.ts` - Event type validation tests
-   - `src/events/thread.test.ts` - Event/Thread class tests  
-   - `src/events/yaml-utils.test.ts` - YAML formatting tests
-4. **Implement with TDD**:
-   - Event class with proper YAML-in-XML serialization (tests first)
-   - Thread class with YAML-based event management (tests first)
-   - YAML utilities following test specifications
-5. **Validation**:
-   - Run `npm test` - ensure 100% test coverage
-   - Generate example YAML-in-XML outputs
-   - Verify outputs follow 12-factor agents standard
+### Phase 1 Kickoff Tasks
+1. Create `src/events/` directory structure
+2. Implement basic Event class with XML serialization
+3. Create Thread class with event management
+4. Write comprehensive unit tests
+5. Generate example XML outputs for review
 
 ### Next Steps After Plan Approval
 - Set up development branch: `feature/xml-context-management`
