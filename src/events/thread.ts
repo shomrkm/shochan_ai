@@ -2,33 +2,47 @@
  * Event and Thread Classes for YAML-in-XML Context Management
  * Following 12-factor agents Factor 3 principles
  */
-import type { EventType, EventData } from './types';
+import type { EventType, EventTypeDataMap } from './types';
+import { YamlUtils } from './yaml-utils';
 
-export class Event<T extends EventData = EventData> {
-  // TODO: Implement based on tests
+// Type-safe Event class with EventType to data mapping
+export class Event<K extends EventType = EventType> {
   constructor(
-    public readonly type: EventType,
-    public readonly data: T,
+    public readonly type: K,
+    public readonly data: EventTypeDataMap[K],
     public readonly timestamp: Date = new Date(),
     public readonly id: string = `event_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
   ) {}
 
   toXML(): string {
-    // TODO: Implement based on tests
-    return '';
+    return YamlUtils.generateXMLTag(this.type, this.data);
   }
 }
 
+// Helper function for type-safe event creation
+export function createEvent<K extends EventType>(
+  type: K, 
+  data: EventTypeDataMap[K]
+): Event<K> {
+  return new Event(type, data);
+}
+
 export class Thread {
-  // TODO: Implement based on tests
+  private events: Event[] = [];
+
   constructor(
     public readonly id: string = `thread_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
     public readonly startTime: Date = new Date()
   ) {}
 
-  addEvent<T extends EventData>(type: EventType, data: T): Event<T> {
-    // TODO: Implement based on tests
-    return new Event(type, data);
+  addEvent<K extends EventType>(type: K, data: EventTypeDataMap[K]): Event<K> {
+    const event = new Event(type, data);
+    this.events.push(event);
+    return event;
+  }
+
+  getEvents(): ReadonlyArray<Event> {
+    return [...this.events];
   }
 
   toPrompt(): string {

@@ -95,16 +95,24 @@ export interface ErrorData {
   details?: Record<string, unknown>;
 }
 
-// Union type for all event data
-export type EventData = 
-  | UserMessageData
-  | CreateTaskData
-  | CreateTaskResultData
-  | CreateProjectData  
-  | CreateProjectResultData
-  | UserInputData
-  | UserInputResultData
-  | AgentResponseData
-  | ErrorData
-  | Record<string, any> // for flexible object data
-  | string; // fallback for simple cases
+// Event type to data mapping for strict type safety
+export interface EventTypeDataMap {
+  'user_message': UserMessageData;
+  'user_input_request': UserMessageData; // Can reuse UserMessageData structure
+  'user_input_response': UserMessageData; // Can reuse UserMessageData structure
+  
+  'create_task': CreateTaskData;
+  'create_project': CreateProjectData;
+  'user_input': UserInputData;
+  
+  'create_task_result': CreateTaskResultData;
+  'create_project_result': CreateProjectResultData;
+  'user_input_result': UserInputResultData;
+  
+  'agent_response': AgentResponseData;
+  'conversation_end': AgentResponseData; // Can reuse AgentResponseData structure
+  'error': ErrorData;
+}
+
+// Union type for all event data (derived from mapping)
+export type EventData = EventTypeDataMap[keyof EventTypeDataMap] | Record<string, any> | string;
