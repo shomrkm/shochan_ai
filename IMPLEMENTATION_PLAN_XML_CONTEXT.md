@@ -175,21 +175,20 @@ execution_time: 1200
 - [x] Unit tests for XML generation
 - [x] Example XML context outputs
 
-### Phase 2: Unified Context Manager Enhancement (Week 2) 
+### Phase 2: Unified Context Manager Enhancement (Week 2) 🔄 **IN PROGRESS**
 **Goal**: Integrate XML capabilities into existing ContextManager
 
-#### 2.1 Extend PromptContext Type
+#### 2.1 Extend PromptContext Type ✅ **COMPLETED**
 - `src/types/prompt-types.ts`
 ```typescript
 export interface PromptContext {
   userMessage: string;
-  conversationHistory: Anthropic.MessageParam[]; // Legacy compatibility
-  xmlContext?: string; // New YAML-in-XML context
-  thread?: Thread; // Access to full thread
+  conversationHistory: Anthropic.MessageParam[]; // Legacy compatibility - will be removed in Phase 5
+  thread?: Thread; // TODO: Make required in Phase 5 when XML becomes default - XML context generated via thread.toPrompt()
 }
 ```
 
-#### 2.2 Enhance Existing ContextManager
+#### 2.2 Enhance Existing ContextManager ✅ **COMPLETED**
 - `src/conversation/context-manager.ts` (統合実装)
 ```typescript
 export class ContextManager {
@@ -224,17 +223,17 @@ export class ContextManager {
 }
 ```
 
-#### 2.3 Update System Prompt Builder
+#### 2.3 Update System Prompt Builder 🔄 **IN PROGRESS**
 - `src/prompts/system-prompt.ts`
   - Support XML context in buildSystemPrompt()
   - Remove complex extractToolExecutions() logic
   - Simplify context presentation
 
 **Deliverables**:
-- [ ] **Unit Tests First**: Enhanced ContextManager test suite (100% coverage)
-- [ ] **Unified ContextManager**: Dual-mode implementation (TDD approach)
-- [ ] **Integration Tests**: Context generation end-to-end testing
+- [x] **Unified ContextManager**: Dual-mode implementation (TDD approach)
 - [ ] Updated system prompt with XML support
+- [ ] **Unit Tests First**: Enhanced ContextManager test suite (100% coverage)
+- [ ] **Integration Tests**: Context generation end-to-end testing
 - [ ] **Backward Compatibility Tests**: Existing code works without changes
 - [ ] **Performance Benchmarks**: Baseline measurements established
 - [ ] **Migration Guide**: Documentation for enabling XML mode
