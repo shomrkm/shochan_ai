@@ -9,6 +9,8 @@
 
 import type Anthropic from '@anthropic-ai/sdk';
 import type { PromptContext } from '../types/prompt-types';
+import { Thread } from '../events/thread';
+import type { EventType, EventTypeDataMap } from '../events/types';
 import {
   isNotionProjectResultData,
   isNotionTaskResultData,
@@ -25,15 +27,28 @@ import type { AgentTool, ToolResult } from '../types/tools';
  * - Prompt context generation
  */
 export class ContextManager {
+  private thread: Thread;
   private conversationHistory: Anthropic.MessageParam[] = [];
+  private useXMLContext: boolean = false; // Feature flag for XML mode
+
+  constructor(options: { xmlMode?: boolean } = {}) {
+    this.thread = new Thread();
+    this.useXMLContext = options.xmlMode ?? false;
+  }
 
   /**
    * Add user message to context history
    */
   addUserMessage(message: string): void {
+    // Add to legacy conversation history
     this.conversationHistory.push({
       role: 'user',
       content: message,
+    });
+    // Add to new event-based thread
+    this.thread.addEvent('user_message', {
+      message,
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -41,9 +56,15 @@ export class ContextManager {
    * Add assistant response to context history
    */
   addAssistantResponse(response: string): void {
+    // Add to legacy conversation history
     this.conversationHistory.push({
       role: 'assistant',
       content: response,
+    });
+    // Add to new event-based thread
+    this.thread.addEvent('agent_response', {
+      message: response,
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -83,11 +104,13 @@ export class ContextManager {
 
   /**
    * Build prompt context from current context state
+   * Uses XML context if xmlMode is enabled, otherwise uses legacy conversation history
    */
   buildPromptContext(userMessage: string): PromptContext {
     return {
       userMessage,
-      conversationHistory: this.getConversationHistory(),
+      conversationHistory: this.useXMLContext ? [] : this.getConversationHistory(),
+      thread: this.useXMLContext ? this.thread : undefined,
     };
   }
 
@@ -103,6 +126,8 @@ export class ContextManager {
    */
   clear(): void {
     this.conversationHistory = [];
+    // Create new thread for XML mode
+    this.thread = new Thread();
   }
 
   /**
@@ -167,5 +192,41 @@ export class ContextManager {
       messageCount: this.conversationHistory.length,
       messages: [...this.conversationHistory],
     };
+  }
+
+  // New XML-based methods
+  /**
+   * Add event directly to thread for XML context
+   */
+  addEvent<K extends EventType>(type: K, data: EventTypeDataMap[K]): void {
+    this.thread.addEvent(type, data);
+  }
+
+  /**
+   * Enable XML mode for context generation
+   */
+  enableXMLMode(): void {
+    this.useXMLContext = true;
+  }
+
+  /**
+   * Disable XML mode and use legacy conversation history
+   */
+  disableXMLMode(): void {
+    this.useXMLContext = false;
+  }
+
+  /**
+   * Check if XML mode is currently enabled
+   */
+  isXMLModeEnabled(): boolean {
+    return this.useXMLContext;
+  }
+
+  /**
+   * Get access to the underlying Thread for direct manipulation
+   */
+  getThread(): Thread {
+    return this.thread;
   }
 }
