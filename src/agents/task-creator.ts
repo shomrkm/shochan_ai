@@ -29,11 +29,12 @@ export class TaskCreatorAgent {
 
   /**
    * Initialize the TaskCreatorAgent with all necessary components
+   * @param options Configuration options including XML mode support
    */
-  constructor() {
+  constructor(options: { xmlMode?: boolean } = {}) {
     this.claude = new ClaudeClient();
     this.toolExecutor = new EnhancedToolExecutor();
-    this.contextManager = new ContextManager();
+    this.contextManager = new ContextManager({ xmlMode: options.xmlMode });
     this.displayManager = new DisplayManager();
   }
 
@@ -144,7 +145,7 @@ export class TaskCreatorAgent {
     return await this.claude.generateToolCall(
       systemPrompt,
       userMessage,
-      promptContext.conversationHistory as any
+      promptContext.conversationHistory
     );
   }
 
@@ -160,7 +161,7 @@ export class TaskCreatorAgent {
     const response = await this.claude.generateResponse(
       systemPrompt,
       userMessage,
-      promptContext.conversationHistory as any
+      promptContext.conversationHistory
     );
 
     this.displayManager.displayAgentResponse(response);
