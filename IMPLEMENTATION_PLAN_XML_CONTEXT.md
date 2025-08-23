@@ -199,10 +199,12 @@ error: null
   - XML tag generation with YAML content
 
 **Deliverables**:
-- [ ] Complete Event/Thread implementation with proper YAML formatting
-- [ ] Unit tests for YAML-in-XML generation
+- [ ] **Unit Tests First**: Complete test suites for Event/Thread classes (100% coverage)
+- [ ] Event/Thread implementation with proper YAML formatting (TDD approach)
+- [ ] YAML utilities with comprehensive edge case testing
 - [ ] Example XML context outputs following 12-factor agents standard
 - [ ] js-yaml integration and configuration
+- [ ] **Test Validation**: All tests passing before moving to Phase 2
 
 ### Phase 2: Enhanced Context Manager (Week 2) 
 **Goal**: Create XML-based context management
@@ -232,9 +234,12 @@ export interface PromptContext {
   - Simplify context presentation
 
 **Deliverables**:
-- [ ] EnhancedContextManager implementation
+- [ ] **Unit Tests First**: EnhancedContextManager test suite (100% coverage)
+- [ ] EnhancedContextManager implementation (TDD approach)
+- [ ] **Integration Tests**: Context generation end-to-end testing
 - [ ] Updated system prompt with XML support
-- [ ] Integration tests with TaskCreatorAgent
+- [ ] **Backward Compatibility Tests**: Legacy ContextManager integration
+- [ ] **Performance Benchmarks**: Baseline measurements established
 
 ### Phase 3: TaskCreatorAgent Integration (Week 3)
 **Goal**: Gradual migration to XML context
@@ -257,9 +262,12 @@ export interface PromptContext {
 - Maintain backward compatibility
 
 **Deliverables**:
-- [ ] Dual-mode TaskCreatorAgent
-- [ ] Complete event recording for all tools
-- [ ] A/B testing capability (XML vs traditional)
+- [ ] **Unit Tests First**: TaskCreatorAgent modifications test suite
+- [ ] **Integration Tests**: End-to-end conversation flow testing
+- [ ] Dual-mode TaskCreatorAgent implementation (TDD approach)
+- [ ] Complete event recording for all tools with validation tests
+- [ ] **A/B Testing Framework**: Comprehensive comparison testing
+- [ ] **Regression Tests**: Ensure no functionality loss
 
 ### Phase 4: Testing & Optimization (Week 4)
 **Goal**: Validate and optimize implementation
@@ -388,18 +396,86 @@ export interface PromptContext {
 }
 ```
 
-### Testing Strategy
-- Unit tests for Event/Thread classes
-- Integration tests for context generation
-- E2E tests for TaskCreatorAgent flows
-- Performance benchmarks
-- A/B testing framework
+### Testing Strategy (Test-Driven Development)
+
+#### Unit Testing with Vitest
+**Requirement**: All classes MUST have comprehensive unit tests before implementation
+
+##### Event System Tests (`src/events/types.test.ts`)
+```typescript
+describe('Event Types', () => {
+  test('should create valid EventData interfaces')
+  test('should enforce type safety for each EventType')
+  test('should handle optional fields correctly')
+})
+```
+
+##### Event Class Tests (`src/events/thread.test.ts`)
+```typescript
+describe('Event Class', () => {
+  test('should create event with correct timestamp and ID')
+  test('should serialize simple data to YAML format')
+  test('should handle complex nested data structures')
+  test('should format XML tags correctly')
+  test('should handle null/undefined values properly')
+})
+
+describe('Thread Class', () => {
+  test('should initialize with correct thread ID and timestamp')
+  test('should add events and maintain order')
+  test('should generate valid XML context')
+  test('should handle empty thread gracefully')
+  test('should provide accurate execution statistics')
+  test('should filter events by type correctly')
+})
+```
+
+##### YAML Utils Tests (`src/events/yaml-utils.test.ts`)
+```typescript
+describe('YAML Utilities', () => {
+  test('should format YAML with consistent indentation')
+  test('should handle Japanese text correctly')
+  test('should preserve data types (strings, numbers, booleans)')
+  test('should format arrays and objects properly')
+  test('should handle special characters in XML context')
+})
+```
+
+##### Enhanced Context Manager Tests (`src/conversation/enhanced-context-manager.test.ts`)
+```typescript
+describe('EnhancedContextManager', () => {
+  test('should maintain backward compatibility with legacy methods')
+  test('should generate correct XML context')
+  test('should handle dual-mode operation')
+  test('should record events in correct sequence')
+  test('should build prompt context with XML data')
+})
+```
+
+#### Integration Testing
+- Context generation end-to-end flows
+- TaskCreatorAgent integration with XML context
+- System prompt building with XML input
+- LLM interaction with structured context
+
+#### Performance Testing  
+- YAML generation performance benchmarks
+- Memory usage comparison (current vs XML)
+- Context window size monitoring
+- Token usage measurement
+
+#### Test Coverage Requirements
+- **Unit Tests**: 100% coverage for all Event/Thread classes
+- **Integration Tests**: 95% coverage for context management flows
+- **E2E Tests**: Critical user journey coverage
+- **Performance Tests**: Baseline establishment and regression detection
 
 ### Code Quality Standards
 - 100% TypeScript strict mode compliance
+- **Test-First Development**: Write tests before implementation
 - Comprehensive JSDoc documentation
 - ESLint/Prettier configuration maintenance
-- Test coverage >90% for new code
+- **Mandatory**: All PRs must include corresponding test updates
 
 ---
 
@@ -427,23 +503,33 @@ src/
 5. **Rollback Plan**: Quick revert to traditional approach if needed
 
 ### Coding Standards
-- Follow existing project conventions
+- **Test-Driven Development**: Write comprehensive unit tests before implementation
+- Follow existing project conventions (Vitest, TypeScript strict mode)
 - Maintain backward compatibility during transition
-- Comprehensive error handling
+- Comprehensive error handling with test coverage
 - Clear documentation and examples
 - Type safety as first priority
+- **Mandatory Code Review**: All implementations must pass tests before PR approval
 
 ---
 
 ## 🚀 Getting Started
 
-### Phase 1 Kickoff Tasks
+### Phase 1 Kickoff Tasks (Test-Driven Development)
 1. Add js-yaml dependency: `npm install js-yaml @types/js-yaml`
-2. Create `src/events/` directory structure
-3. Implement Event class with proper YAML-in-XML serialization
-4. Create Thread class with YAML-based event management
-5. Write comprehensive unit tests for YAML formatting
-6. Generate example YAML-in-XML outputs following 12-factor agents standard
+2. Create `src/events/` directory structure with test files
+3. **Write Unit Tests First**:
+   - `src/events/types.test.ts` - Event type validation tests
+   - `src/events/thread.test.ts` - Event/Thread class tests  
+   - `src/events/yaml-utils.test.ts` - YAML formatting tests
+4. **Implement with TDD**:
+   - Event class with proper YAML-in-XML serialization (tests first)
+   - Thread class with YAML-based event management (tests first)
+   - YAML utilities following test specifications
+5. **Validation**:
+   - Run `npm test` - ensure 100% test coverage
+   - Generate example YAML-in-XML outputs
+   - Verify outputs follow 12-factor agents standard
 
 ### Next Steps After Plan Approval
 - Set up development branch: `feature/xml-context-management`
