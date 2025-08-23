@@ -106,4 +106,5 @@ export type EventData =
   | UserInputResultData
   | AgentResponseData
   | ErrorData
+  | Record<string, any> // for flexible object data
   | string; // fallback for simple cases
