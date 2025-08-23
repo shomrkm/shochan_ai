@@ -50,11 +50,25 @@ export class Thread {
     return this.events[this.events.length - 1];
   }
 
+  /**
+   * Check if thread has no events
+   */
+  isEmpty(): boolean {
+    return this.events.length === 0;
+  }
+
+  /**
+   * Get the number of events in the thread
+   */
+  getEventCount(): number {
+    return this.events.length;
+  }
+
   toPrompt(): string {
     const sessionInfo = YamlUtils.formatToYaml({
       thread_id: this.id,
       start_time: this.startTime.toISOString(),
-      event_count: this.events.length,
+      event_count: this.getEventCount(),
     });
 
     const eventsXML = this.events.map((event) => event.toXML()).join('\n\n');

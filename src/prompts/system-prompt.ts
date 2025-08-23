@@ -1,4 +1,5 @@
 import type { PromptContext } from '../types/prompt-types';
+import type Anthropic from '@anthropic-ai/sdk';
 
 // Unified System Prompt
 export const buildSystemPrompt = (context: PromptContext) => `
@@ -25,7 +26,6 @@ You are a Notion GTD system task creation assistant.
 
 ## Current Context
 - Current user message: "${context.userMessage}"
-- Conversation history: ${context.conversationHistory.length} previous messages
 ${buildContextualInformation(context)}
 
 ## Your Goal
@@ -58,13 +58,21 @@ Remember: Be helpful but efficient. Don't make users answer unnecessary question
 `;
 
 /**
- * Build contextual information from conversation history including tool execution results
+ * Build contextual information from conversation history or XML thread context
+ * Supports both legacy conversation history and new XML context modes
  */
 const buildContextualInformation = (context: PromptContext): string => {
+  // If XML context is available (new mode), use it directly
+  if (context.thread) {
+    if (context.thread.isEmpty()) return '';
+    return `\n${context.thread.toPrompt()}`;
+  }
+
+  // Fallback to legacy conversation history parsing
   const toolExecutions = extractToolExecutions(context.conversationHistory);
 
   if (toolExecutions.length === 0) {
-    return '';
+    return `\n- Conversation history: ${context.conversationHistory.length} previous messages`;
   }
 
   let contextInfo = '\n## Previous Tool Executions\n';
@@ -102,9 +110,11 @@ const buildContextualInformation = (context: PromptContext): string => {
 
 /**
  * Extract tool execution information from conversation history
+ * @deprecated This function will be removed when XML mode becomes default
+ * Only used for legacy conversation history parsing
  */
 const extractToolExecutions = (
-  history: any[]
+  history: Anthropic.MessageParam[]
 ): Array<{
   toolName: string;
   status: string;
@@ -117,7 +127,18 @@ const extractToolExecutions = (
   userResponse?: string;
   error?: { message: string };
 }> => {
-  const executions: any[] = [];
+  const executions: Array<{
+    toolName: string;
+    status: string;
+    success: boolean;
+    executionTime: string;
+    taskId?: string;
+    taskTitle?: string;
+    projectId?: string;
+    projectName?: string;
+    userResponse?: string;
+    error?: { message: string };
+  }> = [];
 
   for (let i = 0; i < history.length - 1; i++) {
     const message = history[i];
@@ -135,12 +156,17 @@ const extractToolExecutions = (
       const toolUse = message.content[0];
       const toolResult = nextMessage.content[0];
 
+      // Type guards to ensure proper types
+      if (toolUse.type !== 'tool_use' || toolResult.type !== 'tool_result') {
+        continue;
+      }
+
       try {
-        const resultData = JSON.parse(toolResult.content);
+        const resultData = JSON.parse(toolResult.content as string);
         executions.push({
           toolName: toolUse.name,
           status: resultData.status || 'unknown',
-          success: resultData.success || false,
+          success: Boolean(resultData.success),
           executionTime: resultData.executionTime || 'unknown',
           taskId: resultData.taskId,
           taskTitle: resultData.taskTitle,
