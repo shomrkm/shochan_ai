@@ -46,6 +46,13 @@ export interface CreateProjectTool extends ToolCall {
 
 export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool;
 
+// Tool to Result type mapping for strict type safety
+export interface ToolResultTypeMap {
+  create_task: TaskCreationResult;
+  user_input: UserInputResult;
+  create_project: ProjectCreationResult;
+}
+
 // Result types for each tool
 export interface TaskCreationResult {
   task_id: string;
@@ -67,6 +74,8 @@ export interface ProjectCreationResult {
   notion_url?: string;
   action_plan?: string;
 }
+
+export type AgentToolResult = TaskCreationResult | ProjectCreationResult | UserInputResult | Record<string, unknown>;
 
 // Factor 4: Enhanced structured tool results
 export interface ToolExecutionMetadata {
@@ -94,7 +103,7 @@ export interface ToolExecutionError {
 }
 
 // Enhanced tool result with Factor 4 principles
-export interface ToolResult<T extends Record<string, any> = Record<string, any>> {
+export interface ToolResult<T extends AgentToolResult = AgentToolResult> {
   success: boolean;
   message: string;
   data?: T;
@@ -106,10 +115,20 @@ export interface ToolResult<T extends Record<string, any> = Record<string, any>>
   error?: ToolExecutionError;
 }
 
-// Specific tool result types
-export type TaskToolResult = ToolResult<TaskCreationResult>;
-export type ProjectToolResult = ToolResult<ProjectCreationResult>;
-export type UserInputToolResult = ToolResult<UserInputResult>;
+// Type-safe tool result mapping
+export type ToolResultFor<K extends keyof ToolResultTypeMap> = ToolResult<ToolResultTypeMap[K]>;
+
+// Specific tool result types with strict mapping
+export type TaskToolResult = ToolResultFor<'create_task'>;
+export type ProjectToolResult = ToolResultFor<'create_project'>;
+export type UserInputToolResult = ToolResultFor<'user_input'>;
+
+// Helper type for getting result type from tool type
+export type ResultTypeForTool<T extends AgentTool> = 
+  T extends CreateTaskTool ? TaskCreationResult :
+  T extends CreateProjectTool ? ProjectCreationResult :
+  T extends UserInputTool ? UserInputResult :
+  never;
 
 export interface UserInputResult {
   message: string; // Message displayed to user

@@ -12,7 +12,13 @@ import {
   isUserInputResultData,
   isUserInputTool,
 } from '../types/toolGuards';
-import type { AgentTool, ToolResult } from '../types/tools';
+import type {
+  AgentTool,
+  CreateTaskTool,
+  CreateProjectTool,
+  UserInputTool,
+  ToolResult,
+} from '../types/tools';
 import { InputHelper } from '../utils/input-helper';
 
 /**
@@ -177,7 +183,7 @@ export class TaskCreatorAgent {
   private async executeTool(toolCall: AgentTool): Promise<ProcessMessageResult> {
     this.displayToolCallInfo(toolCall);
 
-    // Routing logic for different tool types
+    // Routing logic for different tool types with type-safe execution
     if (isCreateTaskTool(toolCall)) {
       const result = await this.executeCreateTask(toolCall);
       return { toolCall, toolResult: result };
@@ -188,36 +194,43 @@ export class TaskCreatorAgent {
       const result = await this.executeUserInput(toolCall);
       return { toolCall, toolResult: result };
     } else {
-      // Handle unrecognized function calls
-      throw new Error(`Unknown tool function: ${(toolCall as AgentTool).function.name}`);
+      // Handle unrecognized function calls - this should never happen due to type guards
+      const exhaustiveCheck: never = toolCall;
+      throw new Error(`Unknown tool function: ${(exhaustiveCheck as AgentTool).function.name}`);
     }
   }
 
   /**
    * Execute create_task tool
    */
-  private async executeCreateTask(toolCall: AgentTool) {
+  private async executeCreateTask(toolCall: CreateTaskTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.contextManager.addToolExecution(toolCall, this.convertToToolResult(enrichedResult));
+    const toolResult = this.convertToToolResult(enrichedResult);
+    
+    this.contextManager.addToolExecution(toolCall, toolResult);
     return enrichedResult;
   }
 
   /**
    * Execute create_project tool
    */
-  private async executeCreateProject(toolCall: AgentTool) {
+  private async executeCreateProject(toolCall: CreateProjectTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
-    this.contextManager.addToolExecution(toolCall, this.convertToToolResult(enrichedResult));
+    const toolResult = this.convertToToolResult(enrichedResult);
+    
+    this.contextManager.addToolExecution(toolCall, toolResult);
     return enrichedResult;
   }
 
   /**
    * Execute user_input tool
    */
-  private async executeUserInput(toolCall: AgentTool) {
+  private async executeUserInput(toolCall: UserInputTool) {
     const enrichedResult = await this.executeToolWithContext(toolCall);
+    const toolResult = this.convertToToolResult(enrichedResult);
+    
     this.handleUserInputResult(toolCall, enrichedResult);
-    this.contextManager.addToolExecution(toolCall, this.convertToToolResult(enrichedResult));
+    this.contextManager.addToolExecution(toolCall, toolResult);
     return enrichedResult;
   }
 
