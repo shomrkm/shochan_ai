@@ -54,13 +54,6 @@ export class TaskCreatorAgent {
 
       const result = await this.processMessage(currentMessage);
 
-      if (!this.shouldContinueConversation(result)) {
-        if (this.hasCalledTool(result)) {
-          this.displayManager.displayEnrichedResultSummary(result.toolResult);
-        }
-        break;
-      }
-
       const nextMessage = this.extractUserResponse(result);
       if (nextMessage) {
         currentMessage = nextMessage;
@@ -242,24 +235,6 @@ export class TaskCreatorAgent {
     return {
       response: `申し訳ございません。処理中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
     };
-  }
-
-  /**
-   * Determine whether the conversation should continue
-   */
-  private shouldContinueConversation(result: ProcessMessageResult): boolean {
-    if (!this.hasCalledTool(result)) {
-      console.log('💬 Agent provided a response without tools.');
-      return true; // Continue conversation even for direct responses
-    }
-
-    if (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall)) {
-      console.log('✅ Task/Project created successfully!');
-      console.log('💬 You can continue to create more tasks/projects or press Ctrl+C to exit.');
-      return true; // Continue conversation instead of ending
-    }
-
-    return true;
   }
 
   /**

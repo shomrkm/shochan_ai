@@ -26,37 +26,6 @@ export class DisplayManager {
   }
 
   /**
-   * Display summary of enriched tool execution result
-   */
-  displayEnrichedResultSummary(enrichedResult: EnrichedToolResult): void {
-    console.log('\n🔍 Tool Execution Summary:');
-    console.log(`⚡ Execution Time: ${enrichedResult.executionTimeMs}ms`);
-    console.log(`🔄 Retry Count: ${enrichedResult.metadata.retryCount}`);
-    console.log(`📊 Status: ${enrichedResult.status}`);
-
-    if (enrichedResult.inputValidation) {
-      console.log(
-        `✅ Input Validation: ${enrichedResult.inputValidation.isValid ? 'Passed' : 'Failed'}`
-      );
-    }
-
-    if (enrichedResult.outputValidation) {
-      console.log(
-        `✅ Output Validation: ${enrichedResult.outputValidation.isValid ? 'Passed' : 'Failed'}`
-      );
-    }
-
-    if (enrichedResult.error) {
-      console.log(`❌ Error: ${enrichedResult.error.code} - ${enrichedResult.error.message}`);
-      if (enrichedResult.error.suggestedAction) {
-        console.log(`💡 Suggestion: ${enrichedResult.error.suggestedAction}`);
-      }
-    }
-
-    console.log('');
-  }
-
-  /**
    * Display enhanced information about question processing
    */
   displayQuestionProcessingInfo(result: ProcessMessageResult): void {
