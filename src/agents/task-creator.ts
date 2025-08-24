@@ -59,24 +59,6 @@ export class TaskCreatorAgent {
         currentMessage = nextMessage;
         continue;
       }
-
-      if (
-        this.hasCalledTool(result) &&
-        (isCreateTaskTool(result.toolCall) || isCreateProjectTool(result.toolCall))
-      ) {
-        const newMessage = await this.promptForNextAction();
-        if (!newMessage) {
-          break;
-        }
-        currentMessage = newMessage;
-      } else if (!this.hasCalledTool(result)) {
-        // Handle direct responses - prompt for next input
-        const newMessage = await this.promptForNextAction();
-        if (!newMessage) {
-          break;
-        }
-        currentMessage = newMessage;
-      }
     }
 
     this.finalizeConversation(iterations, MAX_ITERATION);
@@ -235,24 +217,6 @@ export class TaskCreatorAgent {
     return {
       response: `申し訳ございません。処理中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
     };
-  }
-
-  /**
-   * Prompt user for next action after task/project creation
-   */
-  private async promptForNextAction(): Promise<string | null> {
-    const inputHelper = InputHelper.getInstance();
-
-    console.log('\n' + '='.repeat(60));
-    console.log('🎯 What would you like to do next?');
-    console.log('='.repeat(60));
-    console.log('💡 You can:');
-    console.log('  - Create another task or project');
-    console.log('  - Ask me anything about task management');
-    console.log('  - Press Ctrl+C to exit');
-    console.log('='.repeat(60));
-
-    return await inputHelper.getUserInput('\n💬 Your request: ');
   }
 
   /**
