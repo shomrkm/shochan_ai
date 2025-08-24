@@ -14,10 +14,10 @@ import {
 } from '../types/toolGuards';
 import type {
   AgentTool,
+  ToolResult,
   CreateTaskTool,
   CreateProjectTool,
   UserInputTool,
-  ToolResult,
 } from '../types/tools';
 import { InputHelper } from '../utils/input-helper';
 
@@ -183,55 +183,15 @@ export class TaskCreatorAgent {
   private async executeTool(toolCall: AgentTool): Promise<ProcessMessageResult> {
     this.displayToolCallInfo(toolCall);
 
-    // Routing logic for different tool types with type-safe execution
-    if (isCreateTaskTool(toolCall)) {
-      const result = await this.executeCreateTask(toolCall);
-      return { toolCall, toolResult: result };
-    } else if (isCreateProjectTool(toolCall)) {
-      const result = await this.executeCreateProject(toolCall);
-      return { toolCall, toolResult: result };
-    } else if (isUserInputTool(toolCall)) {
-      const result = await this.executeUserInput(toolCall);
-      return { toolCall, toolResult: result };
-    } else {
-      // Handle unrecognized function calls - this should never happen due to type guards
-      const exhaustiveCheck: never = toolCall;
-      throw new Error(`Unknown tool function: ${(exhaustiveCheck as AgentTool).function.name}`);
+    const result = await this.executeToolWithContext(toolCall);
+    if (isUserInputTool(toolCall)) {
+      this.handleUserInputResult(toolCall, result);
     }
-  }
 
-  /**
-   * Execute create_task tool
-   */
-  private async executeCreateTask(toolCall: CreateTaskTool) {
-    const enrichedResult = await this.executeToolWithContext(toolCall);
-    const toolResult = this.convertToToolResult(enrichedResult);
-    
+    const toolResult = this.convertToToolResult(result);
     this.contextManager.addToolExecution(toolCall, toolResult);
-    return enrichedResult;
-  }
 
-  /**
-   * Execute create_project tool
-   */
-  private async executeCreateProject(toolCall: CreateProjectTool) {
-    const enrichedResult = await this.executeToolWithContext(toolCall);
-    const toolResult = this.convertToToolResult(enrichedResult);
-    
-    this.contextManager.addToolExecution(toolCall, toolResult);
-    return enrichedResult;
-  }
-
-  /**
-   * Execute user_input tool
-   */
-  private async executeUserInput(toolCall: UserInputTool) {
-    const enrichedResult = await this.executeToolWithContext(toolCall);
-    const toolResult = this.convertToToolResult(enrichedResult);
-    
-    this.handleUserInputResult(toolCall, enrichedResult);
-    this.contextManager.addToolExecution(toolCall, toolResult);
-    return enrichedResult;
+    return { toolCall, toolResult: result };
   }
 
   /**
