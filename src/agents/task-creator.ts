@@ -144,19 +144,26 @@ export class TaskCreatorAgent {
 
   /**
    * Determine next step using LLM - converts natural language to structured tool call
+   * Uses XML context when available, otherwise falls back to conversation history
    */
   private async determineNextStep(promptContext: PromptContext, userMessage: string) {
     const systemPrompt = buildSystemPrompt(promptContext);
 
+    // Use XML context if available, otherwise use legacy conversation history
+    const conversationHistory = this.contextManager.isXMLModeEnabled() 
+      ? [] // Empty history when using XML context (context is in system prompt)
+      : promptContext.conversationHistory;
+
     return await this.claude.generateToolCall(
       systemPrompt,
       userMessage,
-      promptContext.conversationHistory
+      conversationHistory
     );
   }
 
   /**
    * Handle case when no tool call is generated (direct response)
+   * Uses XML context when available, otherwise falls back to conversation history
    */
   private async handleNoToolCall(
     promptContext: PromptContext,
@@ -164,10 +171,15 @@ export class TaskCreatorAgent {
   ): Promise<ProcessMessageResult> {
     const systemPrompt = buildSystemPrompt(promptContext);
 
+    // Use XML context if available, otherwise use legacy conversation history
+    const conversationHistory = this.contextManager.isXMLModeEnabled()
+      ? [] // Empty history when using XML context (context is in system prompt)
+      : promptContext.conversationHistory;
+
     const response = await this.claude.generateResponse(
       systemPrompt,
       userMessage,
-      promptContext.conversationHistory
+      conversationHistory
     );
 
     this.displayManager.displayAgentResponse(response);
@@ -206,16 +218,28 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Execute tool with enhanced context
+   * Execute tool with enhanced context and event recording
    */
   private async executeToolWithContext(toolCall: AgentTool) {
-    return await this.toolExecutor.executeWithContext(toolCall, {
+    // Record the tool execution event before execution (if XML mode is enabled)
+    if (this.contextManager.isXMLModeEnabled()) {
+      this.recordToolExecutionEvent(toolCall);
+    }
+
+    const result = await this.toolExecutor.executeWithContext(toolCall, {
       traceId: this.currentTraceId || undefined,
       enableDebugMode: false,
       validateInput: true,
       validateOutput: true,
       maxRetries: 2,
     });
+
+    // Record the tool result event after execution (if XML mode is enabled)
+    if (this.contextManager.isXMLModeEnabled()) {
+      this.recordToolResultEvent(toolCall, result);
+    }
+
+    return result;
   }
 
   /**
@@ -352,6 +376,101 @@ export class TaskCreatorAgent {
     result: ProcessMessageResult
   ): result is { toolCall: AgentTool; toolResult: EnrichedToolResult } {
     return 'toolCall' in result && 'toolResult' in result;
+  }
+
+  /**
+   * Record tool execution event to the thread context
+   */
+  private recordToolExecutionEvent(toolCall: AgentTool): void {
+
+    if (isCreateTaskTool(toolCall)) {
+      this.contextManager.addEvent('create_task', {
+        title: toolCall.function.parameters.title,
+        description: toolCall.function.parameters.description,
+        task_type: toolCall.function.parameters.task_type,
+        scheduled_date: toolCall.function.parameters.scheduled_date,
+        project_id: toolCall.function.parameters.project_id,
+      });
+    } else if (isCreateProjectTool(toolCall)) {
+      this.contextManager.addEvent('create_project', {
+        name: toolCall.function.parameters.name,
+        description: toolCall.function.parameters.description,
+        importance: toolCall.function.parameters.importance,
+        action_plan: toolCall.function.parameters.action_plan,
+      });
+    } else if (isUserInputTool(toolCall)) {
+      this.contextManager.addEvent('user_input', {
+        message: toolCall.function.parameters.message,
+        context: toolCall.function.parameters.context,
+      });
+    }
+  }
+
+  /**
+   * Record tool result event to the thread context
+   */
+  private recordToolResultEvent(toolCall: AgentTool, result: EnrichedToolResult): void {
+    if (isCreateTaskTool(toolCall)) {
+      this.contextManager.addEvent('create_task_result', {
+        success: result.success,
+        task_id: this.extractTaskId(result),
+        notion_url: this.extractNotionUrl(result),
+        execution_time: result.executionTimeMs || 0,
+      });
+    } else if (isCreateProjectTool(toolCall)) {
+      this.contextManager.addEvent('create_project_result', {
+        success: result.success,
+        project_id: this.extractProjectId(result),
+        notion_url: this.extractNotionUrl(result),
+        execution_time: result.executionTimeMs || 0,
+      });
+    } else if (isUserInputTool(toolCall)) {
+      this.contextManager.addEvent('user_input_result', {
+        success: result.success,
+        user_response: this.extractUserResponseFromResult(result),
+        execution_time: result.executionTimeMs || 0,
+      });
+    }
+  }
+
+  /**
+   * Extract task ID from create_task result
+   */
+  private extractTaskId(result: EnrichedToolResult): string | undefined {
+    if (result.success && result.data && typeof result.data === 'object' && 'id' in result.data) {
+      return result.data.id as string;
+    }
+    return undefined;
+  }
+
+  /**
+   * Extract project ID from create_project result
+   */
+  private extractProjectId(result: EnrichedToolResult): string | undefined {
+    if (result.success && result.data && typeof result.data === 'object' && 'id' in result.data) {
+      return result.data.id as string;
+    }
+    return undefined;
+  }
+
+  /**
+   * Extract Notion URL from tool result
+   */
+  private extractNotionUrl(result: EnrichedToolResult): string | undefined {
+    if (result.success && result.data && typeof result.data === 'object' && 'url' in result.data) {
+      return result.data.url as string;
+    }
+    return undefined;
+  }
+
+  /**
+   * Extract user response from user_input result for event recording
+   */
+  private extractUserResponseFromResult(result: EnrichedToolResult): string | undefined {
+    if (result.success && isUserInputResultData(result.data)) {
+      return result.data.user_response;
+    }
+    return undefined;
   }
 
   /**
