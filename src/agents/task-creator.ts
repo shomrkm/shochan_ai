@@ -12,13 +12,7 @@ import {
   isUserInputResultData,
   isUserInputTool,
 } from '../types/toolGuards';
-import type {
-  AgentTool,
-  ToolResult,
-  CreateTaskTool,
-  CreateProjectTool,
-  UserInputTool,
-} from '../types/tools';
+import type { AgentTool } from '../types/tools';
 import { InputHelper } from '../utils/input-helper';
 
 /**
@@ -35,12 +29,11 @@ export class TaskCreatorAgent {
 
   /**
    * Initialize the TaskCreatorAgent with all necessary components
-   * @param options Configuration options including XML mode support
    */
-  constructor(options: { xmlMode?: boolean } = {}) {
+  constructor() {
     this.claude = new ClaudeClient();
     this.toolExecutor = new EnhancedToolExecutor();
-    this.contextManager = new ContextManager({ xmlMode: options.xmlMode });
+    this.contextManager = new ContextManager();
     this.displayManager = new DisplayManager();
   }
 
@@ -111,8 +104,8 @@ export class TaskCreatorAgent {
    */
   private finalizeConversation(iterations: number, maxIterations: number): void {
     this.displayManager.displayConversationCompleted(iterations, maxIterations);
-    const messageCount = this.contextManager.getConversationHistory().length;
-    console.log(`💬 Conversation: ${messageCount} messages`);
+    const eventCount = this.contextManager.getThread().getEventCount();
+    console.log(`💬 Conversation: ${eventCount} events`);
     this.displayManager.displayExecutionStats(this.toolExecutor, this.currentTraceId);
   }
 
@@ -144,26 +137,21 @@ export class TaskCreatorAgent {
 
   /**
    * Determine next step using LLM - converts natural language to structured tool call
-   * Uses XML context when available, otherwise falls back to conversation history
+   * Uses XML context in system prompt, no conversation history needed
    */
   private async determineNextStep(promptContext: PromptContext, userMessage: string) {
     const systemPrompt = buildSystemPrompt(promptContext);
 
-    // Use XML context if available, otherwise use legacy conversation history
-    const conversationHistory = this.contextManager.isXMLModeEnabled() 
-      ? [] // Empty history when using XML context (context is in system prompt)
-      : promptContext.conversationHistory;
-
     return await this.claude.generateToolCall(
       systemPrompt,
       userMessage,
-      conversationHistory
+      [] // Empty history - context is in system prompt via XML
     );
   }
 
   /**
    * Handle case when no tool call is generated (direct response)
-   * Uses XML context when available, otherwise falls back to conversation history
+   * Uses XML context in system prompt, no conversation history needed
    */
   private async handleNoToolCall(
     promptContext: PromptContext,
@@ -171,15 +159,10 @@ export class TaskCreatorAgent {
   ): Promise<ProcessMessageResult> {
     const systemPrompt = buildSystemPrompt(promptContext);
 
-    // Use XML context if available, otherwise use legacy conversation history
-    const conversationHistory = this.contextManager.isXMLModeEnabled()
-      ? [] // Empty history when using XML context (context is in system prompt)
-      : promptContext.conversationHistory;
-
     const response = await this.claude.generateResponse(
       systemPrompt,
       userMessage,
-      conversationHistory
+      [] // Empty history - context is in system prompt via XML
     );
 
     this.displayManager.displayAgentResponse(response);
@@ -200,9 +183,6 @@ export class TaskCreatorAgent {
       this.handleUserInputResult(toolCall, result);
     }
 
-    const toolResult = this.convertToToolResult(result);
-    this.contextManager.addToolExecution(toolCall, toolResult);
-
     return { toolCall, toolResult: result };
   }
 
@@ -221,10 +201,8 @@ export class TaskCreatorAgent {
    * Execute tool with enhanced context and event recording
    */
   private async executeToolWithContext(toolCall: AgentTool) {
-    // Record the tool execution event before execution (if XML mode is enabled)
-    if (this.contextManager.isXMLModeEnabled()) {
-      this.recordToolExecutionEvent(toolCall);
-    }
+    // Record the tool execution event before execution
+    this.recordToolExecutionEvent(toolCall);
 
     const result = await this.toolExecutor.executeWithContext(toolCall, {
       traceId: this.currentTraceId || undefined,
@@ -234,10 +212,8 @@ export class TaskCreatorAgent {
       maxRetries: 2,
     });
 
-    // Record the tool result event after execution (if XML mode is enabled)
-    if (this.contextManager.isXMLModeEnabled()) {
-      this.recordToolResultEvent(toolCall, result);
-    }
+    // Record the tool result event after execution
+    this.recordToolResultEvent(toolCall, result);
 
     return result;
   }
@@ -257,20 +233,6 @@ export class TaskCreatorAgent {
     }
   }
 
-  /**
-   * Convert EnrichedToolResult to ToolResult for context management
-   */
-  private convertToToolResult(enrichedResult: EnrichedToolResult): ToolResult {
-    return {
-      success: enrichedResult.success,
-      message: enrichedResult.message || (enrichedResult.success ? 'Success' : 'Failed'),
-      data: enrichedResult.data,
-      timestamp: enrichedResult.endTime,
-      executionTime: enrichedResult.executionTimeMs,
-      status: enrichedResult.status,
-      error: enrichedResult.error,
-    };
-  }
 
   /**
    * Handle processing errors

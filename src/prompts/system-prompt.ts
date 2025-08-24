@@ -1,5 +1,4 @@
 import type { PromptContext } from '../types/prompt-types';
-import type Anthropic from '@anthropic-ai/sdk';
 
 // Unified System Prompt
 export const buildSystemPrompt = (context: PromptContext) => `
@@ -58,129 +57,10 @@ Remember: Be helpful but efficient. Don't make users answer unnecessary question
 `;
 
 /**
- * Build contextual information from conversation history or XML thread context
- * Supports both legacy conversation history and new XML context modes
+ * Build contextual information from XML thread context
  */
 const buildContextualInformation = (context: PromptContext): string => {
-  // If XML context is available (new mode), use it directly
-  if (context.thread) {
-    if (context.thread.isEmpty()) return '';
-    return `\n${context.thread.toPrompt()}`;
-  }
-
-  // Fallback to legacy conversation history parsing
-  const toolExecutions = extractToolExecutions(context.conversationHistory);
-
-  if (toolExecutions.length === 0) {
-    return `\n- Conversation history: ${context.conversationHistory.length} previous messages`;
-  }
-
-  let contextInfo = '\n## Previous Tool Executions\n';
-
-  toolExecutions.forEach((execution, index) => {
-    contextInfo += `\n${index + 1}. **${execution.toolName}** (${execution.status})\n`;
-
-    if (execution.success) {
-      switch (execution.toolName) {
-        case 'create_task':
-          if (execution.taskId) {
-            contextInfo += `   ✅ Created task: "${execution.taskTitle}" (ID: ${execution.taskId})\n`;
-          }
-          break;
-        case 'create_project':
-          if (execution.projectId) {
-            contextInfo += `   ✅ Created project: "${execution.projectName}" (ID: ${execution.projectId})\n`;
-          }
-          break;
-        case 'user_input':
-          if (execution.userResponse) {
-            contextInfo += `   📝 User provided: "${execution.userResponse}"\n`;
-          }
-          break;
-      }
-    } else {
-      contextInfo += `   ❌ Failed: ${execution.error?.message || 'Unknown error'}\n`;
-    }
-
-    contextInfo += `   ⏱️ Execution time: ${execution.executionTime}\n`;
-  });
-
-  return contextInfo;
+  if (context.thread.isEmpty()) return '';
+  return `\n${context.thread.toPrompt()}`;
 };
 
-/**
- * Extract tool execution information from conversation history
- * @deprecated This function will be removed when XML mode becomes default
- * Only used for legacy conversation history parsing
- */
-const extractToolExecutions = (
-  history: Anthropic.MessageParam[]
-): Array<{
-  toolName: string;
-  status: string;
-  success: boolean;
-  executionTime: string;
-  taskId?: string;
-  taskTitle?: string;
-  projectId?: string;
-  projectName?: string;
-  userResponse?: string;
-  error?: { message: string };
-}> => {
-  const executions: Array<{
-    toolName: string;
-    status: string;
-    success: boolean;
-    executionTime: string;
-    taskId?: string;
-    taskTitle?: string;
-    projectId?: string;
-    projectName?: string;
-    userResponse?: string;
-    error?: { message: string };
-  }> = [];
-
-  for (let i = 0; i < history.length - 1; i++) {
-    const message = history[i];
-    const nextMessage = history[i + 1];
-
-    // Look for tool_use messages followed by tool_result messages
-    if (
-      message.role === 'assistant' &&
-      Array.isArray(message.content) &&
-      message.content[0]?.type === 'tool_use' &&
-      nextMessage?.role === 'user' &&
-      Array.isArray(nextMessage.content) &&
-      nextMessage.content[0]?.type === 'tool_result'
-    ) {
-      const toolUse = message.content[0];
-      const toolResult = nextMessage.content[0];
-
-      // Type guards to ensure proper types
-      if (toolUse.type !== 'tool_use' || toolResult.type !== 'tool_result') {
-        continue;
-      }
-
-      try {
-        const resultData = JSON.parse(toolResult.content as string);
-        executions.push({
-          toolName: toolUse.name,
-          status: resultData.status || 'unknown',
-          success: Boolean(resultData.success),
-          executionTime: resultData.executionTime || 'unknown',
-          taskId: resultData.taskId,
-          taskTitle: resultData.taskTitle,
-          projectId: resultData.projectId,
-          projectName: resultData.projectName,
-          userResponse: resultData.userResponse,
-          error: resultData.error,
-        });
-      } catch (error) {
-        // Skip malformed tool results
-        console.warn('Failed to parse tool result:', error);
-      }
-    }
-  }
-
-  return executions;
-};
