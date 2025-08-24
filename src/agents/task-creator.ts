@@ -13,7 +13,6 @@ import {
   isUserInputTool,
 } from '../types/toolGuards';
 import type { AgentTool } from '../types/tools';
-import { InputHelper } from '../utils/input-helper';
 
 /**
  * Main AI agent for creating tasks and projects through interactive conversation.
