@@ -7,18 +7,23 @@ This document describes the architecture of the Shochan AI Agent, implemented fo
 ```mermaid
 graph TB
     %% Main Agent
-    Agent[TaskCreatorAgent<br/>12-factor orchestrator]
+    Agent[TaskCreatorAgent<br/>XML-based orchestrator]
     
     %% Core Components
+    ContextMgr[ContextManager<br/>XML context management]
     DisplayMgr[DisplayManager<br/>表示管理]
     Claude[ClaudeClient<br/>Claude API]
-    ToolExec[EnhancedToolExecutor<br/>拡張ツール実行エンジン]
+    ToolExec[EnhancedToolExecutor<br/>XML event recording]
     Notion[NotionClient<br/>Notion API]
     UserInputHandler[UserInputHandler<br/>ユーザー入力処理]
     InputHelper[InputHelper<br/>入力ヘルパー]
     
-    %% Factor 2: Simplified Prompt Management
-    SystemPrompt[SystemPrompt<br/>統一システムプロンプト]
+    %% Factor 2: Prompt Management
+    SystemPrompt[SystemPrompt<br/>XML context-aware prompts]
+    
+    %% Factor 3: XML Context System
+    Thread[Thread<br/>Event-driven context]
+    Events[Events<br/>Tool execution tracking]
     
     %% Factor 4: Tool Enhancement Components
     ToolValidator[ToolResultValidator<br/>ツール結果検証]
@@ -28,12 +33,17 @@ graph TB
     AnthropicAPI[Anthropic API]
     NotionAPI[Notion API]
     
-    %% Simplified Dependencies
+    %% Main Dependencies
+    Agent --> ContextMgr
     Agent --> DisplayMgr
     Agent --> Claude
     Agent --> ToolExec
-    Agent --> SystemPrompt
     Agent --> InputHelper
+    
+    %% Context Management Flow
+    ContextMgr --> Thread
+    ContextMgr --> SystemPrompt
+    Thread --> Events
     
     %% Tool execution flow
     Claude --> AnthropicAPI
@@ -41,18 +51,21 @@ graph TB
     ToolExec --> UserInputHandler
     ToolExec --> ToolValidator
     ToolExec --> ToolContext
+    ToolExec --> ContextMgr
     Notion --> NotionAPI
     UserInputHandler --> InputHelper
     
     %% Styling
     classDef factor1 fill:#e1f5fe
     classDef factor2 fill:#f3e5f5
+    classDef factor3 fill:#e8f5e8
     classDef factor4 fill:#fff3e0
     classDef conversation fill:#f1f8e9
     classDef external fill:#ffebee
     
     class Agent,Claude,ToolExec,Notion,UserInputHandler,InputHelper factor1
     class SystemPrompt factor2
+    class ContextMgr,Thread,Events factor3
     class ToolValidator,ToolContext factor4
     class DisplayMgr conversation
     class AnthropicAPI,NotionAPI external
@@ -61,20 +74,25 @@ graph TB
 ## 🎯 Layered Architecture
 
 ### **Agent Layer**
-- **TaskCreatorAgent**: Main orchestrator implementing 12-factor pattern with `determineNextStep()` and `executeTool()` methods
+- **TaskCreatorAgent**: Main orchestrator implementing 12-factor pattern with XML-based context integration
+
+### **Context Management Layer** (Factor 3)
+- **ContextManager**: XML-based context management with event-driven Thread model
+- **Thread**: Event-driven conversation flow with XML serialization
+- **Events**: Type-safe tool execution tracking and audit trail
 
 ### **Conversation Management Layer**
-- **DisplayManager**: Centralized display and logging functionality
+- **DisplayManager**: Enhanced logging with event statistics and debugging
 - **InputHelper**: Unified input handling to prevent character duplication issues
 
 ### **Service Layer**
-- **EnhancedToolExecutor** (Factor 4): Enhanced tool execution with validation and context
-- **SystemPrompt** (Factor 2): Unified prompt generation using conversation history
+- **EnhancedToolExecutor** (Factor 4): Enhanced tool execution with XML event recording and validation
+- **SystemPrompt** (Factor 2): XML context-aware prompt generation
 
 ### **Client Layer**
 - **ClaudeClient**: Anthropic Claude API integration
 - **NotionClient**: Notion API integration for GTD system
-- **QuestionHandler**: Interactive user questioning
+- **UserInputHandler**: Interactive user questioning with timeout management
 
 
 ## 📚 Factor-by-Factor Implementation
@@ -129,7 +147,7 @@ graph LR
 graph LR
     A[TaskCreatorAgent] --> B[ContextManager]
     B --> C[Thread]
-    C --> D[Event[]]
+    C --> D[Events]
     D --> E[XML+YAML Context]
     A --> E
 ```
