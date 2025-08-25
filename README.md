@@ -25,24 +25,27 @@ This is a **personal learning project** designed to systematically study and imp
 - Simplified prompt architecture using conversation context directly
 
 ### Factor 3: Own Your Context Window
-- Direct conversation history management using standard OpenAI/Anthropic format
-- Simple MessageParam[] array for conversation context
-- Efficient context passing to LLM for decision making
+- XML-based context management with event-driven Thread model
+- YAML-in-XML serialization for structured conversation context
+- Complete tool execution tracking and conversation state visibility
+- Enhanced debugging capabilities with full event audit trail
 
 ### Factor 4: Tools are Just Structured Outputs
-- Enhanced tool execution with comprehensive validation
-- Rich structured outputs with execution metadata
+- Enhanced tool execution with comprehensive validation and XML event recording
+- Rich structured outputs with execution metadata and event tracking
 - Tool-specific timeout configuration (ask_question: 10min, API calls: 30s)
-- Distributed tracing and performance monitoring
+- Distributed tracing and performance monitoring with XML context
 - Type-safe input/output validation without `as` casting
+- Complete event audit trail for all tool executions
 
 ## 🏗️ Architecture
 
 ### Core Components
 
 - **`TaskCreatorAgent`**: Main orchestrator agent implementing 12-factor pattern with `determineNextStep()` and `executeTool()`
+- **`ContextManager`**: XML-based context management with event-driven Thread model
 - **`DisplayManager`**: Centralized display and logging functionality
-- **`EnhancedToolExecutor`**: Structured tool execution with validation (Factor 4)
+- **`EnhancedToolExecutor`**: Structured tool execution with validation and XML event recording
 - **`ClaudeClient`**: Anthropic Claude API integration
 - **`NotionClient`**: Notion API integration for GTD system
 - **`InputHelper`**: Unified input handling to prevent character duplication
@@ -168,24 +171,30 @@ npm run check:fix
 ```
 src/
 ├── agents/
-│   └── task-creator.ts           # Main orchestrator agent with 12-factor pattern
+│   └── task-creator.ts           # Main orchestrator agent with XML-based context
 ├── clients/
 │   ├── claude.ts                 # Anthropic Claude API client
 │   └── notion.ts                 # Notion API client
 ├── conversation/
+│   ├── context-manager.ts        # XML-based context management with Thread model
 │   └── display-manager.ts        # Centralized display and logging functionality
+├── events/                       # Factor 3: XML Context System
+│   ├── types.ts                  # Event type definitions and data structures
+│   ├── thread.ts                 # Event/Thread classes with XML serialization
+│   ├── yaml-utils.ts             # YAML-in-XML formatting utilities
+│   └── *.test.ts                 # Event system test suites
 ├── prompts/
-│   └── system-prompt.ts          # Unified system prompt management
-├── tools/                        # Factor 1 & 4: Tool System
+│   └── system-prompt.ts          # XML context-aware prompt management
+├── tools/                        # Factor 1 & 4: Enhanced Tool System
 │   ├── index.ts                  # Legacy tool execution engine
-│   ├── enhanced-tool-executor.ts # Enhanced execution with validation
+│   ├── enhanced-tool-executor.ts # XML event recording with validation
 │   ├── tool-execution-context.ts # Execution context management
 │   ├── tool-result-validator.ts  # Input/output validation
 │   └── user-input-handler.ts     # User input handling
 ├── types/
 │   ├── conversation-types.ts     # Conversation-related types
 │   ├── notion.ts                 # Notion API types
-│   ├── prompt-types.ts           # Prompt system types
+│   ├── prompt-types.ts           # XML-aware prompt system types
 │   ├── tools.ts                  # Tool system types
 │   └── toolGuards.ts            # Runtime type validation
 ├── utils/
@@ -201,20 +210,20 @@ See [PLAN.md](./PLAN.md) for the comprehensive development plan covering all 12 
 
 ### Next Priorities
 
-1. **Factor 3**: Context Window Management
-2. **Factor 4**: Structured Tool Outputs
-3. **Factor 5**: State Management
-4. Enhanced test coverage and error handling
+1. **Factor 5**: Unify Execution State with Business State
+2. **Factor 6**: Agent Interaction APIs
+3. **Factor 7**: Agents are Async Everywhere
+4. Enhanced monitoring and production optimization
 
 ## 🌟 Key Features
 
-- **Clean Architecture**: Refactored with separation of concerns and single responsibility principle
-- **Modular Components**: Simplified architecture with direct conversation history management
-- **Dynamic Conversation Management**: Adapts prompts based on conversation stage
-- **Type-Safe Architecture**: Full TypeScript implementation with strict typing
-- **Enhanced Maintainability**: Easy to extend, test, and modify individual components
-- **Production-Ready**: Following enterprise-grade development practices
-- **Interactive Learning**: Demonstrates 12-factor agents principles progressively
+- **XML-Based Context Management**: Event-driven Thread model with YAML-in-XML serialization
+- **Complete Event Tracking**: Full audit trail of all tool executions and conversation flows
+- **Enhanced Debugging**: Structured XML context provides complete conversation state visibility
+- **Type-Safe Architecture**: Full TypeScript implementation with strict typing and event type safety
+- **Production-Ready**: Following 12-factor agents principles with modern architecture
+- **Zero Legacy Dependencies**: Clean codebase with XML-only context management
+- **Interactive Learning**: Demonstrates advanced 12-factor agents principles progressively
 
 ## 🔧 Configuration
 

@@ -123,47 +123,83 @@ graph LR
 
 ### **Factor 3: Own Your Context Window** ✅
 
-**Purpose**: Direct conversation history management using standard format
+**Purpose**: XML-based context management with event-driven Thread model
 
 ```mermaid
 graph LR
-    A[TaskCreatorAgent] --> B[ConversationHistory]
-    B --> C[Anthropic.MessageParam[]]
-    A --> C
+    A[TaskCreatorAgent] --> B[ContextManager]
+    B --> C[Thread]
+    C --> D[Event[]]
+    D --> E[XML+YAML Context]
+    A --> E
 ```
 
 **Components**:
-- `ConversationHistory`: Simple array of `Anthropic.MessageParam[]`
-- Direct context passing to LLM without complex optimization
-- Standard OpenAI/Anthropic conversation format
+- `ContextManager`: XML-based context management with Thread model
+- `Thread`: Event-driven conversation flow with XML serialization
+- `Event`: Type-safe event data structures with YAML-in-XML formatting
+- `YamlUtils`: YAML formatting utilities for structured data presentation
 
 **Key Features**:
-- **Standard format**: Uses `Anthropic.MessageParam[]` directly
-- **Simple context management**: No token counting or prioritization overhead
-- **LLM-driven context usage**: Let the LLM handle context optimization internally
-- **Real-time Statistics**: Context window utilization tracking
+- **XML+YAML format**: Structured conversation context with full event tracking
+- **Event-driven architecture**: Complete audit trail of all tool executions
+- **Enhanced debugging**: Full conversation state visibility for developers
+- **Type-safe events**: Comprehensive event type system with proper validation
+- **Zero legacy dependencies**: Clean XML-only implementation
 
-## 🔄 Architecture Simplification
+**XML Context Example:**
+```xml
+<conversation_context>
+<session_info>
+thread_id: "thread_1724398500_abc123"
+start_time: "2025-08-23T10:35:00Z"
+event_count: 5
+</session_info>
 
-### **Clean Architecture Evolution**
-The TaskCreatorAgent has been simplified following 12-factor agents principles:
+<user_message>
+message: "新しいプロジェクトを作成したい"
+timestamp: "2025-08-23T10:35:00Z"
+</user_message>
+
+<create_project>
+name: "AI研究プロジェクト"
+description: "機械学習の研究を行うプロジェクト"
+importance: "⭐⭐⭐⭐"
+</create_project>
+
+<create_project_result>
+success: true
+project_id: "proj_456"
+notion_url: "https://notion.so/proj_456"
+execution_time: 1200
+</create_project_result>
+</conversation_context>
+```
+
+## 🔄 Architecture Evolution
+
+### **XML-Based Context Transformation**
+The TaskCreatorAgent has evolved to implement advanced 12-factor agents principles:
 
 **Evolution Path:**
-1. **Complex multi-component architecture** with ContextManager, PromptManager, ConversationManager
-2. **Simplified unified approach** using direct conversation history and single system prompt
-3. **12-factor pattern implementation** with clear `determineNextStep()` and `executeTool()` separation
+1. **Legacy MessageParam[] approach** with fragmented context information
+2. **Dual-mode transition** supporting both legacy and XML-based context
+3. **Complete XML migration** with event-driven Thread model
+4. **Production-ready system** with enhanced debugging and monitoring
 
 **Current Architecture:**
-- **TaskCreatorAgent**: Main orchestrator following 12-factor pattern
-- **DisplayManager**: Centralized display and logging
+- **TaskCreatorAgent**: Main orchestrator with XML context integration
+- **ContextManager**: Event-driven Thread model with XML serialization
+- **Event System**: Complete tool execution tracking and conversation audit trail
+- **DisplayManager**: Enhanced logging with event statistics
 - **InputHelper**: Unified input handling (singleton pattern)
-- **Direct conversation history**: `Anthropic.MessageParam[]` array
 
 ### **Benefits Achieved:**
-- **Reduced Complexity**: Removed ~500+ lines of abstraction code
-- **Better LLM Integration**: Direct conversation history usage
-- **Improved Maintainability**: Fewer components to manage
-- **Standard Format**: Compatible with OpenAI/Anthropic best practices
+- **Enhanced Visibility**: Complete conversation state visible in structured XML
+- **Better Debugging**: Full event audit trail for all tool executions
+- **Improved LLM Understanding**: Structured context with YAML-in-XML format
+- **Zero Legacy Dependencies**: Clean XML-only implementation
+- **Production Monitoring**: Event-driven statistics and performance tracking
 
 ## 🎨 Design Patterns
 
@@ -176,13 +212,13 @@ const nextStep = await this.determineNextStep(promptContext, userMessage, optimi
 return await this.executeTool(nextStep);
 ```
 
-### **2. Simplified Dependency Injection**
+### **2. XML-Based Dependency Injection**
 ```typescript
 constructor() {
   this.claude = new ClaudeClient();
   this.toolExecutor = new EnhancedToolExecutor();
+  this.contextManager = new ContextManager(); // XML-based context with Thread model
   this.displayManager = new DisplayManager();
-  // Simplified: Direct conversation history management
 }
 ```
 
@@ -193,38 +229,43 @@ if (isCreateTaskTool(toolCall)) {
 }
 ```
 
-### **4. Unified System Prompt**
+### **4. XML Context-Aware System Prompt**
 ```typescript
-// Single prompt function handles all cases
-const systemPrompt = buildSystemPrompt({
-  userMessage,
-  conversationHistory: this.conversationHistory,
-});
+// XML context via Thread model
+const promptContext = this.contextManager.buildPromptContext(userMessage);
+const systemPrompt = buildSystemPrompt(promptContext);
+// Context includes structured XML with complete event history
 ```
 
-## 📁 Simplified File Structure
+## 📁 XML-Enhanced File Structure
 
 ```
 src/
 ├── agents/
-│   └── task-creator.ts           # Main orchestrator agent with 12-factor pattern
+│   └── task-creator.ts           # Main orchestrator agent with XML context integration
 ├── clients/
 │   ├── claude.ts                 # Anthropic Claude API client
 │   └── notion.ts                 # Notion API client
 ├── conversation/
-│   └── display-manager.ts        # Centralized display and logging functionality
+│   ├── context-manager.ts        # XML-based context management with Thread model
+│   └── display-manager.ts        # Enhanced logging with event statistics
+├── events/                       # Factor 3: XML Context System
+│   ├── types.ts                  # Event type definitions and data structures
+│   ├── thread.ts                 # Event/Thread classes with XML serialization
+│   ├── yaml-utils.ts             # YAML-in-XML formatting utilities
+│   └── *.test.ts                 # Comprehensive event system test suites
 ├── prompts/
-│   └── system-prompt.ts          # Unified system prompt management
-├── tools/                        # Factor 1 & 4: Tool System
+│   └── system-prompt.ts          # XML context-aware prompt management
+├── tools/                        # Factor 1 & 4: Enhanced Tool System
 │   ├── index.ts                  # Legacy tool execution engine
-│   ├── enhanced-tool-executor.ts # Enhanced execution with validation
+│   ├── enhanced-tool-executor.ts # XML event recording with validation
 │   ├── tool-execution-context.ts # Execution context management
 │   ├── tool-result-validator.ts  # Input/output validation
 │   └── user-input-handler.ts     # User input handling
 ├── types/
 │   ├── conversation-types.ts     # Conversation-related types
 │   ├── notion.ts                 # Notion API types
-│   ├── prompt-types.ts           # Prompt system types
+│   ├── prompt-types.ts           # XML-aware prompt system types
 │   ├── tools.ts                  # Tool system types
 │   └── toolGuards.ts            # Runtime type validation
 ├── utils/
@@ -264,13 +305,14 @@ sequenceDiagram
 - **Easier maintenance**: Fewer components to manage and debug
 
 ### **Memory Efficiency**
-- Direct `Anthropic.MessageParam[]` usage
-- No complex context optimization overhead
-- Standard conversation format reduces conversion complexity
+- Event-driven Thread model with efficient XML serialization
+- Structured data storage with YAML-in-XML format
+- Enhanced debugging capabilities without performance overhead
+- Complete event audit trail with minimal memory footprint
 
 ### **Factor 4: Tools are Just Structured Outputs** ✅
 
-**Purpose**: Enhanced tool execution with structured outputs, validation, and monitoring
+**Purpose**: Enhanced tool execution with XML event recording, validation, and monitoring
 
 ```mermaid
 graph LR
@@ -280,19 +322,23 @@ graph LR
     B --> E[ContextManager]
     C --> F[ValidationResult]
     D --> G[EnrichedToolResult]
+    E --> H[XML Event Recording]
 ```
 
 **Components**:
-- `EnhancedToolExecutor`: Decorator pattern over legacy ToolExecutor
+- `EnhancedToolExecutor`: Enhanced execution with XML event recording
 - `ToolResultValidator`: Type-safe input/output validation
 - `ToolExecutionContext`: Rich execution context with tracing
 - `EnrichedToolResult`: Structured results with metadata
+- `Event System`: Complete audit trail in XML+YAML format
 
 **Key Features**:
+- **XML Event Recording**: All tool executions recorded as structured events
 - **Tool-specific timeouts**: ask_question (10min), API calls (30s)
 - **Input/Output validation**: Type guards without `as` casting
 - **Distributed tracing**: TraceID for multi-tool conversations
 - **Performance monitoring**: Execution time, retry counts, statistics
+- **Complete Audit Trail**: Every tool execution and result tracked in XML context
 - **Error handling**: Structured errors with suggested actions
 
 ## 🔮 Future Architecture (Factors 5-12)
@@ -301,6 +347,7 @@ graph LR
 1. **Factor 5**: Unify Execution State with Business State
 2. **Factor 6**: Agent Interaction APIs
 3. **Factor 7**: Agents are Async Everywhere
+4. **Enhanced Monitoring**: Production-ready observability and metrics
 
 ### **Planned Architectural Enhancements**
 - **Microservices Architecture**: Small, focused agents (Factor 10)
@@ -328,4 +375,4 @@ graph LR
 
 ---
 
-This architecture demonstrates the progressive implementation of 12-factor agents principles, creating a robust, scalable, and maintainable AI agent system.
+This architecture demonstrates the advanced implementation of 12-factor agents principles with XML-based context management, creating a robust, scalable, and maintainable AI agent system with complete conversation visibility and event-driven audit trails.
