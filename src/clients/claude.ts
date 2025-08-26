@@ -19,7 +19,11 @@ export class ClaudeClient {
     userMessage: string,
     conversationHistory: Anthropic.MessageParam[] = []
   ): Promise<AgentTool | null> {
-    try {
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
       const messages: Anthropic.MessageParam[] = [
         ...conversationHistory,
         {
@@ -98,19 +102,44 @@ export class ClaudeClient {
       const toolUse = response.content.find((content) => content.type === 'tool_use');
 
       if (toolUse && toolUse.type === 'tool_use') {
-        return {
+        const agentTool = {
           function: {
             name: toolUse.name,
             parameters: toolUse.input as Record<string, unknown>,
           },
         } as AgentTool;
+        
+        return agentTool;
       }
 
-      return null;
-    } catch (error) {
-      console.error('Claude API error:', error);
-      throw error;
+        return null;
+      } catch (error) {
+        if (this.isRetryableError(error) && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          console.log(`🔄 Claude API error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+          await this.sleep(delay);
+          continue;
+        }
+        
+        console.error('Claude API error:', error);
+        throw error;
+      }
     }
+    
+    throw new Error('Max retries exceeded for Claude API');
+  }
+
+  private isRetryableError(error: unknown): boolean {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const status = (error as any).status;
+      // Retry on 429 (rate limit), 529 (overloaded), 500, 502, 503, 504
+      return [429, 500, 502, 503, 504, 529].includes(status);
+    }
+    return false;
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   async generateResponse(
@@ -118,7 +147,11 @@ export class ClaudeClient {
     userMessage: string,
     conversationHistory: Anthropic.MessageParam[] = []
   ): Promise<string> {
-    try {
+    const maxRetries = 3;
+    const baseDelay = 1000;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
       const messages: Anthropic.MessageParam[] = [
         ...conversationHistory,
         {
@@ -136,10 +169,20 @@ export class ClaudeClient {
 
       const textContent = response.content.find((content) => content.type === 'text');
 
-      return textContent?.type === 'text' ? textContent.text : '';
-    } catch (error) {
-      console.error('Claude API error:', error);
-      throw error;
+        return textContent?.type === 'text' ? textContent.text : '';
+      } catch (error) {
+        if (this.isRetryableError(error) && attempt < maxRetries) {
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          console.log(`🔄 Claude API error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+          await this.sleep(delay);
+          continue;
+        }
+        
+        console.error('Claude API error:', error);
+        throw error;
+      }
     }
+    
+    throw new Error('Max retries exceeded for Claude API');
   }
 }

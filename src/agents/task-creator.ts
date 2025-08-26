@@ -54,10 +54,7 @@ export class TaskCreatorAgent {
       const result = await this.processMessage(currentMessage);
 
       const nextMessage = this.extractUserResponse(result);
-      if (nextMessage) {
-        currentMessage = nextMessage;
-        continue;
-      }
+      currentMessage = nextMessage ?? ''
     }
 
     this.finalizeConversation(iterations, MAX_ITERATION);
@@ -223,7 +220,7 @@ export class TaskCreatorAgent {
    */
   private extractUserResponse(result: ProcessMessageResult): string | null {
     if (!this.hasCalledTool(result) || !isUserInputTool(result.toolCall)) {
-      return null;
+      return 'What should I do next?'
     }
 
     const resultData = this.getResultData(result);
@@ -337,8 +334,8 @@ export class TaskCreatorAgent {
    * Extract task ID from create_task result
    */
   private extractTaskId(result: EnrichedToolResult): string | undefined {
-    if (result.success && result.data && typeof result.data === 'object' && 'id' in result.data) {
-      return result.data.id as string;
+    if (result.success && result.data && typeof result.data === 'object' && 'task_id' in result.data) {
+      return result.data.task_id as string;
     }
     return undefined;
   }
@@ -347,8 +344,8 @@ export class TaskCreatorAgent {
    * Extract project ID from create_project result
    */
   private extractProjectId(result: EnrichedToolResult): string | undefined {
-    if (result.success && result.data && typeof result.data === 'object' && 'id' in result.data) {
-      return result.data.id as string;
+    if (result.success && result.data && typeof result.data === 'object' && 'project_id' in result.data) {
+      return result.data.project_id as string;
     }
     return undefined;
   }
@@ -357,8 +354,8 @@ export class TaskCreatorAgent {
    * Extract Notion URL from tool result
    */
   private extractNotionUrl(result: EnrichedToolResult): string | undefined {
-    if (result.success && result.data && typeof result.data === 'object' && 'url' in result.data) {
-      return result.data.url as string;
+    if (result.success && result.data && typeof result.data === 'object' && 'notion_url' in result.data) {
+      return result.data.notion_url as string;
     }
     return undefined;
   }
