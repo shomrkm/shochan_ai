@@ -13,11 +13,13 @@ import type {
   TaskQueryResult,
 } from '../types/tools';
 import { buildProjectCreatePageParams, buildTaskCreatePageParams } from '../utils/notionUtils';
+import { NotionQueryBuilder } from './notion-query-builder';
 
 export class NotionClient {
   private client: Client;
   private tasksDbId: string;
   private projectsDbId: string;
+  private queryBuilder: NotionQueryBuilder;
 
   constructor() {
     if (!process.env.NOTION_API_KEY) {
@@ -36,6 +38,7 @@ export class NotionClient {
 
     this.tasksDbId = process.env.NOTION_TASKS_DATABASE_ID;
     this.projectsDbId = process.env.NOTION_PROJECTS_DATABASE_ID;
+    this.queryBuilder = new NotionQueryBuilder();
   }
 
   async createTask(tool: CreateTaskTool): Promise<TaskCreationResult> {
@@ -141,7 +144,7 @@ export class NotionClient {
     try {
       console.log(`🔍 [NOTION] Getting tasks with filters:`, tool.function.parameters);
       
-      const query = this.buildTaskQuery({
+      const query = this.queryBuilder.buildTaskQuery({
         task_type,
         project_id,
         include_completed,
@@ -172,84 +175,6 @@ export class NotionClient {
   }
 
   // ===== Private Helper Methods for get_tasks =====
-
-  /**
-   * Build Notion query for tasks
-   */
-  private buildTaskQuery(filters: {
-    task_type?: string;
-    project_id?: string;
-    include_completed?: boolean;
-    sort_by?: string;
-    sort_order?: string;
-  }) {
-    const notionFilters: any[] = [];
-    
-    // Task type filter
-    if (filters.task_type) {
-      notionFilters.push({
-        property: 'task_type',
-        select: { equals: filters.task_type }
-      });
-    }
-
-    // Project filter
-    if (filters.project_id) {
-      notionFilters.push({
-        property: 'project',
-        relation: { contains: filters.project_id }
-      });
-    }
-
-    // Completion status filter (using formula property with checkbox filter)
-    if (!filters.include_completed) {
-      notionFilters.push({
-        property: 'is_completed',
-        formula: { 
-          checkbox: { 
-            equals: false 
-          } 
-        }
-      });
-    }
-
-    // Build sorts
-    const sorts = [];
-    if (filters.sort_by) {
-      const sortConfig = this.mapSortFieldToNotionProperty(filters.sort_by);
-      const direction = filters.sort_order === 'asc' ? 'ascending' as const : 'descending' as const;
-      
-      if (sortConfig.type === 'timestamp') {
-        sorts.push({
-          timestamp: sortConfig.name as 'created_time' | 'last_edited_time',
-          direction
-        });
-      } else {
-        sorts.push({
-          property: sortConfig.name,
-          direction
-        });
-      }
-    }
-
-    return {
-      filter: notionFilters.length > 0 ? { and: notionFilters } : undefined,
-      sorts: sorts.length > 0 ? sorts : undefined
-    };
-  }
-
-  /**
-   * Map sort field to Notion property/timestamp name
-   */
-  private mapSortFieldToNotionProperty(sortField: string): { type: 'property' | 'timestamp', name: string } {
-    const mapping: Record<string, { type: 'property' | 'timestamp', name: string }> = {
-      'created_at': { type: 'timestamp', name: 'created_time' },
-      'updated_at': { type: 'timestamp', name: 'last_edited_time' },
-      'scheduled_date': { type: 'property', name: 'due_date' },
-    };
-    
-    return mapping[sortField] || { type: 'timestamp', name: 'created_time' };
-  }
 
   /**
    * Parse tasks from Notion response
