@@ -44,13 +44,43 @@ export interface CreateProjectTool extends ToolCall {
   };
 }
 
-export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool;
+// GetTasksTool in Notion
+export interface GetTasksTool extends ToolCall {
+  function: {
+    name: 'get_tasks';
+    parameters: {
+      task_type?: 'Today' | 'Next Actions' | 'Someday / Maybe' | 'Wait for' | 'Routin';
+      project_id?: string;
+      limit?: number; // Default: 10, Max: 100
+      include_completed?: boolean; // Default: false
+      sort_by?: 'created_at' | 'updated_at' | 'scheduled_date';
+      sort_order?: 'asc' | 'desc'; // Default: 'desc'
+    };
+  };
+}
+
+interface TaskInfo {
+  task_id: string;
+  title: string;
+  description: string;
+  task_type: 'Today' | 'Next Actions' | 'Someday / Maybe' | 'Wait for' | 'Routin';
+  scheduled_date?: string;
+  project_id?: string;
+  project_name?: string;
+  created_at: Date;
+  updated_at: Date;
+  notion_url?: string;
+  status: 'active' | 'completed' | 'archived';
+}
+
+export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool | GetTasksTool;
 
 // Tool to Result type mapping for strict type safety
 export interface ToolResultTypeMap {
   create_task: TaskCreationResult;
   user_input: UserInputResult;
   create_project: ProjectCreationResult;
+  get_tasks: TaskQueryResult; // Phase A addition
 }
 
 // Result types for each tool
@@ -75,7 +105,15 @@ export interface ProjectCreationResult {
   action_plan?: string;
 }
 
-export type AgentToolResult = TaskCreationResult | ProjectCreationResult | UserInputResult | Record<string, unknown>;
+// Task query result
+export interface TaskQueryResult {
+  tasks: TaskInfo[];
+  total_count: number;
+  has_more: boolean;
+  query_parameters: Record<string, unknown>;
+}
+
+export type AgentToolResult = TaskCreationResult | ProjectCreationResult | UserInputResult | TaskQueryResult | Record<string, unknown>;
 
 // Factor 4: Enhanced structured tool results
 export interface ToolExecutionMetadata {
@@ -122,12 +160,14 @@ export type ToolResultFor<K extends keyof ToolResultTypeMap> = ToolResult<ToolRe
 export type TaskToolResult = ToolResultFor<'create_task'>;
 export type ProjectToolResult = ToolResultFor<'create_project'>;
 export type UserInputToolResult = ToolResultFor<'user_input'>;
+export type GetTasksToolResult = ToolResultFor<'get_tasks'>; // Phase A addition
 
 // Helper type for getting result type from tool type
 export type ResultTypeForTool<T extends AgentTool> = 
   T extends CreateTaskTool ? TaskCreationResult :
   T extends CreateProjectTool ? ProjectCreationResult :
   T extends UserInputTool ? UserInputResult :
+  T extends GetTasksTool ? TaskQueryResult : // Phase A addition
   never;
 
 export interface UserInputResult {
