@@ -3,6 +3,8 @@ import type {
   AgentTool,
   CreateProjectTool,
   CreateTaskTool,
+  GetTasksTool,
+  TaskQueryResult,
   ToolResult,
   UserInputTool,
   UserInputToolResult,
@@ -18,6 +20,18 @@ export function isCreateProjectTool(tool: AgentTool): tool is CreateProjectTool 
 
 export function isUserInputTool(tool: AgentTool): tool is UserInputTool {
   return tool.function.name === 'user_input';
+}
+
+export function isGetTasksTool(tool: AgentTool): tool is GetTasksTool {
+  return tool.function.name === 'get_tasks';
+}
+
+export function isTaskQueryResultData(data: unknown): data is TaskQueryResult {
+  return typeof data === 'object' && 
+         data !== null && 
+         'tasks' in data && 
+         'total_count' in data &&
+         Array.isArray((data as TaskQueryResult).tasks);
 }
 
 export function isEnrichedUserInputToolResult(result: EnrichedToolResult): boolean {
@@ -51,6 +65,11 @@ export function isEnrichedProjectToolResult(result: EnrichedToolResult): boolean
 // Type guard for Notion project result data (for context building)
 export function isNotionProjectResultData(data: unknown): data is { id: string; properties?: any } {
   return typeof data === 'object' && data !== null && 'id' in data;
+}
+
+// Helper function for query tool detection (get_tasks only for now)
+export function isQueryTool(tool: AgentTool): boolean {
+  return isGetTasksTool(tool);
 }
 
 // Helper function to check if result has enriched structure
