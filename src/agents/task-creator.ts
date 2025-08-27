@@ -279,7 +279,6 @@ export class TaskCreatorAgent {
    * Record tool execution event to the thread context
    */
   private recordToolExecutionEvent(toolCall: AgentTool): void {
-
     if (isCreateTaskTool(toolCall)) {
       this.contextManager.addEvent('create_task', {
         title: toolCall.function.parameters.title,
