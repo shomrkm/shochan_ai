@@ -6,8 +6,11 @@ import type {
 import type {
   CreateProjectTool,
   CreateTaskTool,
+  GetTasksTool,
   ProjectCreationResult,
   TaskCreationResult,
+  TaskInfo,
+  TaskQueryResult,
 } from '../types/tools';
 import { buildProjectCreatePageParams, buildTaskCreatePageParams } from '../utils/notionUtils';
 
@@ -118,6 +121,235 @@ export class NotionClient {
       console.error('Notion connection test failed:', error);
       return false;
     }
+  }
+
+  // ===== Phase A: get_tasks Method =====
+
+  /**
+   * Get tasks with optional filtering
+   */
+  async getTasks(tool: GetTasksTool): Promise<TaskQueryResult> {
+    const { 
+      task_type, 
+      project_id, 
+      limit = 10, 
+      include_completed = false,
+      sort_by = 'created_at',
+      sort_order = 'desc'
+    } = tool.function.parameters;
+
+    try {
+      console.log(`🔍 [NOTION] Getting tasks with filters:`, tool.function.parameters);
+      
+      const query = this.buildTaskQuery({
+        task_type,
+        project_id,
+        include_completed,
+        sort_by,
+        sort_order
+      });
+
+      const response = await this.client.databases.query({
+        database_id: this.tasksDbId,
+        ...query,
+        page_size: Math.min(limit, 100) // Notion API limit
+      });
+
+      const tasks = await this.parseTasksFromNotionResponse(response.results);
+      
+      console.log(`✅ [NOTION] Found ${tasks.length} tasks`);
+      
+      return {
+        tasks,
+        total_count: tasks.length,
+        has_more: response.has_more,
+        query_parameters: tool.function.parameters
+      };
+    } catch (error) {
+      console.error('❌ [NOTION] Get tasks failed:', error);
+      throw new Error(`Failed to get tasks: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // ===== Private Helper Methods for get_tasks =====
+
+  /**
+   * Build Notion query for tasks
+   */
+  private buildTaskQuery(filters: {
+    task_type?: string;
+    project_id?: string;
+    include_completed?: boolean;
+    sort_by?: string;
+    sort_order?: string;
+  }) {
+    const notionFilters: any[] = [];
+    
+    // Task type filter
+    if (filters.task_type) {
+      notionFilters.push({
+        property: 'task_type',
+        select: { equals: filters.task_type }
+      });
+    }
+
+    // Project filter
+    if (filters.project_id) {
+      notionFilters.push({
+        property: 'project',
+        relation: { contains: filters.project_id }
+      });
+    }
+
+    // Completion status filter (using formula property with checkbox filter)
+    if (!filters.include_completed) {
+      notionFilters.push({
+        property: 'is_completed',
+        formula: { 
+          checkbox: { 
+            equals: false 
+          } 
+        }
+      });
+    }
+
+    // Build sorts
+    const sorts = [];
+    if (filters.sort_by) {
+      const sortConfig = this.mapSortFieldToNotionProperty(filters.sort_by);
+      const direction = filters.sort_order === 'asc' ? 'ascending' as const : 'descending' as const;
+      
+      if (sortConfig.type === 'timestamp') {
+        sorts.push({
+          timestamp: sortConfig.name as 'created_time' | 'last_edited_time',
+          direction
+        });
+      } else {
+        sorts.push({
+          property: sortConfig.name,
+          direction
+        });
+      }
+    }
+
+    return {
+      filter: notionFilters.length > 0 ? { and: notionFilters } : undefined,
+      sorts: sorts.length > 0 ? sorts : undefined
+    };
+  }
+
+  /**
+   * Map sort field to Notion property/timestamp name
+   */
+  private mapSortFieldToNotionProperty(sortField: string): { type: 'property' | 'timestamp', name: string } {
+    const mapping: Record<string, { type: 'property' | 'timestamp', name: string }> = {
+      'created_at': { type: 'timestamp', name: 'created_time' },
+      'updated_at': { type: 'timestamp', name: 'last_edited_time' },
+      'scheduled_date': { type: 'property', name: 'due_date' },
+    };
+    
+    return mapping[sortField] || { type: 'timestamp', name: 'created_time' };
+  }
+
+  /**
+   * Parse tasks from Notion response
+   */
+  private async parseTasksFromNotionResponse(results: any[]): Promise<TaskInfo[]> {
+    const tasks: TaskInfo[] = [];
+    
+    for (const result of results) {
+      if (!isFullPageResponse(result)) continue;
+      
+      try {
+        const task = this.parseTaskFromNotionPage(result);
+        tasks.push(task);
+      } catch (error) {
+        console.warn(`Failed to parse task ${result.id}:`, error);
+        // Continue processing other tasks
+      }
+    }
+    
+    return tasks;
+  }
+
+  /**
+   * Parse single task from Notion page
+   */
+  private parseTaskFromNotionPage(page: PageObjectResponse): TaskInfo {
+    const properties = page.properties;
+    
+    // Extract basic task information
+    const title = this.extractTextFromProperty(properties, 'Name') || 'Untitled Task';
+    const description = this.extractTextFromProperty(properties, 'Description') || '';
+    const task_type = this.extractSelectFromProperty(properties, 'task_type') || 'Next Actions';
+    
+    // Extract dates
+    const scheduled_date = this.extractDateFromProperty(properties, 'due_date');
+    
+    // Extract project information
+    const project_id = this.extractRelationFromProperty(properties, 'project');
+    const project_name = this.extractTextFromProperty(properties, 'Project Name'); // If available
+    
+    // Extract status from formula property
+    const completed = this.extractFormulaFromProperty(properties, 'is_completed') || false;
+    
+    return {
+      task_id: page.id,
+      title,
+      description,
+      task_type: task_type as TaskInfo['task_type'],
+      scheduled_date,
+      project_id,
+      project_name,
+      created_at: new Date(page.created_time),
+      updated_at: new Date(page.last_edited_time),
+      notion_url: page.url,
+      status: completed ? 'completed' : 'active'
+    };
+  }
+
+  // ===== Utility Methods (Reusable for future tools) =====
+  
+  private extractTextFromProperty(properties: any, propertyName: string): string | undefined {
+    const prop = properties[propertyName];
+    if (!prop) return undefined;
+    
+    if (prop.type === 'title' && prop.title.length > 0) {
+      return prop.title[0].plain_text;
+    }
+    if (prop.type === 'rich_text' && prop.rich_text.length > 0) {
+      return prop.rich_text[0].plain_text;
+    }
+    
+    return undefined;
+  }
+  
+  private extractSelectFromProperty(properties: any, propertyName: string): string | undefined {
+    const prop = properties[propertyName];
+    if (!prop || prop.type !== 'select') return undefined;
+    
+    return prop.select?.name;
+  }
+  
+  private extractDateFromProperty(properties: any, propertyName: string): string | undefined {
+    const prop = properties[propertyName];
+    if (!prop || prop.type !== 'date') return undefined;
+    
+    return prop.date?.start;
+  }
+  
+  private extractRelationFromProperty(properties: any, propertyName: string): string | undefined {
+    const prop = properties[propertyName];
+    if (!prop || prop.type !== 'relation') return undefined;
+    
+    return prop.relation.length > 0 ? prop.relation[0].id : undefined;
+  }
+  
+  private extractFormulaFromProperty(properties: any, propertyName: string): boolean {
+    const prop = properties[propertyName];
+    if (!prop || prop.type !== 'formula') return false;
+    
+    return prop.formula?.boolean || false;
   }
 }
 

@@ -59,7 +59,7 @@ export interface GetTasksTool extends ToolCall {
   };
 }
 
-interface TaskInfo {
+export interface TaskInfo {
   task_id: string;
   title: string;
   description: string;
