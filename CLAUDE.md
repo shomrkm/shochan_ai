@@ -29,7 +29,7 @@
 
 5. **Commit Confirmation Protocol**
    - Present completed work summary to user
-   - Request explicit approval: "Task X.Y が完了しました。コミットして良いですか？"
+   - Request explicit approval: "Task X.Y が完了しました。レビューをお願いします"
    - Wait for user confirmation before proceeding with git commit
    - Only commit after receiving "OK" or similar approval
 
