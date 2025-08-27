@@ -39,6 +39,11 @@
 - **Test Coverage**: Maintain existing test coverage, add tests for new functionality
 - **Backward Compatibility**: Existing APIs must continue working unchanged
 - **Documentation**: JSDoc comments for all public methods and classes
+- **YAGNI Principle**: Follow "You Aren't Gonna Need It" - implement only what is currently needed
+  - Do not add speculative features or functionality "just in case"
+  - Remove unused code, methods, and imports immediately
+  - Prefer simple, focused implementations over generic, flexible ones
+  - Add complexity only when there is a concrete, immediate requirement
 
 ### TypeScript Coding Standards
 
