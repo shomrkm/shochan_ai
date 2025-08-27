@@ -13,11 +13,13 @@ export type EventType =
   | 'create_task'
   | 'create_project'
   | 'user_input'
+  | 'get_tasks'
 
   // Tool results
   | 'create_task_result'
   | 'create_project_result'
   | 'user_input_result'
+  | 'get_tasks_result'
 
   // Agent responses
   | 'agent_response'
@@ -95,6 +97,37 @@ export interface ErrorData {
   details?: Record<string, unknown>;
 }
 
+export interface GetTasksData {
+  task_type?: string;
+  project_id?: string;
+  limit?: number;
+  include_completed?: boolean;
+  sort_by?: string;
+  sort_order?: string;
+}
+
+export interface GetTasksResultData {
+  success: boolean;
+  query_parameters: Record<string, unknown>;
+  tasks?: Array<{
+    task_id: string;
+    title: string;
+    description: string;
+    task_type: string;
+    scheduled_date?: string;
+    project_id?: string;
+    project_name?: string;
+    created_at: string;
+    updated_at: string;
+    notion_url?: string;
+    status: string;
+  }>;
+  total_count?: number;
+  has_more?: boolean;
+  error?: string;
+  execution_time: number;
+}
+
 // Event type to data mapping for strict type safety
 export interface EventTypeDataMap {
   user_message: UserMessageData;
@@ -104,10 +137,12 @@ export interface EventTypeDataMap {
   create_task: CreateTaskData;
   create_project: CreateProjectData;
   user_input: UserInputData;
+  get_tasks: GetTasksData; // Phase A addition
 
   create_task_result: CreateTaskResultData;
   create_project_result: CreateProjectResultData;
   user_input_result: UserInputResultData;
+  get_tasks_result: GetTasksResultData; // Phase A addition
 
   agent_response: AgentResponseData;
   conversation_end: AgentResponseData; // Can reuse AgentResponseData structure
