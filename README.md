@@ -171,20 +171,21 @@ npm run check:fix
 ```
 src/
 ├── agents/
-│   └── task-creator.ts           # Main orchestrator agent with XML-based context
+│   └── notion-task-agent.ts      # Main orchestrator with 12-factor done intent pattern
 ├── clients/
 │   ├── claude.ts                 # Anthropic Claude API client
-│   └── notion.ts                 # Notion API client
+│   ├── notion.ts                 # Notion API client with get_tasks support
+│   └── notion-task-parser.ts     # Notion task parsing utilities
 ├── conversation/
 │   ├── context-manager.ts        # XML-based context management with Thread model
 │   └── display-manager.ts        # Centralized display and logging functionality
 ├── events/                       # Factor 3: XML Context System
 │   ├── types.ts                  # Event type definitions and data structures
-│   ├── thread.ts                 # Event/Thread classes with XML serialization
+│   ├── thread.ts                 # Event-driven conversation flow with XML serialization
 │   ├── yaml-utils.ts             # YAML-in-XML formatting utilities
 │   └── *.test.ts                 # Event system test suites
 ├── prompts/
-│   └── system-prompt.ts          # XML context-aware prompt management
+│   └── system-prompt.ts          # 12-factor decision framework with done intent
 ├── tools/                        # Factor 1 & 4: Enhanced Tool System
 │   ├── index.ts                  # Legacy tool execution engine
 │   ├── enhanced-tool-executor.ts # XML event recording with validation
@@ -195,13 +196,13 @@ src/
 │   ├── conversation-types.ts     # Conversation-related types
 │   ├── notion.ts                 # Notion API types
 │   ├── prompt-types.ts           # XML-aware prompt system types
-│   ├── tools.ts                  # Tool system types
+│   ├── tools.ts                  # Tool system types (includes get_tasks and done tools)
 │   └── toolGuards.ts            # Runtime type validation
 ├── utils/
 │   ├── input-helper.ts           # Unified input handling
 │   └── notionUtils.ts           # Notion utility functions
-├── interactive.ts               # Interactive mode entry point
-└── test-*.ts                    # Various test scenarios
+├── cli.ts                       # Production-ready CLI tool
+└── index.ts                     # Development/demo entry point
 ```
 
 ## 🗺️ Development Roadmap

@@ -19,9 +19,10 @@
 
 ## 🎯 Tool Implementation Priority
 
-### Phase A: Core Query Tool (Most Valuable)
+### ✅ Phase A: Core Query Tool - COMPLETED
 **Tool**: `get_tasks` - タスク一覧取得
 **Priority**: ⭐⭐⭐⭐⭐ (最高優先度)
+**Status**: ✅ **IMPLEMENTED AND DEPLOYED**
 **Rationale**: 最も利用頻度が高く、ユーザー価値が最大
 
 ### Phase B: Project Discovery Tool

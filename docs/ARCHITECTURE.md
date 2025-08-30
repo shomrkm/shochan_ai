@@ -7,7 +7,7 @@ This document describes the architecture of the Shochan AI Agent, implemented fo
 ```mermaid
 graph TB
     %% Main Agent
-    Agent[TaskCreatorAgent<br/>XML-based orchestrator]
+    Agent[NotionTaskAgent<br/>12-factor done intent pattern]
     
     %% Core Components
     ContextMgr[ContextManager<br/>XML context management]
@@ -74,7 +74,7 @@ graph TB
 ## 🎯 Layered Architecture
 
 ### **Agent Layer**
-- **TaskCreatorAgent**: Main orchestrator implementing 12-factor pattern with XML-based context integration
+- **NotionTaskAgent**: Main orchestrator implementing 12-factor agents done intent pattern with XML-based context integration
 
 ### **Context Management Layer** (Factor 3)
 - **ContextManager**: XML-based context management with event-driven Thread model
@@ -99,11 +99,11 @@ graph TB
 
 ### **Factor 1: Natural Language to Tool Calls** ✅
 
-**Purpose**: Convert natural language input into structured tool calls
+**Purpose**: Convert natural language input into structured tool calls with 12-factor agents done intent pattern
 
 ```mermaid
 graph LR
-    A[TaskCreatorAgent] --> B[ClaudeClient]
+    A[NotionTaskAgent] --> B[ClaudeClient]
     A --> C[ToolExecutor]
     C --> D[NotionClient]
     C --> E[QuestionHandler]
