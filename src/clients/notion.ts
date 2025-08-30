@@ -1,25 +1,22 @@
 import { Client } from '@notionhq/client';
 import type {
-  CreatePageResponse,
-  PageObjectResponse,
-} from '@notionhq/client/build/src/api-endpoints';
-import type {
   CreateProjectTool,
   CreateTaskTool,
   GetTasksTool,
   ProjectCreationResult,
   TaskCreationResult,
-  TaskInfo,
   TaskQueryResult,
 } from '../types/tools';
 import { buildProjectCreatePageParams, buildTaskCreatePageParams } from '../utils/notionUtils';
 import { NotionQueryBuilder } from './notion-query-builder';
+import { NotionTaskParser } from './notion-task-parser';
 
 export class NotionClient {
   private client: Client;
   private tasksDbId: string;
   private projectsDbId: string;
   private queryBuilder: NotionQueryBuilder;
+  private taskParser: NotionTaskParser;
 
   constructor() {
     if (!process.env.NOTION_API_KEY) {
@@ -39,6 +36,7 @@ export class NotionClient {
     this.tasksDbId = process.env.NOTION_TASKS_DATABASE_ID;
     this.projectsDbId = process.env.NOTION_PROJECTS_DATABASE_ID;
     this.queryBuilder = new NotionQueryBuilder();
+    this.taskParser = new NotionTaskParser();
   }
 
   async createTask(tool: CreateTaskTool): Promise<TaskCreationResult> {
@@ -56,7 +54,7 @@ export class NotionClient {
 
       const response = await this.client.pages.create(params);
 
-      if (!isFullPageResponse(response)) {
+      if (!this.taskParser.isFullPageResponse(response)) {
         throw new Error(
           'Notion returned a partial page response. Ensure the integration has access to the page/database.'
         );
@@ -92,7 +90,7 @@ export class NotionClient {
 
       const response = await this.client.pages.create(params);
 
-      if (!isFullPageResponse(response)) {
+      if (!this.taskParser.isFullPageResponse(response)) {
         throw new Error(
           'Notion returned a partial page response. Ensure the integration has access to the page/database.'
         );
@@ -158,7 +156,7 @@ export class NotionClient {
         page_size: Math.min(limit, 100) // Notion API limit
       });
 
-      const tasks = await this.parseTasksFromNotionResponse(response.results);
+      const tasks = await this.taskParser.parseTasksFromNotionResponse(response.results);
       
       console.log(`✅ [NOTION] Found ${tasks.length} tasks`);
       
@@ -174,114 +172,4 @@ export class NotionClient {
     }
   }
 
-  // ===== Private Helper Methods for get_tasks =====
-
-  /**
-   * Parse tasks from Notion response
-   */
-  private async parseTasksFromNotionResponse(results: any[]): Promise<TaskInfo[]> {
-    const tasks: TaskInfo[] = [];
-    
-    for (const result of results) {
-      if (!isFullPageResponse(result)) continue;
-      
-      try {
-        const task = this.parseTaskFromNotionPage(result);
-        tasks.push(task);
-      } catch (error) {
-        console.warn(`Failed to parse task ${result.id}:`, error);
-        // Continue processing other tasks
-      }
-    }
-    
-    return tasks;
-  }
-
-  /**
-   * Parse single task from Notion page
-   */
-  private parseTaskFromNotionPage(page: PageObjectResponse): TaskInfo {
-    const properties = page.properties;
-    
-    // Extract basic task information
-    const title = this.extractTextFromProperty(properties, 'Name') || 'Untitled Task';
-    const description = this.extractTextFromProperty(properties, 'Description') || '';
-    const task_type = this.extractSelectFromProperty(properties, 'task_type') || 'Next Actions';
-    
-    // Extract dates
-    const scheduled_date = this.extractDateFromProperty(properties, 'due_date');
-    
-    // Extract project information
-    const project_id = this.extractRelationFromProperty(properties, 'project');
-    const project_name = this.extractTextFromProperty(properties, 'Project Name'); // If available
-    
-    // Extract status from formula property
-    const completed = this.extractFormulaFromProperty(properties, 'is_completed') || false;
-    
-    return {
-      task_id: page.id,
-      title,
-      description,
-      task_type: task_type as TaskInfo['task_type'],
-      scheduled_date,
-      project_id,
-      project_name,
-      created_at: new Date(page.created_time),
-      updated_at: new Date(page.last_edited_time),
-      notion_url: page.url,
-      status: completed ? 'completed' : 'active'
-    };
-  }
-
-  // ===== Utility Methods (Reusable for future tools) =====
-  
-  private extractTextFromProperty(properties: any, propertyName: string): string | undefined {
-    const prop = properties[propertyName];
-    if (!prop) return undefined;
-    
-    if (prop.type === 'title' && prop.title.length > 0) {
-      return prop.title[0].plain_text;
-    }
-    if (prop.type === 'rich_text' && prop.rich_text.length > 0) {
-      return prop.rich_text[0].plain_text;
-    }
-    
-    return undefined;
-  }
-  
-  private extractSelectFromProperty(properties: any, propertyName: string): string | undefined {
-    const prop = properties[propertyName];
-    if (!prop || prop.type !== 'select') return undefined;
-    
-    return prop.select?.name;
-  }
-  
-  private extractDateFromProperty(properties: any, propertyName: string): string | undefined {
-    const prop = properties[propertyName];
-    if (!prop || prop.type !== 'date') return undefined;
-    
-    return prop.date?.start;
-  }
-  
-  private extractRelationFromProperty(properties: any, propertyName: string): string | undefined {
-    const prop = properties[propertyName];
-    if (!prop || prop.type !== 'relation') return undefined;
-    
-    return prop.relation.length > 0 ? prop.relation[0].id : undefined;
-  }
-  
-  private extractFormulaFromProperty(properties: any, propertyName: string): boolean {
-    const prop = properties[propertyName];
-    if (!prop || prop.type !== 'formula') return false;
-    
-    return prop.formula?.boolean || false;
-  }
-}
-
-function isFullPageResponse(response: CreatePageResponse): response is PageObjectResponse {
-  return (
-    (response as any).object === 'page' &&
-    'created_time' in response &&
-    (('url' in response) as any)
-  );
 }
