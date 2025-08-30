@@ -9,6 +9,7 @@ import type { PromptContext } from '../types/prompt-types';
 import {
   isCreateProjectTool,
   isCreateTaskTool,
+  isDoneTool,
   isGetTasksTool,
   isTaskQueryResultData,
   isUserInputResultData,
@@ -17,11 +18,12 @@ import {
 import type { AgentTool } from '../types/tools';
 
 /**
- * Main AI agent for creating tasks and projects through interactive conversation.
+ * Main AI agent for managing Notion tasks through interactive conversation.
+ * Handles task creation, task queries, project management, and more.
  * Implements Factor 3 (context management) and Factor 4 (structured tool outputs).
  * Refactored to use specialized components for different responsibilities.
  */
-export class TaskCreatorAgent {
+export class NotionTaskAgent {
   private claude: ClaudeClient;
   private toolExecutor: EnhancedToolExecutor;
   private contextManager: ContextManager;
@@ -29,7 +31,7 @@ export class TaskCreatorAgent {
   private displayManager: DisplayManager;
 
   /**
-   * Initialize the TaskCreatorAgent with all necessary components
+   * Initialize the NotionTaskAgent with all necessary components
    */
   constructor() {
     this.claude = new ClaudeClient();
@@ -56,7 +58,13 @@ export class TaskCreatorAgent {
       const result = await this.processMessage(currentMessage);
 
       const nextMessage = this.extractUserResponse(result);
-      currentMessage = nextMessage ?? ''
+      
+      // If nextMessage is null, conversation should end
+      if (nextMessage === null) {
+        break;
+      }
+      
+      currentMessage = nextMessage;
     }
 
     this.finalizeConversation(iterations, MAX_ITERATION);
@@ -149,6 +157,33 @@ export class TaskCreatorAgent {
    * Execute the determined tool - routing logic for tool execution
    */
   private async executeTool(toolCall: AgentTool): Promise<ProcessMessageResult> {
+    // Handle done tool - complete conversation with natural response
+    if (isDoneTool(toolCall)) {
+      const finalAnswer = toolCall.function.parameters.final_answer;
+      this.displayManager.displayAgentResponse(finalAnswer);
+      this.contextManager.addAssistantResponse(finalAnswer);
+      
+      // Record done event
+      this.contextManager.addEvent('done_result', {
+        final_answer: finalAnswer,
+        conversation_complete: true,
+      });
+      
+      return { 
+        toolCall, 
+        toolResult: {
+          success: true,
+          message: 'Conversation completed',
+          data: { final_answer: finalAnswer, conversation_complete: true },
+          startTime: new Date(),
+          endTime: new Date(),
+          executionTimeMs: 0,
+          status: 'success',
+          metadata: { toolName: 'done', inputParameters: toolCall.function.parameters }
+        }
+      };
+    }
+
     this.displayToolCallInfo(toolCall);
 
     const result = await this.executeToolWithContext(toolCall);
@@ -221,6 +256,23 @@ export class TaskCreatorAgent {
    * Extract user response from user_input tool result
    */
   private extractUserResponse(result: ProcessMessageResult): string | null {
+    // Check if conversation completed with done tool
+    if (this.hasCalledTool(result) && isDoneTool(result.toolCall)) {
+      console.log('✅ Conversation completed with done intent');
+      return null; // End conversation
+    }
+
+    // Special handling for get_tasks: Force LLM to process result rather than asking generic question
+    if (this.hasCalledTool(result) && isGetTasksTool(result.toolCall)) {
+      if (result.toolResult.success) {
+        // Instead of generic "What should I do next?", give a specific prompt that should trigger done
+        return 'Please provide the task results to the user now.';
+      } else {
+        console.log('❌ get_tasks failed, ending conversation');
+        return null;
+      }
+    }
+
     if (!this.hasCalledTool(result) || !isUserInputTool(result.toolCall)) {
       return 'What should I do next?'
     }
@@ -237,17 +289,10 @@ export class TaskCreatorAgent {
   }
 
   /**
-   * Reset conversation state
-   */
-  private clearState(): void {
-    this.currentTraceId = null;
-  }
-
-  /**
    * Clear conversation history and reset agent state
    */
   private clearHistory(): void {
-    this.clearState();
+    this.currentTraceId = null;
     this.contextManager.clear();
     this.displayManager.displayHistoryCleared();
   }
@@ -341,6 +386,19 @@ export class TaskCreatorAgent {
       this.contextManager.addEvent('get_tasks_result', {
         success: result.success,
         query_parameters: toolCall.function.parameters,
+        tasks: isTaskQueryResultData(result.data) ? result.data.tasks?.map(task => ({
+          task_id: task.task_id,
+          title: task.title,
+          description: task.description,
+          task_type: task.task_type,
+          scheduled_date: task.scheduled_date,
+          project_id: task.project_id,
+          project_name: task.project_name,
+          created_at: task.created_at instanceof Date ? task.created_at.toISOString() : task.created_at,
+          updated_at: task.updated_at instanceof Date ? task.updated_at.toISOString() : task.updated_at,
+          notion_url: task.notion_url,
+          status: task.status,
+        })) : [],
         total_count: isTaskQueryResultData(result.data) ? result.data.total_count : 0,
         has_more: isTaskQueryResultData(result.data) ? result.data.has_more : false,
         error: result.success ? undefined : result.error?.message,

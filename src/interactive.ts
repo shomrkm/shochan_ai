@@ -1,6 +1,6 @@
 // src/interactive.ts
 import dotenv from 'dotenv';
-import { TaskCreatorAgent } from './agents/task-creator';
+import { NotionTaskAgent } from './agents/notion-task-agent';
 import { InputHelper } from './utils/input-helper';
 
 dotenv.config();
@@ -25,7 +25,7 @@ async function startInteractiveSession() {
   process.on('SIGTERM', gracefulShutdown);
 
   try {
-    const agent = new TaskCreatorAgent();
+    const agent = new NotionTaskAgent();
 
     // Test connections
     const connectionsOk = await agent.testConnections();

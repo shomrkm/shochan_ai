@@ -3,6 +3,8 @@ import type {
   AgentTool,
   CreateProjectTool,
   CreateTaskTool,
+  DoneResult,
+  DoneTool,
   GetTasksTool,
   TaskQueryResult,
   ToolResult,
@@ -26,12 +28,24 @@ export function isGetTasksTool(tool: AgentTool): tool is GetTasksTool {
   return tool.function.name === 'get_tasks';
 }
 
+export function isDoneTool(tool: AgentTool): tool is DoneTool {
+  return tool.function.name === 'done';
+}
+
 export function isTaskQueryResultData(data: unknown): data is TaskQueryResult {
   return typeof data === 'object' && 
          data !== null && 
          'tasks' in data && 
          'total_count' in data &&
          Array.isArray((data as TaskQueryResult).tasks);
+}
+
+export function isDoneResultData(data: unknown): data is DoneResult {
+  return typeof data === 'object' && 
+         data !== null && 
+         'final_answer' in data && 
+         'conversation_complete' in data &&
+         (data as DoneResult).conversation_complete === true;
 }
 
 export function isEnrichedUserInputToolResult(result: EnrichedToolResult): boolean {

@@ -44,6 +44,16 @@ export interface CreateProjectTool extends ToolCall {
   };
 }
 
+// Done Intent - 12-factor agents pattern for conversation completion
+export interface DoneTool extends ToolCall {
+  function: {
+    name: 'done';
+    parameters: {
+      final_answer: string; // Natural language response to user
+    };
+  };
+}
+
 // GetTasksTool in Notion
 export interface GetTasksTool extends ToolCall {
   function: {
@@ -73,7 +83,7 @@ export interface TaskInfo {
   status: 'active' | 'completed' | 'archived';
 }
 
-export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool | GetTasksTool;
+export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool | GetTasksTool | DoneTool;
 
 // Tool to Result type mapping for strict type safety
 export interface ToolResultTypeMap {
@@ -81,6 +91,7 @@ export interface ToolResultTypeMap {
   user_input: UserInputResult;
   create_project: ProjectCreationResult;
   get_tasks: TaskQueryResult; // Phase A addition
+  done: DoneResult; // 12-factor agents pattern
 }
 
 // Result types for each tool
@@ -113,7 +124,13 @@ export interface TaskQueryResult {
   query_parameters: Record<string, unknown>;
 }
 
-export type AgentToolResult = TaskCreationResult | ProjectCreationResult | UserInputResult | TaskQueryResult | Record<string, unknown>;
+// Done result for conversation completion
+export interface DoneResult {
+  final_answer: string;
+  conversation_complete: true;
+}
+
+export type AgentToolResult = TaskCreationResult | ProjectCreationResult | UserInputResult | TaskQueryResult | DoneResult | Record<string, unknown>;
 
 // Factor 4: Enhanced structured tool results
 export interface ToolExecutionMetadata {

@@ -1,6 +1,6 @@
 // src/index.ts
 import dotenv from 'dotenv';
-import { TaskCreatorAgent } from './agents/task-creator';
+import { NotionTaskAgent } from './agents/notion-task-agent';
 
 dotenv.config();
 
@@ -8,7 +8,7 @@ async function main() {
   console.log('🚀 AI Agent Task Creator - Factor 1 Demo\n');
 
   try {
-    const agent = new TaskCreatorAgent();
+    const agent = new NotionTaskAgent();
 
     // 接続テスト
     const connectionsOk = await agent.testConnections();

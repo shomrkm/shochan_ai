@@ -14,12 +14,14 @@ export type EventType =
   | 'create_project'
   | 'user_input'
   | 'get_tasks'
+  | 'done'
 
   // Tool results
   | 'create_task_result'
   | 'create_project_result'
   | 'user_input_result'
   | 'get_tasks_result'
+  | 'done_result'
 
   // Agent responses
   | 'agent_response'
@@ -128,6 +130,15 @@ export interface GetTasksResultData {
   execution_time: number;
 }
 
+export interface DoneData {
+  final_answer: string;
+}
+
+export interface DoneResultData {
+  final_answer: string;
+  conversation_complete: boolean;
+}
+
 // Event type to data mapping for strict type safety
 export interface EventTypeDataMap {
   user_message: UserMessageData;
@@ -138,11 +149,13 @@ export interface EventTypeDataMap {
   create_project: CreateProjectData;
   user_input: UserInputData;
   get_tasks: GetTasksData; // Phase A addition
+  done: DoneData;
 
   create_task_result: CreateTaskResultData;
   create_project_result: CreateProjectResultData;
   user_input_result: UserInputResultData;
   get_tasks_result: GetTasksResultData; // Phase A addition
+  done_result: DoneResultData;
 
   agent_response: AgentResponseData;
   conversation_end: AgentResponseData; // Can reuse AgentResponseData structure

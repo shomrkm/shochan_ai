@@ -134,6 +134,20 @@ export class ClaudeClient {
               required: [],
             },
           },
+          {
+            name: 'done',
+            description: 'Complete conversation with natural response',
+            input_schema: {
+              type: 'object',
+              properties: {
+                final_answer: {
+                  type: 'string',
+                  description: 'Natural language response to user',
+                },
+              },
+              required: ['final_answer'],
+            },
+          },
         ],
       });
 
