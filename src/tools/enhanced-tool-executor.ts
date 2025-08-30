@@ -139,6 +139,16 @@ export class EnhancedToolExecutor {
           errors.push('Context is required and must be a string');
         }
         break;
+
+      case 'get_tasks':
+        // get_tasks has no required parameters, but validate optional ones
+        if (tool.function.parameters.limit !== undefined) {
+          const limit = tool.function.parameters.limit;
+          if (typeof limit !== 'number' || limit < 1 || limit > 100) {
+            errors.push('Limit must be a number between 1 and 100');
+          }
+        }
+        break;
     }
 
     return {

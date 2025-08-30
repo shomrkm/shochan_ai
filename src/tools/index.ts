@@ -1,7 +1,7 @@
 // src/tools/index.ts
 
 import { NotionClient } from '../clients/notion';
-import { isCreateProjectTool, isCreateTaskTool } from '../types/toolGuards';
+import { isCreateProjectTool, isCreateTaskTool, isGetTasksTool } from '../types/toolGuards';
 import type { AgentTool, ProjectToolResult, TaskToolResult, ToolResult } from '../types/tools';
 import { UserInputHandler } from './user-input-handler';
 
@@ -32,6 +32,11 @@ export class ToolExecutor {
 
         case 'user_input': {
           const result = await this.userInputHandler.execute(tool);
+          return result;
+        }
+
+        case 'get_tasks': {
+          const result = await this.executeGetTasks(tool);
           return result;
         }
 
@@ -79,6 +84,26 @@ export class ToolExecutor {
     return {
       success: true,
       message: `Project "${result.name}" created successfully`,
+      data: result,
+      timestamp: new Date(),
+    };
+  }
+
+  private async executeGetTasks(tool: AgentTool): Promise<ToolResult> {
+    if (!isGetTasksTool(tool)) {
+      throw new Error('Invalid tool type for getTasks');
+    }
+
+    const result = await this.notionClient.getTasks(tool);
+
+    console.log(`✅ Tasks retrieved successfully: ${result.tasks.length} tasks found`);
+    if (result.has_more) {
+      console.log(`📄 More results available`);
+    }
+
+    return {
+      success: true,
+      message: `Retrieved ${result.tasks.length} tasks`,
       data: result,
       timestamp: new Date(),
     };
