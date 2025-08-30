@@ -9,6 +9,7 @@ interface CliOptions {
   help?: boolean;
   version?: boolean;
   query?: string;
+  debug?: boolean;
 }
 
 function parseArgs(args: string[]): CliOptions {
@@ -33,6 +34,10 @@ function parseArgs(args: string[]): CliOptions {
           i++;
         }
         break;
+      case '-d':
+      case '--debug':
+        options.debug = true;
+        break;
     }
   }
   
@@ -50,11 +55,13 @@ Usage:
   npm run cli -- -q "message"  Quick task creation
   npm run cli -- --help       Show this help
   npm run cli -- --version    Show version
+  npm run cli -- --debug      Enable debug mode
 
 Examples:
   npm run cli -- -q "Create a task to review Q3 reports"
   npm run cli -- -q "Show my today's tasks"
   npm run cli -- -q "Create a project for mobile app redesign"
+  npm run cli -- -d           Start with debug logging enabled
 
 Interactive mode commands:
   • "Create a task to [description]"
@@ -71,10 +78,10 @@ function showVersion() {
   console.log(`v${packageJson.version}`);
 }
 
-async function quickQuery(query: string) {
+async function quickQuery(query: string, debugMode: boolean = false) {
   console.log('🚀 Notion Task Manager - Quick Mode\n');
   
-  const agent = new NotionTaskAgent();
+  const agent = new NotionTaskAgent(debugMode);
   
   // Test connections quietly
   const connectionsOk = await agent.testConnections();
@@ -87,10 +94,14 @@ async function quickQuery(query: string) {
   await agent.startConversation(query);
 }
 
-async function startInteractiveMode() {
+async function startInteractiveMode(debugMode: boolean = false) {
   console.log('🚀 Notion Task Manager - Interactive Mode\n');
   console.log('✨ Manage your Notion tasks with natural language');
   console.log('🛑 Press Ctrl+C anytime to exit\n');
+
+  if (debugMode) {
+    console.log('🐛 Debug mode enabled\n');
+  }
 
   // Set up graceful shutdown
   let isShuttingDown = false;
@@ -106,7 +117,7 @@ async function startInteractiveMode() {
   process.on('SIGTERM', gracefulShutdown);
 
   try {
-    const agent = new NotionTaskAgent();
+    const agent = new NotionTaskAgent(debugMode);
 
     // Test connections
     const connectionsOk = await agent.testConnections();
@@ -148,6 +159,9 @@ async function main() {
   const args = process.argv.slice(2);
   const options = parseArgs(args);
   
+  // Enable debug mode from environment variable or CLI flag
+  const debugMode = options.debug || process.env.DEBUG === 'true';
+  
   if (options.help) {
     showHelp();
     return;
@@ -159,12 +173,12 @@ async function main() {
   }
   
   if (options.query) {
-    await quickQuery(options.query);
+    await quickQuery(options.query, debugMode);
     return;
   }
   
   // Default to interactive mode
-  await startInteractiveMode();
+  await startInteractiveMode(debugMode);
 }
 
 if (require.main === module) {

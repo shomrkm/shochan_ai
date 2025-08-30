@@ -14,8 +14,8 @@ import { ToolResultValidator } from './tool-result-validator';
 export class EnhancedToolExecutor {
   private legacyExecutor: ToolExecutor;
 
-  constructor() {
-    this.legacyExecutor = new ToolExecutor();
+  constructor(debugMode: boolean = false) {
+    this.legacyExecutor = new ToolExecutor(debugMode);
   }
 
   /**
@@ -147,6 +147,15 @@ export class EnhancedToolExecutor {
           if (typeof limit !== 'number' || limit < 1 || limit > 100) {
             errors.push('Limit must be a number between 1 and 100');
           }
+        }
+        break;
+
+      case 'done':
+        if (
+          !tool.function.parameters.final_answer ||
+          typeof tool.function.parameters.final_answer !== 'string'
+        ) {
+          errors.push('Final answer is required and must be a string');
         }
         break;
     }

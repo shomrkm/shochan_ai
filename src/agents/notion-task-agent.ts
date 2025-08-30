@@ -29,15 +29,17 @@ export class NotionTaskAgent {
   private contextManager: ContextManager;
   private currentTraceId: string | null = null;
   private displayManager: DisplayManager;
+  private debugMode: boolean;
 
   /**
    * Initialize the NotionTaskAgent with all necessary components
    */
-  constructor() {
+  constructor(debugMode: boolean = false) {
     this.claude = new ClaudeClient();
-    this.toolExecutor = new EnhancedToolExecutor();
+    this.toolExecutor = new EnhancedToolExecutor(debugMode);
     this.contextManager = new ContextManager();
     this.displayManager = new DisplayManager();
+    this.debugMode = debugMode;
   }
 
   /**
@@ -154,42 +156,15 @@ export class NotionTaskAgent {
   }
 
   /**
-   * Execute the determined tool - routing logic for tool execution
+   * Execute the determined tool - unified routing logic for all tools
    */
   private async executeTool(toolCall: AgentTool): Promise<ProcessMessageResult> {
-    // Handle done tool - complete conversation with natural response
-    if (isDoneTool(toolCall)) {
-      const finalAnswer = toolCall.function.parameters.final_answer;
-      this.displayManager.displayAgentResponse(finalAnswer);
-      this.contextManager.addAssistantResponse(finalAnswer);
-      
-      // Record done event
-      this.contextManager.addEvent('done_result', {
-        final_answer: finalAnswer,
-        conversation_complete: true,
-      });
-      
-      return { 
-        toolCall, 
-        toolResult: {
-          success: true,
-          message: 'Conversation completed',
-          data: { final_answer: finalAnswer, conversation_complete: true },
-          startTime: new Date(),
-          endTime: new Date(),
-          executionTimeMs: 0,
-          status: 'success',
-          metadata: { toolName: 'done', inputParameters: toolCall.function.parameters }
-        }
-      };
-    }
-
     this.displayToolCallInfo(toolCall);
 
     const result = await this.executeToolWithContext(toolCall);
-    if (isUserInputTool(toolCall)) {
-      this.handleUserInputResult(toolCall, result);
-    }
+    
+    // Handle tool result with unified processing
+    this.handleToolResult(toolCall, result);
 
     return { toolCall, toolResult: result };
   }
@@ -198,6 +173,7 @@ export class NotionTaskAgent {
    * Display tool call information
    */
   private displayToolCallInfo(toolCall: AgentTool): void {
+    // ToolExecutor側でデバッグログを出力するので、ここでは重複させない
     this.displayManager.displayToolCall(toolCall.function.name);
 
     if (toolCall.function.name === 'user_input') {
@@ -224,6 +200,97 @@ export class NotionTaskAgent {
     this.recordToolResultEvent(toolCall, result);
 
     return result;
+  }
+
+  /**
+   * Handle tool result with unified processing for all tool types
+   */
+  private handleToolResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
+    if (isUserInputTool(toolCall)) {
+      this.handleUserInputResult(toolCall, enrichedResult);
+    } else if (isDoneTool(toolCall)) {
+      this.handleDoneResult(toolCall, enrichedResult);
+    } else if (isGetTasksTool(toolCall)) {
+      this.handleGetTasksResult(toolCall, enrichedResult);
+    } else if (isCreateTaskTool(toolCall)) {
+      this.handleCreateTaskResult(toolCall, enrichedResult);
+    } else if (isCreateProjectTool(toolCall)) {
+      this.handleCreateProjectResult(toolCall, enrichedResult);
+    }
+  }
+
+  /**
+   * Handle create_task result processing
+   */
+  private handleCreateTaskResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
+    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult }) && enrichedResult.data) {
+      // ユーザー向けは成功のシンプルなフィードバックのみ
+      const data = enrichedResult.data as any;
+      console.log(`✅ Task "${data.title}" created`);
+    } else {
+      console.log('❌ Failed to create task');
+    }
+  }
+
+  /**
+   * Handle create_project result processing  
+   */
+  private handleCreateProjectResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
+    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult }) && enrichedResult.data) {
+      // ユーザー向けは成功のシンプルなフィードバックのみ
+      const data = enrichedResult.data as any;
+      console.log(`✅ Project "${data.name}" created`);
+    } else {
+      console.log('❌ Failed to create project');
+    }
+  }
+
+  /**
+   * Handle done tool result processing
+   */
+  private handleDoneResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
+    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult }) && enrichedResult.data) {
+      const finalAnswer = (enrichedResult.data as any).final_answer;
+      if (finalAnswer && typeof finalAnswer === 'string') {
+        this.displayManager.displayAgentResponse(finalAnswer);
+        this.contextManager.addAssistantResponse(finalAnswer);
+      }
+    }
+  }
+
+  /**
+   * Handle get_tasks result processing
+   */
+  private handleGetTasksResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
+    if (!this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
+      console.log('❌ Failed to retrieve tasks');
+      return;
+    }
+
+    const data = enrichedResult.data;
+    if (isTaskQueryResultData(data) && isGetTasksTool(toolCall)) {
+      if (data.tasks.length === 0) {
+        console.log('📋 No tasks found');
+        return;
+      }
+
+      // ユーザーフレンドリーな表示
+      console.log(`\n📋 Found ${data.tasks.length} task${data.tasks.length > 1 ? 's' : ''}:`);
+
+      data.tasks.forEach((task, index) => {
+        console.log(`\n${index + 1}. ${task.title}`);
+        if (task.scheduled_date) {
+          console.log(`   📅 Due: ${task.scheduled_date}`);
+        }
+        if (task.project_name) {
+          console.log(`   📁 Project: ${task.project_name}`);
+        }
+      });
+
+      if (data.has_more) {
+        console.log('\n📄 More tasks available...');
+      }
+    }
   }
 
   /**
@@ -355,6 +422,10 @@ export class NotionTaskAgent {
         sort_by: toolCall.function.parameters.sort_by,
         sort_order: toolCall.function.parameters.sort_order,
       });
+    } else if (isDoneTool(toolCall)) {
+      this.contextManager.addEvent('done', {
+        final_answer: toolCall.function.parameters.final_answer,
+      });
     }
   }
 
@@ -403,6 +474,15 @@ export class NotionTaskAgent {
         has_more: isTaskQueryResultData(result.data) ? result.data.has_more : false,
         error: result.success ? undefined : result.error?.message,
         execution_time: result.executionTimeMs || 0,
+      });
+    } else if (isDoneTool(toolCall)) {
+      this.contextManager.addEvent('done_result', {
+        final_answer: result.data && typeof result.data === 'object' && 'final_answer' in result.data 
+          ? result.data.final_answer as string 
+          : '',
+        conversation_complete: result.data && typeof result.data === 'object' && 'conversation_complete' in result.data 
+          ? result.data.conversation_complete as boolean 
+          : false,
       });
     }
   }
