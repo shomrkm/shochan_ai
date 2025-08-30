@@ -9,6 +9,8 @@ import type { PromptContext } from '../types/prompt-types';
 import {
   isCreateProjectTool,
   isCreateTaskTool,
+  isGetTasksTool,
+  isTaskQueryResultData,
   isUserInputResultData,
   isUserInputTool,
 } from '../types/toolGuards';
@@ -299,6 +301,15 @@ export class TaskCreatorAgent {
         message: toolCall.function.parameters.message,
         context: toolCall.function.parameters.context,
       });
+    } else if (isGetTasksTool(toolCall)) {
+      this.contextManager.addEvent('get_tasks', {
+        task_type: toolCall.function.parameters.task_type,
+        project_id: toolCall.function.parameters.project_id,
+        limit: toolCall.function.parameters.limit,
+        include_completed: toolCall.function.parameters.include_completed,
+        sort_by: toolCall.function.parameters.sort_by,
+        sort_order: toolCall.function.parameters.sort_order,
+      });
     }
   }
 
@@ -324,6 +335,15 @@ export class TaskCreatorAgent {
       this.contextManager.addEvent('user_input_result', {
         success: result.success,
         user_response: this.extractUserResponseFromResult(result),
+        execution_time: result.executionTimeMs || 0,
+      });
+    } else if (isGetTasksTool(toolCall)) {
+      this.contextManager.addEvent('get_tasks_result', {
+        success: result.success,
+        query_parameters: toolCall.function.parameters,
+        total_count: isTaskQueryResultData(result.data) ? result.data.total_count : 0,
+        has_more: isTaskQueryResultData(result.data) ? result.data.has_more : false,
+        error: result.success ? undefined : result.error?.message,
         execution_time: result.executionTimeMs || 0,
       });
     }
