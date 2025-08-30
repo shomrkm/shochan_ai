@@ -95,6 +95,45 @@ export class ClaudeClient {
               required: ['name', 'description', 'importance'],
             },
           },
+          {
+            name: 'get_tasks',
+            description: 'Retrieve tasks with optional filtering and sorting',
+            input_schema: {
+              type: 'object',
+              properties: {
+                task_type: {
+                  type: 'string',
+                  enum: ['Today', 'Next Actions', 'Someday / Maybe', 'Wait for', 'Routin'],
+                  description: 'Filter by task type',
+                },
+                project_id: {
+                  type: 'string',
+                  description: 'Filter by project ID',
+                },
+                limit: {
+                  type: 'number',
+                  minimum: 1,
+                  maximum: 100,
+                  description: 'Maximum number of tasks to return (default: 10)',
+                },
+                include_completed: {
+                  type: 'boolean',
+                  description: 'Whether to include completed tasks (default: false)',
+                },
+                sort_by: {
+                  type: 'string',
+                  enum: ['created_at', 'updated_at', 'scheduled_date'],
+                  description: 'Field to sort by (default: created_at)',
+                },
+                sort_order: {
+                  type: 'string',
+                  enum: ['asc', 'desc'],
+                  description: 'Sort order (default: desc)',
+                },
+              },
+              required: [],
+            },
+          },
         ],
       });
 
