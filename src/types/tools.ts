@@ -54,6 +54,17 @@ export interface DoneTool extends ToolCall {
   };
 }
 
+// Display Result Tool - Factor 7: Contact humans with tool calls
+export interface DisplayResultTool extends ToolCall {
+  function: {
+    name: 'display_result';
+    parameters: {
+      message: string; // Natural language message to display to user
+      message_type?: 'success' | 'error' | 'info' | 'warning'; // Message styling type
+    };
+  };
+}
+
 // GetTasksTool in Notion
 export interface GetTasksTool extends ToolCall {
   function: {
@@ -83,7 +94,7 @@ export interface TaskInfo {
   status: 'active' | 'completed' | 'archived';
 }
 
-export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool | GetTasksTool | DoneTool;
+export type AgentTool = CreateTaskTool | UserInputTool | CreateProjectTool | GetTasksTool | DoneTool | DisplayResultTool;
 
 // Tool to Result type mapping for strict type safety
 export interface ToolResultTypeMap {
@@ -92,6 +103,7 @@ export interface ToolResultTypeMap {
   create_project: ProjectCreationResult;
   get_tasks: TaskQueryResult; // Phase A addition
   done: DoneResult; // 12-factor agents pattern
+  display_result: DisplayResult; // Factor 7: Contact humans with tool calls
 }
 
 // Result types for each tool
@@ -130,7 +142,13 @@ export interface DoneResult {
   conversation_complete: true;
 }
 
-export type AgentToolResult = TaskCreationResult | ProjectCreationResult | UserInputResult | TaskQueryResult | DoneResult | Record<string, unknown>;
+// Display result for user message display
+export interface DisplayResult {
+  message: string;
+  message_type: 'success' | 'error' | 'info' | 'warning';
+}
+
+export type AgentToolResult = TaskCreationResult | ProjectCreationResult | UserInputResult | TaskQueryResult | DoneResult | DisplayResult | Record<string, unknown>;
 
 // Factor 4: Enhanced structured tool results
 export interface ToolExecutionMetadata {
