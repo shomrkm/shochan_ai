@@ -160,12 +160,18 @@ export class NotionTaskAgent {
    */
   private async executeTool(toolCall: AgentTool): Promise<ProcessMessageResult> {
     this.displayToolCallInfo(toolCall);
+    this.recordToolExecutionEvent(toolCall);
 
-    const result = await this.executeToolWithContext(toolCall);
+    const result = await this.toolExecutor.executeWithContext(toolCall, {
+      traceId: this.currentTraceId || undefined,
+      enableDebugMode: false,
+      validateInput: true,
+      validateOutput: true,
+      maxRetries: 2,
+    });
+
+    this.recordToolResultEvent(toolCall, result);
     
-    // All tool result processing is now handled directly in ToolExecutor/UserInputHandler
-    // following 12-factor agents Factor 7: Contact humans with tool calls
-
     return { toolCall, toolResult: result };
   }
 
@@ -179,27 +185,6 @@ export class NotionTaskAgent {
     if (toolCall.function.name === 'user_input') {
       this.displayManager.displayQuestionTimeout();
     }
-  }
-
-  /**
-   * Execute tool with enhanced context and event recording
-   */
-  private async executeToolWithContext(toolCall: AgentTool) {
-    // Record the tool execution event before execution
-    this.recordToolExecutionEvent(toolCall);
-
-    const result = await this.toolExecutor.executeWithContext(toolCall, {
-      traceId: this.currentTraceId || undefined,
-      enableDebugMode: false,
-      validateInput: true,
-      validateOutput: true,
-      maxRetries: 2,
-    });
-
-    // Record the tool result event after execution
-    this.recordToolResultEvent(toolCall, result);
-
-    return result;
   }
 
   /**
