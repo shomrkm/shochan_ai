@@ -1,7 +1,7 @@
 // src/tools/index.ts
 
 import { NotionClient } from '../clients/notion';
-import { isCreateProjectTool, isCreateTaskTool, isDoneTool, isGetTasksTool } from '../types/toolGuards';
+import { isCreateProjectTool, isCreateTaskTool, isDisplayResultTool, isDoneTool, isGetTasksTool } from '../types/toolGuards';
 import type { AgentTool, ProjectToolResult, TaskToolResult, ToolResult } from '../types/tools';
 import { UserInputHandler } from './user-input-handler';
 
@@ -46,6 +46,11 @@ export class ToolExecutor {
 
         case 'done': {
           const result = await this.executeDone(tool);
+          return result;
+        }
+
+        case 'display_result': {
+          const result = await this.executeDisplayResult(tool);
           return result;
         }
 
@@ -144,6 +149,28 @@ export class ToolExecutor {
       data: {
         final_answer: finalAnswer,
         conversation_complete: true,
+      },
+      timestamp: new Date(),
+    };
+  }
+
+  private async executeDisplayResult(tool: AgentTool): Promise<ToolResult> {
+    if (!isDisplayResultTool(tool)) {
+      throw new Error('Invalid tool type for display_result');
+    }
+
+    const { message, message_type = 'info' } = tool.function.parameters;
+    
+    if (this.debugMode) {
+      console.log(`🖥️ [DEBUG] Display result: ${message_type}`);
+    }
+    
+    return {
+      success: true,
+      message: 'Message prepared for display',
+      data: {
+        message,
+        message_type,
       },
       timestamp: new Date(),
     };
