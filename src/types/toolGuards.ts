@@ -3,6 +3,7 @@ import type {
   AgentTool,
   CreateProjectTool,
   CreateTaskTool,
+  DisplayResultTool,
   DoneResult,
   DoneTool,
   GetTasksTool,
@@ -30,6 +31,10 @@ export function isGetTasksTool(tool: AgentTool): tool is GetTasksTool {
 
 export function isDoneTool(tool: AgentTool): tool is DoneTool {
   return tool.function.name === 'done';
+}
+
+export function isDisplayResultTool(tool: AgentTool): tool is DisplayResultTool {
+  return tool.function.name === 'display_result';
 }
 
 export function isTaskQueryResultData(data: unknown): data is TaskQueryResult {
