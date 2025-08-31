@@ -148,6 +148,26 @@ export class ClaudeClient {
               required: ['final_answer'],
             },
           },
+          {
+            name: 'display_result',
+            description: 'Display information, results, or messages to the user. Use this to show task results, lists, or any user-facing information based on the XML context.',
+            input_schema: {
+              type: 'object',
+              properties: {
+                message: {
+                  type: 'string',
+                  description: 'Natural language message to display to the user. Can include formatting, lists, and contextual information from previous tool results.',
+                },
+                message_type: {
+                  type: 'string',
+                  enum: ['success', 'error', 'info', 'warning'],
+                  description: 'Type of message for appropriate styling and user feedback',
+                  default: 'info',
+                },
+              },
+              required: ['message'],
+            },
+          },
         ],
       });
 
