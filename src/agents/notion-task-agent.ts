@@ -208,24 +208,11 @@ export class NotionTaskAgent {
   private handleToolResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
     if (isUserInputTool(toolCall)) {
       this.handleUserInputResult(toolCall, enrichedResult);
-    } else if (isDoneTool(toolCall)) {
-      this.handleDoneResult(toolCall, enrichedResult);
     }
-    // Other tool results (create_task, create_project, get_tasks) are displayed via display_result tool
+    // All other tool results (create_task, create_project, get_tasks, done) are handled directly in ToolExecutor
     // following 12-factor agents Factor 7: Contact humans with tool calls
   }
 
-  /**
-   * Handle done tool result processing
-   */
-  private handleDoneResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
-    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult }) && enrichedResult.data) {
-      const finalAnswer = (enrichedResult.data as any).final_answer;
-      if (finalAnswer && typeof finalAnswer === 'string') {
-        this.displayManager.displayAgentResponse(finalAnswer);
-      }
-    }
-  }
 
   /**
    * Handle user input tool result processing

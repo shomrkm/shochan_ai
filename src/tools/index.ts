@@ -139,13 +139,16 @@ export class ToolExecutor {
 
     const finalAnswer = tool.function.parameters.final_answer;
     
+    // Display final answer to user directly (Factor 7: Contact humans with tool calls)
+    console.log(`💬 ${finalAnswer}`);
+    
     if (this.debugMode) {
-      console.log(`✅ [DEBUG] Conversation completed with final answer`);
+      console.log(`✅ [DEBUG] Conversation completed with final answer: "${finalAnswer}"`);
     }
     
     return {
       success: true,
-      message: 'Conversation completed successfully',
+      message: 'Conversation completed and final answer displayed to user',
       data: {
         final_answer: finalAnswer,
         conversation_complete: true,
