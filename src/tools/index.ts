@@ -161,13 +161,20 @@ export class ToolExecutor {
 
     const { message, message_type = 'info' } = tool.function.parameters;
     
+    // Display message with appropriate styling based on message_type
+    const stylePrefix = message_type === 'success' ? '✅' : 
+                       message_type === 'error' ? '❌' : 
+                       message_type === 'warning' ? '⚠️' : '🔵';
+    
+    console.log(`${stylePrefix} ${message}`);
+    
     if (this.debugMode) {
-      console.log(`🖥️ [DEBUG] Display result: ${message_type}`);
+      console.log(`🖥️ [DEBUG] Display result: ${message_type} - "${message}"`);
     }
     
     return {
       success: true,
-      message: 'Message prepared for display',
+      message: 'Message displayed to user',
       data: {
         message,
         message_type,

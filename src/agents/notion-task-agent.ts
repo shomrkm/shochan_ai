@@ -210,39 +210,9 @@ export class NotionTaskAgent {
       this.handleUserInputResult(toolCall, enrichedResult);
     } else if (isDoneTool(toolCall)) {
       this.handleDoneResult(toolCall, enrichedResult);
-    } else if (isGetTasksTool(toolCall)) {
-      this.handleGetTasksResult(toolCall, enrichedResult);
-    } else if (isCreateTaskTool(toolCall)) {
-      this.handleCreateTaskResult(toolCall, enrichedResult);
-    } else if (isCreateProjectTool(toolCall)) {
-      this.handleCreateProjectResult(toolCall, enrichedResult);
     }
-  }
-
-  /**
-   * Handle create_task result processing
-   */
-  private handleCreateTaskResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
-    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult }) && enrichedResult.data) {
-      // ユーザー向けは成功のシンプルなフィードバックのみ
-      const data = enrichedResult.data as any;
-      console.log(`✅ Task "${data.title}" created`);
-    } else {
-      console.log('❌ Failed to create task');
-    }
-  }
-
-  /**
-   * Handle create_project result processing  
-   */
-  private handleCreateProjectResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
-    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult }) && enrichedResult.data) {
-      // ユーザー向けは成功のシンプルなフィードバックのみ
-      const data = enrichedResult.data as any;
-      console.log(`✅ Project "${data.name}" created`);
-    } else {
-      console.log('❌ Failed to create project');
-    }
+    // Other tool results (create_task, create_project, get_tasks) are displayed via display_result tool
+    // following 12-factor agents Factor 7: Contact humans with tool calls
   }
 
   /**
@@ -253,41 +223,6 @@ export class NotionTaskAgent {
       const finalAnswer = (enrichedResult.data as any).final_answer;
       if (finalAnswer && typeof finalAnswer === 'string') {
         this.displayManager.displayAgentResponse(finalAnswer);
-      }
-    }
-  }
-
-  /**
-   * Handle get_tasks result processing
-   */
-  private handleGetTasksResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
-    if (!this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
-      console.log('❌ Failed to retrieve tasks');
-      return;
-    }
-
-    const data = enrichedResult.data;
-    if (isTaskQueryResultData(data) && isGetTasksTool(toolCall)) {
-      if (data.tasks.length === 0) {
-        console.log('📋 No tasks found');
-        return;
-      }
-
-      // ユーザーフレンドリーな表示
-      console.log(`\n📋 Found ${data.tasks.length} task${data.tasks.length > 1 ? 's' : ''}:`);
-
-      data.tasks.forEach((task, index) => {
-        console.log(`\n${index + 1}. ${task.title}`);
-        if (task.scheduled_date) {
-          console.log(`   📅 Due: ${task.scheduled_date}`);
-        }
-        if (task.project_name) {
-          console.log(`   📁 Project: ${task.project_name}`);
-        }
-      });
-
-      if (data.has_more) {
-        console.log('\n📄 More tasks available...');
       }
     }
   }
@@ -328,19 +263,10 @@ export class NotionTaskAgent {
       return null; // End conversation
     }
 
-    // Special handling for get_tasks: Force LLM to process result rather than asking generic question
-    if (this.hasCalledTool(result) && isGetTasksTool(result.toolCall)) {
-      if (result.toolResult.success) {
-        // Instead of generic "What should I do next?", give a specific prompt that should trigger done
-        return 'Please provide the task results to the user now.';
-      } else {
-        console.log('❌ get_tasks failed, ending conversation');
-        return null;
-      }
-    }
-
+    // For non-user_input tools (create_task, create_project, get_tasks, display_result),
+    // continue conversation to let LLM process results and generate display_result
     if (!this.hasCalledTool(result) || !isUserInputTool(result.toolCall)) {
-      return 'What should I do next?'
+      return 'Please process the result and provide appropriate feedback to the user.';
     }
 
     const resultData = this.getResultData(result);
@@ -389,7 +315,7 @@ export class NotionTaskAgent {
   }
 
   /**
-   * Record tool execution event to the thread context
+   * Record tool execution event to the thread context for LLM XML context
    */
   private recordToolExecutionEvent(toolCall: AgentTool): void {
     if (isCreateTaskTool(toolCall)) {
@@ -429,7 +355,7 @@ export class NotionTaskAgent {
   }
 
   /**
-   * Record tool result event to the thread context
+   * Record tool result event to the thread context for LLM XML context
    */
   private recordToolResultEvent(toolCall: AgentTool, result: EnrichedToolResult): void {
     if (isCreateTaskTool(toolCall)) {
