@@ -163,8 +163,8 @@ export class NotionTaskAgent {
 
     const result = await this.executeToolWithContext(toolCall);
     
-    // Handle tool result with unified processing
-    this.handleToolResult(toolCall, result);
+    // All tool result processing is now handled directly in ToolExecutor/UserInputHandler
+    // following 12-factor agents Factor 7: Contact humans with tool calls
 
     return { toolCall, toolResult: result };
   }
@@ -201,34 +201,6 @@ export class NotionTaskAgent {
 
     return result;
   }
-
-  /**
-   * Handle tool result with unified processing for all tool types
-   */
-  private handleToolResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
-    if (isUserInputTool(toolCall)) {
-      this.handleUserInputResult(toolCall, enrichedResult);
-    }
-    // All other tool results (create_task, create_project, get_tasks, done) are handled directly in ToolExecutor
-    // following 12-factor agents Factor 7: Contact humans with tool calls
-  }
-
-
-  /**
-   * Handle user input tool result processing
-   */
-  private handleUserInputResult(toolCall: AgentTool, enrichedResult: EnrichedToolResult): void {
-    if (this.isResultSuccessful({ toolCall, toolResult: enrichedResult })) {
-      const data = enrichedResult.data;
-      if (isUserInputResultData(data)) {
-        console.log(`📝 User provided: ${data.user_response}`);
-        this.displayManager.displayQuestionProcessingInfo({ toolCall, toolResult: enrichedResult });
-      } else {
-        this.displayManager.displayQuestionErrorInfo({ toolCall, toolResult: enrichedResult });
-      }
-    }
-  }
-
 
   /**
    * Handle processing errors

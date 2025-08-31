@@ -36,11 +36,13 @@ export class UserInputHandler {
       }
 
       console.log(`✅ Thank you! You said: "${userResponse}"`);
+      console.log('📝 User provided: ' + userResponse);
+      console.log('⚡ Processing your input...');
       console.log('='.repeat(60) + '\n');
 
       return {
         success: true,
-        message: `User input received: ${userResponse}`,
+        message: `User input received and displayed: ${userResponse}`,
         data: {
           message,
           context,
