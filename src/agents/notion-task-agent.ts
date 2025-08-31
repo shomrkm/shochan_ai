@@ -253,7 +253,6 @@ export class NotionTaskAgent {
       const finalAnswer = (enrichedResult.data as any).final_answer;
       if (finalAnswer && typeof finalAnswer === 'string') {
         this.displayManager.displayAgentResponse(finalAnswer);
-        this.contextManager.addAssistantResponse(finalAnswer);
       }
     }
   }
