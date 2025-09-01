@@ -114,7 +114,10 @@ export class NotionTaskAgent {
       // Step 2: Execute the determined tool
       return await this.executeTool(nextStep);
     } catch (error) {
-      return this.handleProcessingError(error);
+      console.error('❌ Agent processing failed:', error);
+      return {
+        response: `I apologize, an error occurred during processing: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      };
     }
   }
 
@@ -159,7 +162,7 @@ export class NotionTaskAgent {
    * Execute the determined tool - unified routing logic for all tools
    */
   private async executeTool(toolCall: AgentTool): Promise<ProcessMessageResult> {
-    this.displayToolCallInfo(toolCall);
+    this.displayManager.displayToolCall(toolCall.function.name);
     this.recordToolExecutionEvent(toolCall);
 
     const result = await this.toolExecutor.executeWithContext(toolCall, {
@@ -173,28 +176,6 @@ export class NotionTaskAgent {
     this.recordToolResultEvent(toolCall, result);
     
     return { toolCall, toolResult: result };
-  }
-
-  /**
-   * Display tool call information
-   */
-  private displayToolCallInfo(toolCall: AgentTool): void {
-    // ToolExecutor側でデバッグログを出力するので、ここでは重複させない
-    this.displayManager.displayToolCall(toolCall.function.name);
-
-    if (toolCall.function.name === 'user_input') {
-      this.displayManager.displayQuestionTimeout();
-    }
-  }
-
-  /**
-   * Handle processing errors
-   */
-  private handleProcessingError(error: unknown): ProcessMessageResult {
-    console.error('❌ Agent processing failed:', error);
-    return {
-      response: `申し訳ございません。処理中にエラーが発生しました: ${error instanceof Error ? error.message : 'Unknown error'}`,
-    };
   }
 
   /**
