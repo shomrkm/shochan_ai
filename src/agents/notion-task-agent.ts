@@ -50,7 +50,7 @@ export class NotionTaskAgent {
     this.initializeConversation();
 
     let currentMessage = userMessage;
-    const MAX_ITERATION = 8;
+    const MAX_ITERATION = 20;
     let iterations = 0;
 
     while (iterations < MAX_ITERATION) {
