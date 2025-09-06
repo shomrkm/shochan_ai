@@ -1,4 +1,9 @@
-export interface CreateTaskTool {
+export interface ToolCall {
+  intent: string;
+  parameters: Record<string, unknown>;
+}
+
+export interface CreateTaskTool extends ToolCall {
   intent: 'create_task';
   parameters: {
     title: string;
@@ -9,7 +14,7 @@ export interface CreateTaskTool {
   };
 }
 
-export interface CreateProjectTool {
+export interface CreateProjectTool extends ToolCall {
   intent: 'create_project';
   parameters: {
     name: string;
@@ -19,7 +24,7 @@ export interface CreateProjectTool {
   };
 }
 
-export interface GetTasksTool {
+export interface GetTasksTool extends ToolCall {
   intent: 'get_tasks';
   parameters: {
     task_type?: 'Today' | 'Next Actions' | 'Someday / Maybe' | 'Wait for' | 'Routin';
