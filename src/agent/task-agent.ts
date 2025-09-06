@@ -1,17 +1,39 @@
-import { builPrompt } from './prompts/system-prompt';
-import { ClaudeClient } from './clients/claude';
-import { Thread } from './thread/thread';
+import { builPrompt } from '../prompts/system-prompt';
+import { ClaudeClient } from '../clients/claude';
+import { NotionClient } from '../clients/notion';
+import { Thread } from '../thread/thread';
 
+import type { ToolCall } from '../types/tools';
 export class TaskAgent {
   private claude: ClaudeClient;
+  private notion: NotionClient;
 
   constructor() {
     this.claude = new ClaudeClient();
+    this.notion = new NotionClient();
   }
 
   async agetnLoop(thread: Thread): Promise<Thread> {
     while (true) {
       const nextStep = await this.determineNextStep(thread);
+      console.log('nextStep', nextStep);
+      if (!nextStep) return thread;
+
+      thread.events.push({
+        type: nextStep.intent,
+        data: nextStep.parameters,
+      });
+
+      switch (nextStep.intent) {
+        case 'done_for_now':
+        case 'request_more_information':
+          return thread;
+        case 'create_task':
+        case 'create_project':
+        case 'get_tasks':
+          thread = await this.handleNextStep(nextStep, thread);
+          break;
+      }
     }
   }
 
@@ -123,5 +145,36 @@ export class TaskAgent {
         },
       ],
     });
+  }
+
+  private async handleNextStep(nextStep: ToolCall, thread: Thread) {
+    switch (nextStep.intent) {
+      case 'get_tasks': {
+        const result = await this.notion.getTasks(nextStep);
+        thread.events.push({
+          type: 'get_tasks_result',
+          data: result,
+        });
+        return thread;
+      }
+      case 'create_task': {
+        const result = await this.notion.createTask(nextStep);
+        thread.events.push({
+          type: 'create_task_result',
+          data: result,
+        });
+        return thread;
+      }
+      case 'create_project': {
+        const result = await this.notion.createProject(nextStep);
+        thread.events.push({
+          type: 'create_project_result',
+          data: result,
+        });
+        return thread;
+      }
+    }
+
+    return thread;
   }
 }
