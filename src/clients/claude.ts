@@ -1,5 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { ToolCall } from '../src/types/tools';
+import type { ToolCall } from '../types/tools';
+
+type Params = {
+  systemPrompt: string;
+  userMessage: string;
+  conversationHistory?: Anthropic.MessageParam[];
+  tools?: Anthropic.Tool[];
+};
 
 export class ClaudeClient {
   private client: Anthropic;
@@ -14,15 +21,15 @@ export class ClaudeClient {
     });
   }
 
-  async generateToolCall(
-    systemPrompt: string,
-    userMessage: string,
-    conversationHistory: Anthropic.MessageParam[] = [],
-    tools: Anthropic.Tool[] = []
-  ): Promise<ToolCall | null> {
+  async generateToolCall({
+    systemPrompt,
+    userMessage,
+    conversationHistory = [],
+    tools = [],
+  }: Params): Promise<ToolCall | null> {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const messages: Anthropic.MessageParam[] = [
@@ -42,27 +49,29 @@ export class ClaudeClient {
         });
 
         const toolUse = response.content.find((content) => content.type === 'tool_use');
-        if(!toolUse || toolUse.type !== 'tool_use') {
+        if (!toolUse || toolUse.type !== 'tool_use') {
           return null;
         }
 
         return {
-            intent: toolUse.name,
-            parameters: toolUse.input as Record<string, unknown>,
-        }
+          intent: toolUse.name,
+          parameters: toolUse.input as Record<string, unknown>,
+        };
       } catch (error) {
         if (this.isRetryableError(error) && attempt < maxRetries) {
           const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
-          console.log(`🔄 Claude API error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+          console.log(
+            `🔄 Claude API error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`
+          );
           await this.sleep(delay);
           continue;
         }
-        
+
         console.error('Claude API error:', error);
         throw error;
       }
     }
-    
+
     throw new Error('Max retries exceeded for Claude API');
   }
 
@@ -76,6 +85,6 @@ export class ClaudeClient {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

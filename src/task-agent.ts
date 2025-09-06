@@ -1,0 +1,127 @@
+import { builPrompt } from './prompts/system-prompt';
+import { ClaudeClient } from './clients/claude';
+import { Thread } from './thread/thread';
+
+export class TaskAgent {
+  private claude: ClaudeClient;
+
+  constructor() {
+    this.claude = new ClaudeClient();
+  }
+
+  async agetnLoop(thread: Thread): Promise<Thread> {
+    while (true) {
+      const nextStep = await this.determineNextStep(thread);
+    }
+  }
+
+  private async determineNextStep(thread: Thread) {
+    return await this.claude.generateToolCall({
+      systemPrompt: 'You are a helpful assistant that can help with Notion GTD system management.',
+      userMessage: builPrompt(thread.serializeForLLM()),
+      tools: [
+        {
+          name: 'create_task',
+          description: 'Create a new task in the GTD system',
+          input_schema: {
+            type: 'object',
+            properties: {
+              title: { type: 'string', description: 'Task title' },
+              description: { type: 'string', description: 'Task description' },
+              task_type: {
+                type: 'string',
+                enum: ['Today', 'Next Actions', 'Someday / Maybe', 'Wait for', 'Routin'],
+                description: 'Type of task in GTD system',
+              },
+              scheduled_date: { type: 'string', description: 'Scheduled date in ISO format' },
+              project_id: { type: 'string', description: 'Related project ID' },
+            },
+            required: ['title', 'description', 'task_type'],
+          },
+        },
+        {
+          name: 'create_project',
+          description: 'Create a new project',
+          input_schema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Project name' },
+              description: { type: 'string', description: 'Project description' },
+              importance: {
+                type: 'string',
+                enum: ['⭐', '⭐⭐', '⭐⭐⭐', '⭐⭐⭐⭐', '⭐⭐⭐⭐⭐'],
+                description: 'Project importance level',
+              },
+              action_plan: { type: 'string', description: 'Action plan' },
+            },
+            required: ['name', 'description', 'importance'],
+          },
+        },
+        {
+          name: 'get_tasks',
+          description: 'Retrieve tasks with optional filtering and sorting',
+          input_schema: {
+            type: 'object',
+            properties: {
+              task_type: {
+                type: 'string',
+                enum: ['Today', 'Next Actions', 'Someday / Maybe', 'Wait for', 'Routin'],
+                description: 'Filter by task type',
+              },
+              project_id: {
+                type: 'string',
+                description: 'Filter by project ID',
+              },
+              limit: {
+                type: 'number',
+                minimum: 1,
+                maximum: 100,
+                description: 'Maximum number of tasks to return (default: 10)',
+              },
+              include_completed: {
+                type: 'boolean',
+                description: 'Whether to include completed tasks (default: false)',
+              },
+              sort_by: {
+                type: 'string',
+                enum: ['created_at', 'updated_at', 'scheduled_date'],
+                description: 'Field to sort by (default: created_at)',
+              },
+              sort_order: {
+                type: 'string',
+                enum: ['asc', 'desc'],
+                description: 'Sort order (default: desc)',
+              },
+            },
+            required: [],
+          },
+        },
+        {
+          name: 'request_more_information',
+          description: 'Request more information from the user',
+          input_schema: {
+            type: 'object',
+            properties: {
+              message: { type: 'string', description: 'Message to request more information' },
+            },
+            required: ['message'],
+          },
+        },
+        {
+          name: 'done_for_now',
+          description: 'Complete conversation with natural response for now',
+          input_schema: {
+            type: 'object',
+            properties: {
+              message: {
+                type: 'string',
+                description: 'Natural language response to user',
+              },
+            },
+            required: ['message'],
+          },
+        },
+      ],
+    });
+  }
+}

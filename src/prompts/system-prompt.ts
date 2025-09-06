@@ -1,7 +1,5 @@
 // 12-Factor Agents System Prompt
-export const buildSystemPrompt = (thread: string) => `
-You are a helpful assistant that can help with Notion GTD system management.
-
+export const builPrompt = (thread: string) => `
 You are working on the following thread:
 ${thread}
 
