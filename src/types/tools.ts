@@ -35,3 +35,11 @@ export interface GetTasksTool extends ToolCall {
     sort_order?: 'asc' | 'desc'; // Default: 'desc'
   };
 }
+
+export interface DeleteTaskTool extends ToolCall {
+  intent: 'delete_task';
+  parameters: {
+    task_id: string;
+    reason?: string;
+  };
+}
