@@ -3,7 +3,7 @@ import type { ToolCall } from '../types/tools';
 import { buildProjectCreatePageParams, buildTaskCreatePageParams } from './notionUtils';
 import { NotionQueryBuilder } from '../utils/notion-query-builder';
 import { NotionTaskParser } from '../utils/notion-task-parser';
-import { isCreateProjectTool, isCreateTaskTool, isGetTasksTool } from '../types/toolGuards';
+import { isCreateProjectTool, isCreateTaskTool, isGetTasksTool, isDeleteTaskTool } from '../types/toolGuards';
 
 export class NotionClient {
   private client: Client;
@@ -166,6 +166,33 @@ export class NotionClient {
       );
     }
   }
+
+  async deleteTask(tool: ToolCall) {
+    if (!isDeleteTaskTool(tool)) {
+      throw new Error('Invalid tool call');
+    }
+
+    const { task_id } = tool.parameters;
+
+    try {
+      const response = await this.client.pages.update({
+        page_id: task_id,
+        archived: true,
+      });
+
+      return {
+        task_id: response.id,
+        deleted_at: new Date(),
+        archived: true,
+      };
+    } catch (error) {
+      console.error('Notion API error:', error);
+      throw new Error(
+        `Failed to delete task: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       await this.client.databases.retrieve({ database_id: this.tasksDbId });
