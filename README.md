@@ -1,258 +1,178 @@
-# 🤖 Shochan AI Agent
+# Shochan AI Agent
 
-A TypeScript-based AI agent implementation following the [12-factor agents](https://github.com/humanlayer/12-factor-agents) principles for building reliable, production-ready AI-powered software.
+A personal AI-powered task management agent that integrates with Notion to provide intelligent GTD (Getting Things Done) system management through natural language conversation.
 
-## 🎯 Project Overview
+> **Personal Project Note**: This is a personal project designed specifically for my own task management needs. The codebase is tailored to my workflow and preferences for managing tasks and projects through natural language interaction with Notion databases.
 
-This is a **personal learning project** designed to systematically study and implement the [12-factor agents](https://github.com/humanlayer/12-factor-agents) principles. The project creates an AI agent that converts natural language requests into structured tool calls for task and project management using Notion as the backend.
+## Overview
 
-**Learning Goals:**
-- Understand and apply 12-factor agents principles in practice
-- Build production-ready AI agent architecture
-- Explore advanced prompt engineering techniques
-- Develop type-safe, maintainable AI systems
+Shochan AI is a TypeScript-based intelligent agent built as a personal project for task and project management. It uses AI to understand natural language requests and performs operations on your Notion databases, enabling seamless task creation, retrieval, and project management through conversational interfaces.
 
-## ✅ Implemented Factors
+## Features
 
-### Factor 1: Natural Language to Tool Calls
-- Converts user natural language input into structured tool calls
-- Supports task creation, project creation, and interactive questioning
-- Integration with Anthropic Claude API for intelligent processing
+- **Natural Language Processing**: Interact with your task management system using natural language
+- **Notion Integration**: Seamlessly integrates with Notion databases for tasks and projects
+- **GTD System Support**: Built-in support for Getting Things Done methodology with task types:
+  - Today
+  - Next Actions
+  - Someday / Maybe
+  - Wait for
+  - Routine
+- **Intelligent Task Management**: Create, retrieve, and organize tasks with AI assistance
+- **Project Management**: Create and manage projects with importance levels and action plans
+- **CLI Interface**: Simple command-line interface for quick interactions
 
-### Factor 2: Own Your Prompts
-- Unified system prompt management with context-aware generation
-- Single comprehensive prompt that adapts based on conversation history
-- Simplified prompt architecture using conversation context directly
+## Prerequisites
 
-### Factor 3: Own Your Context Window
-- XML-based context management with event-driven Thread model
-- YAML-in-XML serialization for structured conversation context
-- Complete tool execution tracking and conversation state visibility
-- Enhanced debugging capabilities with full event audit trail
-
-### Factor 4: Tools are Just Structured Outputs
-- Enhanced tool execution with comprehensive validation and XML event recording
-- Rich structured outputs with execution metadata and event tracking
-- Tool-specific timeout configuration (ask_question: 10min, API calls: 30s)
-- Distributed tracing and performance monitoring with XML context
-- Type-safe input/output validation without `as` casting
-- Complete event audit trail for all tool executions
-
-## 🏗️ Architecture
-
-### Core Components
-
-- **`TaskCreatorAgent`**: Main orchestrator agent implementing 12-factor pattern with `determineNextStep()` and `executeTool()`
-- **`ContextManager`**: XML-based context management with event-driven Thread model
-- **`DisplayManager`**: Centralized display and logging functionality
-- **`EnhancedToolExecutor`**: Structured tool execution with validation and XML event recording
-- **`ClaudeClient`**: Anthropic Claude API integration
-- **`NotionClient`**: Notion API integration for GTD system
-- **`InputHelper`**: Unified input handling to prevent character duplication
-
-### Available Tools
-
-1. **`create_task`**: Creates tasks in Notion GTD system with title, description, task_type, etc.
-2. **`user_input`**: Unified tool for requesting user input when more information is needed
-3. **`create_project`**: Creates projects with name, description, and importance levels
-
-## 🚀 Getting Started
-
-### Interactive Mode (Recommended)
-
-Start an interactive session where you can continuously create tasks and projects:
-
-```bash
-npm run interactive
-```
-
-This mode allows you to:
-- 🔄 **Continuous conversation** - Create multiple tasks/projects in one session  
-- ✅ **Natural language input** - Just describe what you want to create
-- 🛑 **Graceful exit** - Press `Ctrl+C` anytime to exit
-- 💬 **Follow-up actions** - Keep creating after each successful task/project
-
-Example session:
-```
-🎯 Your request: Create a task to review quarterly reports
-✅ Task created successfully!
-💬 You can continue to create more tasks/projects or press Ctrl+C to exit.
-
-🎯 What would you like to do next? Create a project for mobile app redesign
-✅ Project created successfully!
-💬 You can continue to create more tasks/projects or press Ctrl+C to exit.
-```
-
-### Prerequisites
-
-- Node.js 18+ and npm
+- Node.js (v18 or higher)
+- TypeScript
+- Notion account with API access
 - Anthropic API key
-- Notion integration with databases for tasks and projects
 
-### Installation
+## Installation
 
+1. Clone the repository:
 ```bash
-# Clone the repository
 git clone https://github.com/shomrkm/shochan_ai.git
 cd shochan_ai
-
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env
 ```
+
+2. Install dependencies:
+```bash
+npm install
+```
+
+3. Create a `.env` file in the root directory with the following variables:
+```env
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+NOTION_API_KEY=your_notion_api_key_here
+NOTION_TASKS_DATABASE_ID=your_notion_tasks_database_id
+NOTION_PROJECTS_DATABASE_ID=your_notion_projects_database_id
+```
+
+## Usage
+
+### CLI Mode
+
+Run the agent with a natural language command:
+
+```bash
+npm run cli "Show me my tasks for today"
+npm run cli "Create a new project for learning TypeScript"
+npm run cli "Add a task to review the quarterly report"
+```
+
+### Development Mode
+
+Run in development mode with hot reloading:
+
+```bash
+npm run dev
+```
+
+### Build and Run
+
+Build the project and run:
+
+```bash
+npm run build
+npm start
+```
+
+## Example Interactions
+
+**Task Retrieval:**
+```bash
+npm run cli "今週のタスクを10件教えて"
+# Returns up to 10 tasks for this week
+```
+
+**Task Creation:**
+```bash
+npm run cli "明日までにレポートを完成させるタスクを作成して"
+# Creates a task to complete a report by tomorrow
+```
+
+**Project Management:**
+```bash
+npm run cli "新しいWebサイト開発プロジェクトを作成して"
+# Creates a new website development project
+```
+
+## Configuration
+
+### Notion Database Setup
+
+1. Create two Notion databases:
+   - **Tasks Database** with properties:
+     - Title (Title)
+     - Description (Text)
+     - Task Type (Select: Today, Next Actions, Someday / Maybe, Wait for, Routine)
+     - Scheduled Date (Date)
+     - Project (Relation to Projects database)
+     - Status (Select)
+
+   - **Projects Database** with properties:
+     - Name (Title)
+     - Description (Text)
+     - Importance (Select: ⭐, ⭐⭐, ⭐⭐⭐, ⭐⭐⭐⭐, ⭐⭐⭐⭐⭐)
+     - Action Plan (Text)
+
+2. Get your database IDs from the Notion URLs
+3. Create a Notion integration and get your API key
+4. Share your databases with the integration
 
 ### Environment Variables
 
-Create a `.env` file with the following variables:
+- `ANTHROPIC_API_KEY`: Your Anthropic API key for AI access
+- `NOTION_API_KEY`: Your Notion integration token
+- `NOTION_TASKS_DATABASE_ID`: The ID of your tasks Notion database
+- `NOTION_PROJECTS_DATABASE_ID`: The ID of your projects Notion database
 
-```env
-ANTHROPIC_API_KEY=your_anthropic_api_key
-NOTION_API_KEY=your_notion_integration_token
-NOTION_TASKS_DATABASE_ID=your_tasks_database_id
-NOTION_PROJECTS_DATABASE_ID=your_projects_database_id
-```
+## Commands
 
-### Building and Running
+- `npm run build`: Build the TypeScript project
+- `npm start`: Run the built application
+- `npm run dev`: Run in development mode
+- `npm run cli`: Run CLI with arguments
+- `npm test`: Run test suite
+- `npm run test:watch`: Run tests in watch mode
+- `npm run format`: Format code with Biome
+- `npm run lint`: Lint code with Biome
+- `npm run check`: Run all checks (format + lint)
 
-```bash
-# Build the project
-npm run build
+## Testing
 
-# Run different test scenarios
-npm run test-dialogue      # Basic dialogue testing
-npm run test-factor2       # Factor 2 implementation testing
-npm run test-notion        # Notion connection testing
-
-# Development mode
-npm run dev
-
-# Watch mode
-npm run watch
-```
-
-## 🧪 Testing
-
-The project includes several test scripts to demonstrate different capabilities:
-
-- **`test-dialogue`**: Interactive conversation testing
-- **`test-factor2`**: Dynamic prompt management demonstration
-- **`test-notion`**: Notion API connection verification
+Run the test suite:
 
 ```bash
-npm test              # Run all tests
-npm run test:watch    # Watch mode testing
+npm test
 ```
 
-## 🎨 Code Quality
-
-This project uses [Biome](https://biomejs.dev) for code formatting and linting:
+Run tests in watch mode:
 
 ```bash
-# Format code
-npm run format
-
-# Check formatting
-npm run format:check
-
-# Lint code
-npm run lint
-
-# Auto-fix linting issues
-npm run lint:fix
-
-# Run all checks and fixes
-npm run check:fix
+npm run test:watch
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 src/
-├── agents/
-│   └── notion-task-agent.ts      # Main orchestrator with 12-factor done intent pattern
-├── clients/
-│   ├── claude.ts                 # Anthropic Claude API client
-│   ├── notion.ts                 # Notion API client with get_tasks support
-│   └── notion-task-parser.ts     # Notion task parsing utilities
-├── conversation/
-│   ├── context-manager.ts        # XML-based context management with Thread model
-│   └── display-manager.ts        # Centralized display and logging functionality
-├── events/                       # Factor 3: XML Context System
-│   ├── types.ts                  # Event type definitions and data structures
-│   ├── thread.ts                 # Event-driven conversation flow with XML serialization
-│   ├── yaml-utils.ts             # YAML-in-XML formatting utilities
-│   └── *.test.ts                 # Event system test suites
-├── prompts/
-│   └── system-prompt.ts          # 12-factor decision framework with done intent
-├── tools/                        # Factor 1 & 4: Enhanced Tool System
-│   ├── index.ts                  # Legacy tool execution engine
-│   ├── enhanced-tool-executor.ts # XML event recording with validation
-│   ├── tool-execution-context.ts # Execution context management
-│   ├── tool-result-validator.ts  # Input/output validation
-│   └── user-input-handler.ts     # User input handling
-├── types/
-│   ├── conversation-types.ts     # Conversation-related types
-│   ├── notion.ts                 # Notion API types
-│   ├── prompt-types.ts           # XML-aware prompt system types
-│   ├── tools.ts                  # Tool system types (includes get_tasks and done tools)
-│   └── toolGuards.ts            # Runtime type validation
-├── utils/
-│   ├── input-helper.ts           # Unified input handling
-│   └── notionUtils.ts           # Notion utility functions
-├── cli.ts                       # Production-ready CLI tool
-└── index.ts                     # Development/demo entry point
+├── agent/          # Core agent logic
+├── clients/        # External API clients (Claude, Notion)
+├── prompts/        # System prompts and messaging
+├── thread/         # Conversation thread management
+├── types/          # TypeScript type definitions
+├── utils/          # Utility functions
+└── cli.ts          # Command-line interface
 ```
 
-## 🗺️ Development Roadmap
 
-See [PLAN.md](./PLAN.md) for the comprehensive development plan covering all 12 factors.
+## License
 
-### Next Priorities
+ISC License
 
-1. **Factor 5**: Unify Execution State with Business State
-2. **Factor 6**: Agent Interaction APIs
-3. **Factor 7**: Agents are Async Everywhere
-4. Enhanced monitoring and production optimization
+## Support
 
-## 🌟 Key Features
-
-- **XML-Based Context Management**: Event-driven Thread model with YAML-in-XML serialization
-- **Complete Event Tracking**: Full audit trail of all tool executions and conversation flows
-- **Enhanced Debugging**: Structured XML context provides complete conversation state visibility
-- **Type-Safe Architecture**: Full TypeScript implementation with strict typing and event type safety
-- **Production-Ready**: Following 12-factor agents principles with modern architecture
-- **Zero Legacy Dependencies**: Clean codebase with XML-only context management
-- **Interactive Learning**: Demonstrates advanced 12-factor agents principles progressively
-
-## 🔧 Configuration
-
-The project uses several configuration files:
-
-- **`biome.json`**: Code formatting and linting rules
-- **`tsconfig.json`**: TypeScript compiler configuration
-- **`package.json`**: Dependencies and scripts
-- **`.env`**: Environment variables (create from .env.example)
-
-## 📚 Learning Resources
-
-- [12-factor agents](https://github.com/humanlayer/12-factor-agents) - Core principles
-- [Anthropic Claude API](https://docs.anthropic.com/) - AI capabilities
-- [Notion API](https://developers.notion.com/) - Database integration
-- [Project Documentation](https://www.notion.so/shomrkm/Learning-AI-Agent-Development-24bd4af9764f800c9fe9ca2a490386d5) - Detailed progress notes
-
-
-## 📄 License
-
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- [humanlayer/12-factor-agents](https://github.com/humanlayer/12-factor-agents) for the foundational principles
-- Anthropic for the Claude API
-- Notion for the powerful API and database capabilities
-
----
-
-**Note**: This is a **personal learning and educational project** demonstrating the step-by-step implementation of 12-factor agents principles. It serves as both a practical study guide and a reference implementation for anyone interested in building reliable AI agent systems. The project documents the learning journey through detailed progress notes and structured implementation phases.
+For issues and feature requests, please visit: https://github.com/shomrkm/shochan_ai/issues
