@@ -129,6 +129,18 @@ export class TaskAgent {
           },
         },
         {
+          name: 'delete_task',
+          description: 'Delete a task from the GTD system',
+          input_schema: {
+            type: 'object',
+            properties: {
+              task_id: { type: 'string', description: 'ID of the task to delete' },
+              reason: { type: 'string', description: 'Reason for deletion (optional)' },
+            },
+            required: ['task_id'],
+          },
+        },
+        {
           name: 'done_for_now',
           description: 'Complete conversation with natural response for now, return the result of the tool you used',
           input_schema: {
