@@ -16,7 +16,6 @@ export class TaskAgent {
   async agetnLoop(thread: Thread): Promise<Thread> {
     while (true) {
       const nextStep = await this.determineNextStep(thread);
-      console.log('nextStep', nextStep);
       if (!nextStep) return thread;
 
       thread.events.push({
@@ -31,8 +30,8 @@ export class TaskAgent {
         case 'create_task':
         case 'create_project':
         case 'get_tasks':
-          thread = await this.handleNextStep(nextStep, thread);
-          break;
+          await this.handleNextStep(nextStep, thread);
+          continue;
       }
     }
   }
@@ -131,7 +130,7 @@ export class TaskAgent {
         },
         {
           name: 'done_for_now',
-          description: 'Complete conversation with natural response for now',
+          description: 'Complete conversation with natural response for now, return the result of the tool you used',
           input_schema: {
             type: 'object',
             properties: {
@@ -147,7 +146,7 @@ export class TaskAgent {
     });
   }
 
-  private async handleNextStep(nextStep: ToolCall, thread: Thread) {
+  private async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<void> {
     switch (nextStep.intent) {
       case 'get_tasks': {
         const result = await this.notion.getTasks(nextStep);
@@ -155,7 +154,7 @@ export class TaskAgent {
           type: 'get_tasks_result',
           data: result,
         });
-        return thread;
+        break;
       }
       case 'create_task': {
         const result = await this.notion.createTask(nextStep);
@@ -163,7 +162,7 @@ export class TaskAgent {
           type: 'create_task_result',
           data: result,
         });
-        return thread;
+        break;
       }
       case 'create_project': {
         const result = await this.notion.createProject(nextStep);
@@ -171,10 +170,8 @@ export class TaskAgent {
           type: 'create_project_result',
           data: result,
         });
-        return thread;
+        break;
       }
     }
-
-    return thread;
   }
 }

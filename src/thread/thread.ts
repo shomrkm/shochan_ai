@@ -26,11 +26,31 @@ export class Thread {
                 ? e.data
                 : Object.keys(e.data)
                     .filter((k) => k !== 'intent')
-                    .map((k) => `${k}: ${e.data[k]}`)
+                    .map((k) => `${k}: ${this.serializeValue(e.data[k])}`)
                     .join('\n')
             }
             </${e.data?.intent || e.type}>
         `);
+  }
+
+  private serializeValue(value: unknown): string {
+    if (value === null || value === undefined) {
+      return String(value);
+    }
+    
+    if (typeof value !== 'object') {
+      return String(value);
+    }
+    
+    if (Array.isArray(value)) {
+      return `[${value.map(item => this.serializeValue(item)).join(', ')}]`;
+    }
+    
+    const entries = Object.entries(value)
+      .map(([key, val]) => `${key}: ${this.serializeValue(val)}`)
+      .join(', ');
+    
+    return `{${entries}}`;
   }
 
   awaitingHumanResponse(): boolean {
