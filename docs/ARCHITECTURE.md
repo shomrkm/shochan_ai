@@ -6,25 +6,20 @@ Shochan AI is built as a conversational AI agent that bridges natural language r
 
 ## High-Level Architecture
 
-```
-┌─────────────────┐
-│   CLI Interface │  ← Entry point for user interaction
-└─────────┬───────┘
-          │
-┌─────────▼───────┐
-│   Task Agent    │  ← Core orchestrator and decision maker
-└─────────┬───────┘
-          │
-┌─────────▼───────┐
-│     Thread      │  ← Conversation state management
-└─────────┬───────┘
-          │
-    ┌─────┼─────┐
-    │     │     │
-    ▼     ▼     ▼
-┌─────┐ ┌───┐ ┌────┐
-│Claude│ │API│ │Utils│  ← External integrations & utilities
-└─────┘ └───┘ └────┘
+```mermaid
+graph TD
+    CLI[CLI Interface<br/>Entry point for user interaction] --> Agent[Task Agent<br/>Core orchestrator and decision maker]
+    Agent --> Thread[Thread<br/>Conversation state management]
+    Thread --> Claude[Claude Client<br/>AI processing]
+    Thread --> Notion[Notion Client<br/>API operations]
+    Thread --> Utils[Utils<br/>Helper functions]
+    
+    style CLI fill:#e1f5fe
+    style Agent fill:#f3e5f5
+    style Thread fill:#fff3e0
+    style Claude fill:#e8f5e8
+    style Notion fill:#fce4ec
+    style Utils fill:#f1f8e9
 ```
 
 ## Core Components
@@ -152,14 +147,27 @@ Supporting utilities for data processing and API interactions.
 
 ### 1. Request Processing Flow
 
-```
-User Input → CLI → TaskAgent → Claude Client → Tool Call
-                     ↓
-Thread ← Notion Client ← Tool Execution ← Tool Call
-    ↓
-Serialization → Claude Client → Next Action Decision
-                    ↓
-Final Response → CLI → User Output
+```mermaid
+flowchart LR
+    A[User Input] --> B[CLI]
+    B --> C[TaskAgent]
+    C --> D[Claude Client]
+    D --> E[Tool Call]
+    E --> F[Tool Execution]
+    F --> G[Notion Client]
+    G --> H[Thread]
+    H --> I[Serialization]
+    I --> D
+    D --> J[Next Action Decision]
+    J --> K[Final Response]
+    K --> B
+    B --> L[User Output]
+    
+    style A fill:#e3f2fd
+    style L fill:#e3f2fd
+    style C fill:#f3e5f5
+    style D fill:#e8f5e8
+    style G fill:#fce4ec
 ```
 
 ### 2. Conversation State Management
@@ -240,11 +248,16 @@ NOTION_PROJECTS_DATABASE_ID # Projects database identifier
 
 ### 1. Layered Error Handling
 
-```
-CLI Layer: User-friendly error messages
-Agent Layer: Conversation flow error recovery  
-Client Layer: API-specific error handling
-Utility Layer: Data validation and transformation errors
+```mermaid
+graph TD
+    A[CLI Layer<br/>User-friendly error messages] --> B[Agent Layer<br/>Conversation flow error recovery]
+    B --> C[Client Layer<br/>API-specific error handling]
+    C --> D[Utility Layer<br/>Data validation and transformation errors]
+    
+    style A fill:#ffebee
+    style B fill:#fff3e0
+    style C fill:#e8f5e8
+    style D fill:#f3e5f5
 ```
 
 ### 2. Error Types
