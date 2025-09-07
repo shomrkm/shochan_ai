@@ -27,6 +27,8 @@ export class TaskAgent {
         case 'done_for_now':
         case 'request_more_information':
           return thread;
+        case 'delete_task':
+          return thread; // Stop and wait for human approval
         case 'create_task':
         case 'create_project':
         case 'get_tasks':
@@ -156,6 +158,11 @@ export class TaskAgent {
         },
       ],
     });
+  }
+
+  awaitingHumanApproval(thread: Thread): boolean {
+    const lastEvent = thread.events[thread.events.length - 1];
+    return lastEvent?.type === 'delete_task';
   }
 
   private async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<void> {
