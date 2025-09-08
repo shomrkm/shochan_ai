@@ -27,9 +27,12 @@ export class TaskAgent {
         case 'done_for_now':
         case 'request_more_information':
           return thread;
+        case 'delete_task':
+          return thread; // Stop and wait for human approval
         case 'create_task':
         case 'create_project':
         case 'get_tasks':
+        case 'delete_task_approved':
           await this.handleNextStep(nextStep, thread);
           continue;
       }
@@ -129,6 +132,18 @@ export class TaskAgent {
           },
         },
         {
+          name: 'delete_task',
+          description: 'Delete a task from the GTD system',
+          input_schema: {
+            type: 'object',
+            properties: {
+              task_id: { type: 'string', description: 'ID of the task to delete' },
+              reason: { type: 'string', description: 'Reason for deletion (optional)' },
+            },
+            required: ['task_id'],
+          },
+        },
+        {
           name: 'done_for_now',
           description: 'Complete conversation with natural response for now, return the result of the tool you used',
           input_schema: {
@@ -144,6 +159,11 @@ export class TaskAgent {
         },
       ],
     });
+  }
+
+  awaitingHumanApproval(thread: Thread): boolean {
+    const lastEvent = thread.events[thread.events.length - 1];
+    return lastEvent?.type === 'delete_task';
   }
 
   private async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<void> {
@@ -168,6 +188,14 @@ export class TaskAgent {
         const result = await this.notion.createProject(nextStep);
         thread.events.push({
           type: 'create_project_result',
+          data: result,
+        });
+        break;
+      }
+      case 'delete_task_approved': {
+        const result = await this.notion.deleteTask(nextStep);
+        thread.events.push({
+          type: 'delete_task_result',
           data: result,
         });
         break;
