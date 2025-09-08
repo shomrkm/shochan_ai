@@ -60,6 +60,6 @@ export class Thread {
 
   awaitingHumanApproval(): boolean {
     const lastEvent = this.events[this.events.length - 1];
-    return lastEvent.data.intent === 'create_task';
+    return lastEvent.data.intent === 'delete_task';
   }
 }
