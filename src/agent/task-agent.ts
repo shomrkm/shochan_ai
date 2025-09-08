@@ -32,6 +32,7 @@ export class TaskAgent {
         case 'create_task':
         case 'create_project':
         case 'get_tasks':
+        case 'delete_task_approved':
           await this.handleNextStep(nextStep, thread);
           continue;
       }
@@ -187,6 +188,14 @@ export class TaskAgent {
         const result = await this.notion.createProject(nextStep);
         thread.events.push({
           type: 'create_project_result',
+          data: result,
+        });
+        break;
+      }
+      case 'delete_task_approved': {
+        const result = await this.notion.deleteTask(nextStep);
+        thread.events.push({
+          type: 'delete_task_result',
           data: result,
         });
         break;
