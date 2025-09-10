@@ -19,8 +19,8 @@ export class TaskAgent {
       if (!nextStep) return thread;
 
       thread.events.push({
-        type: nextStep.intent,
-        data: nextStep.parameters,
+        type: 'tool_call',
+        data: nextStep,
       });
 
       switch (nextStep.intent) {
@@ -161,45 +161,41 @@ export class TaskAgent {
     });
   }
 
-  awaitingHumanApproval(thread: Thread): boolean {
-    const lastEvent = thread.events[thread.events.length - 1];
-    return lastEvent?.type === 'delete_task';
-  }
-
-  private async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<void> {
+  async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<Thread> {
     switch (nextStep.intent) {
       case 'get_tasks': {
         const result = await this.notion.getTasks(nextStep);
         thread.events.push({
-          type: 'get_tasks_result',
+          type: 'tool_response',
           data: result,
         });
-        break;
+        return thread;
       }
       case 'create_task': {
         const result = await this.notion.createTask(nextStep);
         thread.events.push({
-          type: 'create_task_result',
+          type: 'tool_response',
           data: result,
         });
-        break;
+        return thread;
       }
       case 'create_project': {
         const result = await this.notion.createProject(nextStep);
         thread.events.push({
-          type: 'create_project_result',
+          type: 'tool_response',
           data: result,
         });
-        break;
+        return thread;
       }
-      case 'delete_task_approved': {
+      case 'delete_task': {
         const result = await this.notion.deleteTask(nextStep);
         thread.events.push({
-          type: 'delete_task_result',
+          type: 'tool_response',
           data: result,
         });
-        break;
+        return thread;
       }
     }
+    throw new Error(`Unknown next step: ${nextStep.intent}`);
   }
 }

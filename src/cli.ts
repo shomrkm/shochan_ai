@@ -21,18 +21,38 @@ export async function cli() {
   let lastEvent = newThread.events.slice(-1)[0];
 
   while (lastEvent.data.intent !== "done_for_now") {
+    console.log('cli loop:', thread.serializeForLLM());
+    console.log('lastEvent:', lastEvent);
+    if(newThread.awaitingHumanApproval()) {
+      if( await askHumanApproval(lastEvent.data.parameters)) {
+        newThread = await taskAgent.handleNextStep(lastEvent.data, newThread);
+        lastEvent = newThread.events.slice(-1)[0];
+      } else {
+        thread.events.push({ 
+          type: "user_input",
+          data: {
+            message: "Cancel tool call",
+            deny_tool_call: lastEvent.data
+          }
+        });
+        newThread = await taskAgent.agetnLoop(newThread);
+        lastEvent = newThread.events.slice(-1)[0];
+      }
+      continue;
+    }
+
     const responseEvent = await askHuman(lastEvent);
     newThread.events.push(responseEvent);
     newThread = await taskAgent.agetnLoop(newThread);
     lastEvent = newThread.events.slice(-1)[0];
   }
 
-  console.log(lastEvent.data.message);
+  console.log(lastEvent.data.parameters.message);
   process.exit(0);
 }
 
 async function askHuman(lastEvent: Event): Promise<Event> {
-  return await askHumanCLI(lastEvent.data.message);
+  return await askHumanCLI(lastEvent.data?.parameters?.message);
 }
 
 async function askHumanCLI(message: string): Promise<Event> {
@@ -51,6 +71,30 @@ async function askHumanCLI(message: string): Promise<Event> {
     });
   });
 }
+
+async function askHumanApproval(taskInfo?: any): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  console.log('\n⚠️  削除確認');
+  if (taskInfo) {
+    console.log(`タスク: ${taskInfo.title || taskInfo.task_id}`);
+    if (taskInfo.description) console.log(`説明: ${taskInfo.description}`);
+  }
+  console.log('このタスクを削除してもよろしいですか？\n');
+
+  return new Promise((resolve) => {
+    rl.question('削除を実行しますか？ (yes/no): ', (answer) => {
+      rl.close();
+      const response = answer.trim().toLowerCase();
+      resolve(response === 'yes' || response === 'y' || response === 'はい');
+    });
+  });
+}
+
+
 
 if (require.main === module) {
   cli().catch(console.error);
