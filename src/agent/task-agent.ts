@@ -32,7 +32,6 @@ export class TaskAgent {
         case 'create_task':
         case 'create_project':
         case 'get_tasks':
-        case 'delete_task_approved':
           await this.handleNextStep(nextStep, thread);
           continue;
       }
