@@ -28,12 +28,12 @@ export async function cli() {
       continue;
     }
 
-    if(thread.awaitingHumanApproval() && await askHumanApproval(lastEvent.data.parameters)) {
+    if(thread.awaitingHumanApproval() && await askHumanApproval()) {
       newThread = await taskAgent.handleNextStep(lastEvent.data, newThread);
       lastEvent = newThread.events.slice(-1)[0];
       continue;
     }
-    if(thread.awaitingHumanApproval() && !await askHumanApproval(lastEvent.data.parameters)) {
+    if(thread.awaitingHumanApproval() && !await askHumanApproval()) {
       thread.events.push({
         type: "tool response",
         data: `user denied the operation to ${lastEvent.type}`
@@ -63,24 +63,20 @@ async function askHuman(message: string): Promise<Event> {
   });
 }
 
-async function askHumanApproval(taskInfo?: any): Promise<boolean> {
+async function askHumanApproval(): Promise<boolean> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
 
-  console.log('\n⚠️  削除確認');
-  if (taskInfo) {
-    console.log(`タスク: ${taskInfo.title || taskInfo.task_id}`);
-    if (taskInfo.description) console.log(`説明: ${taskInfo.description}`);
-  }
-  console.log('このタスクを削除してもよろしいですか？\n');
+  console.log('\n⚠️  Confirmation');
+  console.log('Are you sure you want to proceed?\n');
 
   return new Promise((resolve) => {
-    rl.question('削除を実行しますか？ (yes/no): ', (answer) => {
+    rl.question('Continue? (yes/no): ', (answer) => {
       rl.close();
       const response = answer.trim().toLowerCase();
-      resolve(response === 'yes' || response === 'y' || response === 'はい');
+      resolve(response === 'yes' || response === 'y');
     });
   });
 }
