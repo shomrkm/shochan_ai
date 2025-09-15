@@ -37,19 +37,19 @@ export class Thread {
     if (value === null || value === undefined) {
       return String(value);
     }
-    
+
     if (typeof value !== 'object') {
       return String(value);
     }
-    
+
     if (Array.isArray(value)) {
-      return `[${value.map(item => this.serializeValue(item)).join(', ')}]`;
+      return `[${value.map((item) => this.serializeValue(item)).join(', ')}]`;
     }
-    
+
     const entries = Object.entries(value)
       .map(([key, val]) => `${key}: ${this.serializeValue(val)}`)
       .join(', ');
-    
+
     return `{${entries}}`;
   }
 
@@ -60,6 +60,6 @@ export class Thread {
 
   awaitingHumanApproval(): boolean {
     const lastEvent = this.events[this.events.length - 1];
-    return lastEvent.data.intent === 'create_task';
+    return lastEvent.data.intent === 'delete_task';
   }
 }

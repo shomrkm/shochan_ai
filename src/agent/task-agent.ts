@@ -19,14 +19,16 @@ export class TaskAgent {
       if (!nextStep) return thread;
 
       thread.events.push({
-        type: nextStep.intent,
-        data: nextStep.parameters,
+        type: 'tool_call',
+        data: nextStep,
       });
 
       switch (nextStep.intent) {
         case 'done_for_now':
         case 'request_more_information':
           return thread;
+        case 'delete_task':
+          return thread; // Stop and wait for human approval
         case 'create_task':
         case 'create_project':
         case 'get_tasks':
@@ -129,8 +131,21 @@ export class TaskAgent {
           },
         },
         {
+          name: 'delete_task',
+          description: 'Delete a task from the GTD system',
+          input_schema: {
+            type: 'object',
+            properties: {
+              task_id: { type: 'string', description: 'ID of the task to delete' },
+              reason: { type: 'string', description: 'Reason for deletion (optional)' },
+            },
+            required: ['task_id'],
+          },
+        },
+        {
           name: 'done_for_now',
-          description: 'Complete conversation with natural response for now, return the result of the tool you used',
+          description:
+            'Complete conversation with natural response for now, return the result of the tool you used',
           input_schema: {
             type: 'object',
             properties: {
@@ -146,32 +161,41 @@ export class TaskAgent {
     });
   }
 
-  private async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<void> {
+  async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<Thread> {
     switch (nextStep.intent) {
       case 'get_tasks': {
         const result = await this.notion.getTasks(nextStep);
         thread.events.push({
-          type: 'get_tasks_result',
+          type: 'tool_response',
           data: result,
         });
-        break;
+        return thread;
       }
       case 'create_task': {
         const result = await this.notion.createTask(nextStep);
         thread.events.push({
-          type: 'create_task_result',
+          type: 'tool_response',
           data: result,
         });
-        break;
+        return thread;
       }
       case 'create_project': {
         const result = await this.notion.createProject(nextStep);
         thread.events.push({
-          type: 'create_project_result',
+          type: 'tool_response',
           data: result,
         });
-        break;
+        return thread;
+      }
+      case 'delete_task': {
+        const result = await this.notion.deleteTask(nextStep);
+        thread.events.push({
+          type: 'tool_response',
+          data: result,
+        });
+        return thread;
       }
     }
+    throw new Error(`Unknown next step: ${nextStep.intent}`);
   }
 }
