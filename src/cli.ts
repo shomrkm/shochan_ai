@@ -22,7 +22,7 @@ export async function cli() {
 
   while (true) {
     if(thread.awaitingHumanResponse()) {
-      const humanResponse = await askHuman(lastEvent);
+      const humanResponse = await askHuman(lastEvent.data.parameters.message);
       thread.events.push(humanResponse);
       lastEvent = humanResponse;
       continue;
@@ -46,11 +46,7 @@ export async function cli() {
   }
 }
 
-async function askHuman(lastEvent: Event): Promise<Event> {
-  return await askHumanCLI(lastEvent.data?.parameters?.message);
-}
-
-async function askHumanCLI(message: string): Promise<Event> {
+async function askHuman(message: string): Promise<Event> {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -88,8 +84,6 @@ async function askHumanApproval(taskInfo?: any): Promise<boolean> {
     });
   });
 }
-
-
 
 if (require.main === module) {
   cli().catch(console.error);
