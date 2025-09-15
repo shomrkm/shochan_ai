@@ -9,34 +9,34 @@ export async function cli() {
   const args = process.argv.slice(2);
 
   if (args.length === 0) {
-    console.error("Error: Please provide a message as a command line argument");
+    console.error('Error: Please provide a message as a command line argument');
     process.exit(1);
   }
 
-  const message = args.join(" ");
+  const message = args.join(' ');
   const taskAgent = new TaskAgent();
-  const thread = new Thread([{ type: "user_input", data: message }]);
+  const thread = new Thread([{ type: 'user_input', data: message }]);
 
   let newThread = await taskAgent.agetnLoop(thread);
   let lastEvent = newThread.events.slice(-1)[0];
 
   while (true) {
-    if(thread.awaitingHumanResponse()) {
+    if (thread.awaitingHumanResponse()) {
       const humanResponse = await askHuman(lastEvent.data.parameters.message);
       thread.events.push(humanResponse);
       lastEvent = humanResponse;
       continue;
     }
 
-    if(thread.awaitingHumanApproval() && await askHumanApproval()) {
+    if (thread.awaitingHumanApproval() && (await askHumanApproval())) {
       newThread = await taskAgent.handleNextStep(lastEvent.data, newThread);
       lastEvent = newThread.events.slice(-1)[0];
       continue;
     }
-    if(thread.awaitingHumanApproval() && !await askHumanApproval()) {
+    if (thread.awaitingHumanApproval() && !(await askHumanApproval())) {
       thread.events.push({
-        type: "tool response",
-        data: `user denied the operation to ${lastEvent.type}`
+        type: 'tool response',
+        data: `user denied the operation to ${lastEvent.type}`,
       });
       continue;
     }
@@ -56,7 +56,7 @@ async function askHuman(message: string): Promise<Event> {
     rl.question(`${message}\n> `, (answer) => {
       rl.close();
       resolve({
-        type: "user_input",
+        type: 'user_input',
         data: answer.trim(),
       });
     });

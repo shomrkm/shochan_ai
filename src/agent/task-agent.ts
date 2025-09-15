@@ -144,7 +144,8 @@ export class TaskAgent {
         },
         {
           name: 'done_for_now',
-          description: 'Complete conversation with natural response for now, return the result of the tool you used',
+          description:
+            'Complete conversation with natural response for now, return the result of the tool you used',
           input_schema: {
             type: 'object',
             properties: {

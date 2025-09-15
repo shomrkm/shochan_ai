@@ -3,7 +3,12 @@ import type { ToolCall } from '../types/tools';
 import { buildProjectCreatePageParams, buildTaskCreatePageParams } from './notionUtils';
 import { NotionQueryBuilder } from '../utils/notion-query-builder';
 import { NotionTaskParser } from '../utils/notion-task-parser';
-import { isCreateProjectTool, isCreateTaskTool, isGetTasksTool, isDeleteTaskTool } from '../types/toolGuards';
+import {
+  isCreateProjectTool,
+  isCreateTaskTool,
+  isGetTasksTool,
+  isDeleteTaskTool,
+} from '../types/toolGuards';
 
 export class NotionClient {
   private client: Client;

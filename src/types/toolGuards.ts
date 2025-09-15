@@ -1,4 +1,10 @@
-import type { ToolCall, CreateProjectTool, CreateTaskTool, GetTasksTool, DeleteTaskTool } from './tools';
+import type {
+  ToolCall,
+  CreateProjectTool,
+  CreateTaskTool,
+  GetTasksTool,
+  DeleteTaskTool,
+} from './tools';
 
 export function isCreateTaskTool(tool: ToolCall): tool is CreateTaskTool {
   return tool.intent === 'create_task';
