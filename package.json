@@ -1,6 +1,6 @@
 {
   "name": "shochan_ai",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "AI Agent for me.",
   "main": "dist/index.js",
   "scripts": {
