@@ -20,35 +20,30 @@ export async function cli() {
   let newThread = await taskAgent.agetnLoop(thread);
   let lastEvent = newThread.events.slice(-1)[0];
 
-  while (lastEvent.data.intent !== "done_for_now") {
-    console.log('cli loop:', thread.serializeForLLM());
-    console.log('lastEvent:', lastEvent);
-    if(newThread.awaitingHumanApproval()) {
-      if( await askHumanApproval(lastEvent.data.parameters)) {
-        newThread = await taskAgent.handleNextStep(lastEvent.data, newThread);
-        lastEvent = newThread.events.slice(-1)[0];
-      } else {
-        thread.events.push({ 
-          type: "user_input",
-          data: {
-            message: "Cancel tool call",
-            deny_tool_call: lastEvent.data
-          }
-        });
-        newThread = await taskAgent.agetnLoop(newThread);
-        lastEvent = newThread.events.slice(-1)[0];
-      }
+  while (true) {
+    if(thread.awaitingHumanResponse()) {
+      const humanResponse = await askHuman(lastEvent);
+      thread.events.push(humanResponse);
+      lastEvent = humanResponse;
       continue;
     }
 
-    const responseEvent = await askHuman(lastEvent);
-    newThread.events.push(responseEvent);
-    newThread = await taskAgent.agetnLoop(newThread);
+    if(thread.awaitingHumanApproval() && await askHumanApproval(lastEvent.data.parameters)) {
+      newThread = await taskAgent.handleNextStep(lastEvent.data, newThread);
+      lastEvent = newThread.events.slice(-1)[0];
+      continue;
+    }
+    if(thread.awaitingHumanApproval() && !await askHumanApproval(lastEvent.data.parameters)) {
+      thread.events.push({
+        type: "tool response",
+        data: `user denied the operation to ${lastEvent.type}`
+      });
+      continue;
+    }
+
+    newThread = await taskAgent.agetnLoop(thread);
     lastEvent = newThread.events.slice(-1)[0];
   }
-
-  console.log(lastEvent.data.parameters.message);
-  process.exit(0);
 }
 
 async function askHuman(lastEvent: Event): Promise<Event> {
