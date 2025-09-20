@@ -28,10 +28,10 @@ export class TaskAgent {
         case 'request_more_information':
           return thread;
         case 'delete_task':
-        case 'update_task':
           return thread; // Stop and wait for human approval
         case 'create_task':
         case 'create_project':
+        case 'update_task':
         case 'get_tasks':
           await this.handleNextStep(nextStep, thread);
           continue;
