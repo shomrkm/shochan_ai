@@ -49,7 +49,6 @@ export interface UpdateTaskTool extends ToolCall {
   parameters: {
     task_id: string;
     title?: string;
-    description?: string;
     task_type?: 'Today' | 'Next Actions' | 'Someday / Maybe' | 'Wait for' | 'Routin';
     scheduled_date?: string | null;
     project_id?: string | null;

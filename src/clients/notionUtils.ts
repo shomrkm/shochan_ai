@@ -1,7 +1,9 @@
 import type {
   BuildProjectPageParamsArgs,
   BuildTaskPageParamsArgs,
+  BuildTaskUpdatePageParamsArgs,
   NotionCreatePageParams,
+  NotionUpdatePageParams,
 } from '../types/notion';
 
 export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): NotionCreatePageParams {
@@ -125,5 +127,72 @@ export function buildProjectCreatePageParams(
         },
       },
     ],
+  };
+}
+
+export function buildTaskUpdatePageParams(args: BuildTaskUpdatePageParamsArgs): NotionUpdatePageParams {
+  const { pageId, title, task_type, scheduled_date, project_id, status } = args;
+
+  const properties: Record<string, any> = {};
+
+  if (title !== undefined) {
+    properties.Name = {
+      title: [
+        {
+          text: {
+            content: title,
+          },
+        },
+      ],
+    };
+  }
+
+  if (task_type !== undefined) {
+    properties.task_type = {
+      select: {
+        name: task_type,
+      },
+    };
+  }
+
+  if (scheduled_date !== undefined) {
+    if (scheduled_date === null) {
+      properties.due_date = null;
+    } else {
+      properties.due_date = {
+        date: {
+          start: scheduled_date,
+        },
+      };
+    }
+  }
+
+  if (project_id !== undefined) {
+    if (project_id === null) {
+      properties.project = {
+        relation: [],
+      };
+    } else {
+      properties.project = {
+        relation: [
+          {
+            id: project_id,
+          },
+        ],
+      };
+    }
+  }
+
+  if (status !== undefined) {
+    const isCompleted = status === 'completed';
+    properties.completed = {
+      checkbox: isCompleted,
+    };
+  }
+
+  return {
+    page_id: pageId,
+    properties,
+    archived: status === 'archived',
   };
 }

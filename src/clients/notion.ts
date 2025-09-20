@@ -1,6 +1,6 @@
 import { Client } from '@notionhq/client';
 import type { ToolCall } from '../types/tools';
-import { buildProjectCreatePageParams, buildTaskCreatePageParams } from './notionUtils';
+import { buildProjectCreatePageParams, buildTaskCreatePageParams, buildTaskUpdatePageParams } from './notionUtils';
 import { NotionQueryBuilder } from '../utils/notion-query-builder';
 import { NotionTaskParser } from '../utils/notion-task-parser';
 import {
@@ -8,6 +8,7 @@ import {
   isCreateTaskTool,
   isGetTasksTool,
   isDeleteTaskTool,
+  isUpdateTaskTool,
 } from '../types/toolGuards';
 
 export class NotionClient {
@@ -194,6 +195,55 @@ export class NotionClient {
       console.error('Notion API error:', error);
       throw new Error(
         `Failed to delete task: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async updateTask(tool: ToolCall) {
+    if (!isUpdateTaskTool(tool)) {
+      throw new Error('Invalid tool call');
+    }
+
+    const { task_id, title, task_type, scheduled_date, project_id, status } = tool.parameters;
+
+    try {
+      console.log(`🔄 [NOTION] Updating task ${task_id} with:`, tool.parameters);
+
+      const params = buildTaskUpdatePageParams({
+        pageId: task_id,
+        title,
+        task_type,
+        scheduled_date,
+        project_id,
+        status,
+      });
+
+      const response = await this.client.pages.update(params);
+
+      if (!this.taskParser.isFullPageResponse(response)) {
+        throw new Error(
+          'Notion returned a partial page response. Ensure the integration has access to the page/database.'
+        );
+      }
+
+      console.log(`✅ [NOTION] Task ${task_id} updated successfully`);
+
+      return {
+        task_id: response.id,
+        updated_at: new Date(response.last_edited_time),
+        notion_url: response.url,
+        updated_properties: {
+          title,
+          task_type,
+          scheduled_date,
+          project_id,
+          status,
+        },
+      };
+    } catch (error) {
+      console.error('❌ [NOTION] Update task failed:', error);
+      throw new Error(
+        `Failed to update task: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

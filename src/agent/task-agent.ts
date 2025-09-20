@@ -28,6 +28,7 @@ export class TaskAgent {
         case 'request_more_information':
           return thread;
         case 'delete_task':
+        case 'update_task':
           return thread; // Stop and wait for human approval
         case 'create_task':
         case 'create_project':
@@ -143,6 +144,36 @@ export class TaskAgent {
           },
         },
         {
+          name: 'update_task',
+          description: 'Update an existing task in the GTD system',
+          input_schema: {
+            type: 'object',
+            properties: {
+              task_id: { type: 'string', description: 'ID of the task to update' },
+              title: { type: 'string', description: 'New task title' },
+              task_type: {
+                type: 'string',
+                enum: ['Today', 'Next Actions', 'Someday / Maybe', 'Wait for', 'Routin'],
+                description: 'New type of task in GTD system',
+              },
+              scheduled_date: {
+                type: ['string', 'null'],
+                description: 'New scheduled date in ISO format, or null to remove'
+              },
+              project_id: {
+                type: ['string', 'null'],
+                description: 'New related project ID, or null to remove'
+              },
+              status: {
+                type: 'string',
+                enum: ['active', 'completed', 'archived'],
+                description: 'New task status',
+              },
+            },
+            required: ['task_id'],
+          },
+        },
+        {
           name: 'done_for_now',
           description:
             'Complete conversation with natural response for now, return the result of the tool you used',
@@ -189,6 +220,14 @@ export class TaskAgent {
       }
       case 'delete_task': {
         const result = await this.notion.deleteTask(nextStep);
+        thread.events.push({
+          type: 'tool_response',
+          data: result,
+        });
+        return thread;
+      }
+      case 'update_task': {
+        const result = await this.notion.updateTask(nextStep);
         thread.events.push({
           type: 'tool_response',
           data: result,

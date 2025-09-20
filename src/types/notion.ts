@@ -18,7 +18,6 @@ export interface BuildProjectPageParamsArgs {
 export interface BuildTaskUpdatePageParamsArgs {
   pageId: string;
   title?: string;
-  description?: string;
   task_type?: string;
   scheduled_date?: string | null;
   project_id?: string | null;
