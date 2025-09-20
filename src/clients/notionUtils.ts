@@ -130,7 +130,9 @@ export function buildProjectCreatePageParams(
   };
 }
 
-export function buildTaskUpdatePageParams(args: BuildTaskUpdatePageParamsArgs): NotionUpdatePageParams {
+export function buildTaskUpdatePageParams(
+  args: BuildTaskUpdatePageParamsArgs
+): NotionUpdatePageParams {
   const { pageId, title, task_type, scheduled_date, project_id, status } = args;
 
   const properties: Record<string, any> = {};

@@ -1,6 +1,10 @@
 import { Client } from '@notionhq/client';
 import type { ToolCall } from '../types/tools';
-import { buildProjectCreatePageParams, buildTaskCreatePageParams, buildTaskUpdatePageParams } from './notionUtils';
+import {
+  buildProjectCreatePageParams,
+  buildTaskCreatePageParams,
+  buildTaskUpdatePageParams,
+} from './notionUtils';
 import { NotionQueryBuilder } from '../utils/notion-query-builder';
 import { NotionTaskParser } from '../utils/notion-task-parser';
 import {
