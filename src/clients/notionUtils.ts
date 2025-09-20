@@ -133,7 +133,7 @@ export function buildProjectCreatePageParams(
 export function buildTaskUpdatePageParams(
   args: BuildTaskUpdatePageParamsArgs
 ): NotionUpdatePageParams {
-  const { pageId, title, task_type, scheduled_date, project_id, status } = args;
+  const { pageId, title, task_type, scheduled_date, project_id, is_archived } = args;
 
   const properties: Record<string, any> = {};
 
@@ -185,16 +185,14 @@ export function buildTaskUpdatePageParams(
     }
   }
 
-  if (status !== undefined) {
-    const isCompleted = status === 'completed';
-    properties.completed = {
-      checkbox: isCompleted,
+  if (is_archived !== undefined) {
+    properties.is_archived = {
+      checkbox: is_archived,
     };
   }
 
   return {
     page_id: pageId,
     properties,
-    archived: status === 'archived',
   };
 }

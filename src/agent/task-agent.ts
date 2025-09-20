@@ -15,7 +15,19 @@ export class TaskAgent {
 
   async agetnLoop(thread: Thread): Promise<Thread> {
     while (true) {
-      const nextStep = await this.determineNextStep(thread);
+
+      let nextStep: ToolCall | null = null;
+      try {
+        nextStep = await this.determineNextStep(thread);
+      } catch (error) {
+        thread.events.push({
+          type: 'error',
+          data: {
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
+        });
+        continue;
+      }
       if (!nextStep) return thread;
 
       thread.events.push({
@@ -168,10 +180,9 @@ export class TaskAgent {
                 type: ['string', 'null'],
                 description: 'New related project ID, or null to remove'
               },
-              status: {
-                type: 'string',
-                enum: ['active', 'completed', 'archived'],
-                description: 'New task status',
+              is_archived: {
+                type: 'boolean',
+                description: 'New task archived status',
               },
             },
             required: ['task_id'],

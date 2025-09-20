@@ -21,7 +21,7 @@ export interface BuildTaskUpdatePageParamsArgs {
   task_type?: string;
   scheduled_date?: string | null;
   project_id?: string | null;
-  status?: 'active' | 'completed' | 'archived';
+  is_archived?: boolean;
 }
 
 export interface NotionCreatePageParams {

@@ -210,7 +210,7 @@ export class NotionClient {
       throw new Error('Invalid tool call');
     }
 
-    const { task_id, title, task_type, scheduled_date, project_id, status } = tool.parameters;
+    const { task_id, title, task_type, scheduled_date, project_id, is_archived } = tool.parameters;
 
     try {
       console.log(`🔄 [NOTION] Updating task ${task_id} with:`, tool.parameters);
@@ -221,7 +221,7 @@ export class NotionClient {
         task_type,
         scheduled_date,
         project_id,
-        status,
+        is_archived,
       });
 
       const response = await this.client.pages.update(params);
@@ -243,7 +243,7 @@ export class NotionClient {
           task_type,
           scheduled_date,
           project_id,
-          status,
+          is_archived,
         },
       };
     } catch (error) {

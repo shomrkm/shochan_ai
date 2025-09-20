@@ -53,6 +53,6 @@ export interface UpdateTaskTool extends ToolCall {
     task_type?: 'Today' | 'Next Actions' | 'Someday / Maybe' | 'Wait for' | 'Routin';
     scheduled_date?: string | null;
     project_id?: string | null;
-    status?: 'active' | 'completed' | 'archived';
+    is_archived?: boolean;
   };
 }
