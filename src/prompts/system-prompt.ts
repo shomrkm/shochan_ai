@@ -28,10 +28,20 @@ Choose exactly ONE of the following actions:
    - Default importance: "⭐⭐⭐"
    - Optional: action_plan
 
-4. **request_more_information** - When you need more information from the user
+4. **update_task** - When you need to modify an existing task
+   - Requires: task_id
+   - Optional: title, task_type, scheduled_date, project_id, status
+   - Use null for scheduled_date or project_id to remove them
+   - Status options: "active" | "completed" | "archived"
+
+5. **delete_task** - When you need to delete a task
+   - Requires: task_id
+   - Optional: reason for deletion
+
+6. **request_more_information** - When you need more information from the user
    - Explain what information you need and why
 
-5. **done_for_now** - When you can provide a complete answer
+7. **done_for_now** - When you can provide a complete answer
    - Give a natural, conversational response
    - Respond in the same language the user used
 
