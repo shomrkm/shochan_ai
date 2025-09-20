@@ -15,6 +15,16 @@ export interface BuildProjectPageParamsArgs {
   action_plan?: string;
 }
 
+export interface BuildTaskUpdatePageParamsArgs {
+  pageId: string;
+  title?: string;
+  description?: string;
+  task_type?: string;
+  scheduled_date?: string | null;
+  project_id?: string | null;
+  status?: 'active' | 'completed' | 'archived';
+}
+
 export interface NotionCreatePageParams {
   parent: {
     database_id: string;
@@ -32,4 +42,10 @@ export interface NotionCreatePageParams {
       }>;
     };
   }>;
+}
+
+export interface NotionUpdatePageParams {
+  page_id: string;
+  properties: Record<string, any>;
+  archived?: boolean;
 }
