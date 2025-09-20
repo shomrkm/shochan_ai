@@ -132,6 +132,7 @@ export class NotionClient {
     const {
       task_type,
       project_id,
+      search_title,
       limit = 10,
       include_completed = false,
       sort_by = 'created_at',
@@ -144,6 +145,7 @@ export class NotionClient {
       const query = this.queryBuilder.buildTaskQuery({
         task_type,
         project_id,
+        search_title,
         include_completed,
         sort_by,
         sort_order,

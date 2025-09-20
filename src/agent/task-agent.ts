@@ -96,6 +96,10 @@ export class TaskAgent {
                 type: 'string',
                 description: 'Filter by project ID',
               },
+              search_title: {
+                type: 'string',
+                description: 'Search tasks by title/name (partial match)',
+              },
               limit: {
                 type: 'number',
                 minimum: 1,

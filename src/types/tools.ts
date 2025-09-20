@@ -29,6 +29,7 @@ export interface GetTasksTool extends ToolCall {
   parameters: {
     task_type?: 'Today' | 'Next Actions' | 'Someday / Maybe' | 'Wait for' | 'Routin';
     project_id?: string;
+    search_title?: string; // Search tasks by title/name
     limit?: number; // Default: 10, Max: 100
     include_completed?: boolean; // Default: false
     sort_by?: 'created_at' | 'updated_at' | 'scheduled_date';

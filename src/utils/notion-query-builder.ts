@@ -33,6 +33,14 @@ export class NotionQueryBuilder {
       });
     }
 
+    // Title search filter
+    if (filters.search_title) {
+      notionFilters.push({
+        property: 'Name',
+        title: { contains: filters.search_title },
+      });
+    }
+
     // Completion status filter (using formula property with checkbox filter)
     if (!filters.include_completed) {
       notionFilters.push({
@@ -88,6 +96,7 @@ export class NotionQueryBuilder {
 interface TaskQueryFilters {
   task_type?: string;
   project_id?: string;
+  search_title?: string;
   include_completed?: boolean;
   sort_by?: string;
   sort_order?: string;
@@ -102,8 +111,9 @@ type PropertyFilterType = FilterArray extends Array<infer U> ? U : never;
 type SelectFilter = Extract<PropertyFilterType, { select: any }>;
 type RelationFilter = Extract<PropertyFilterType, { relation: any }>;
 type FormulaFilter = Extract<PropertyFilterType, { formula: any }>;
+type TitleFilter = Extract<PropertyFilterType, { title: any }>;
 
-type NotionFilter = SelectFilter | RelationFilter | FormulaFilter;
+type NotionFilter = SelectFilter | RelationFilter | FormulaFilter | TitleFilter;
 
 // Use official Notion sort types
 type NotionSort = NonNullable<QueryDatabaseParameters['sorts']>[number];

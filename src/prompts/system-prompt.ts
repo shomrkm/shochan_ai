@@ -16,6 +16,7 @@ Choose exactly ONE of the following actions:
 1. **get_tasks** - When you need to retrieve tasks
    - Use task_type to filter: "Today" | "Next Actions" | "Someday / Maybe" | "Wait for" | "Routin"
    - Use project_id to filter by project
+   - Use search_title to search by task name/title (partial match)
    - Set limit (1-100, default: 10)
    - Set include_completed (default: false)
 
