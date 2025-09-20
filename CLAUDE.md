@@ -21,13 +21,7 @@
    - **Unit Tests**: Run `npm test` to ensure all tests pass
    - **Code Quality**: Verify implementation follows existing patterns
 
-4. **Documentation Phase**
-   - Update `IMPLEMENTATION_PLAN_XML_CONTEXT.md` with completed tasks
-   - Mark completed items with ✅ checkboxes
-   - Update status indicators (🔄 IN PROGRESS, ✅ COMPLETED)
-   - Add any implementation notes or deviations from plan
-
-5. **Commit Confirmation Protocol**
+4. **Commit Confirmation Protocol**
    - Present completed work summary to user
    - Request explicit approval: "Task X.Y が完了しました。レビューをお願いします"
    - Wait for user confirmation before proceeding with git commit
