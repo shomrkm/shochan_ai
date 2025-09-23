@@ -59,7 +59,10 @@ The central orchestrator that implements the main agent loop and decision-making
 
 **Supported Tools:**
 - `get_tasks`: Retrieve tasks from Notion with filtering options
+- `get_task_details`: Get detailed information about a specific task including page content
 - `create_task`: Create new tasks in Notion GTD system
+- `update_task`: Modify existing tasks (title, type, dates, project, status)
+- `delete_task`: Remove tasks (requires human approval)
 - `create_project`: Create new projects with importance levels
 - `request_more_information`: Ask user for clarification
 - `done_for_now`: Provide final response to user
@@ -114,8 +117,11 @@ Manages all interactions with Notion databases.
 
 **Supported Operations:**
 - Task creation with GTD categorization
-- Project creation with importance levels
 - Task retrieval with advanced filtering options
+- Task detail retrieval including page content from Notion blocks
+- Task updating (title, type, scheduled date, project assignment, archive status)
+- Task deletion with archival
+- Project creation with importance levels
 - Proper error handling and validation
 
 ### 5. Type System (`src/types/`)
@@ -139,9 +145,9 @@ Comprehensive type definitions ensuring type safety across the application.
 Supporting utilities for data processing and API interactions.
 
 **Components:**
-- **Notion Query Builder**: Constructs complex database queries
-- **Notion Task Parser**: Transforms Notion responses to internal format
-- **Notion Utils**: Helper functions for API parameter construction
+- **Notion Query Builder**: Constructs complex database queries with filtering and sorting
+- **Notion Task Parser**: Transforms Notion responses to internal format, includes block content parsing
+- **Notion Utils**: Helper functions for API parameter construction and page updates
 
 ## Data Flow
 
@@ -215,7 +221,7 @@ The TaskAgent implements a classical agent pattern with:
 
 Tool calls implement the command pattern:
 - **Command Interface**: ToolCall with intent and parameters
-- **Concrete Commands**: CreateTaskTool, GetTasksTool, etc.
+- **Concrete Commands**: CreateTaskTool, GetTasksTool, GetTaskDetailsTool, UpdateTaskTool, DeleteTaskTool, etc.
 - **Invoker**: TaskAgent orchestrates execution
 - **Receiver**: Notion Client executes actual operations
 
@@ -361,12 +367,14 @@ npm test         # Test suite execution
 
 ### 1. New Tool Integration
 
-The architecture supports easy addition of new tools:
+The architecture supports easy addition of new tools as demonstrated by the recent `get_task_details` implementation:
 
 1. Define tool interface in `src/types/tools.ts`
-2. Add tool definition to TaskAgent tool list
-3. Implement tool execution in handleNextStep
-4. Add type guards for validation
+2. Add type guard function in `src/types/toolGuards.ts`
+3. Add tool definition to TaskAgent tool list in system prompt
+4. Implement tool execution in handleNextStep method
+5. Add corresponding method in NotionClient
+6. Update system prompt documentation
 
 ### 2. Additional Clients
 

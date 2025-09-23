@@ -18,7 +18,8 @@ Shochan AI is a TypeScript-based intelligent agent built as a personal project f
   - Someday / Maybe
   - Wait for
   - Routine
-- **Intelligent Task Management**: Create, retrieve, and organize tasks with AI assistance
+- **Intelligent Task Management**: Create, retrieve, update, delete, and get detailed information about tasks with AI assistance
+- **Task Detail Retrieval**: Get comprehensive task information including page content from Notion
 - **Project Management**: Create and manage projects with importance levels and action plans
 - **CLI Interface**: Simple command-line interface for quick interactions
 
@@ -93,6 +94,20 @@ npm run cli "明日までにレポートを完成させるタスクを作成し�
 # Creates a task to complete a report by tomorrow
 ```
 
+**Task Details:**
+```bash
+npm run cli "タスクID 277d4af9764f803a81ccef04703e79fb の詳細を教えて"
+# Gets detailed information including page content for a specific task
+```
+
+**Task Management:**
+```bash
+npm run cli "タスクを完了状態に更新して"
+# Updates task status to completed
+npm run cli "不要なタスクを削除して"
+# Deletes a task (requires approval)
+```
+
 **Project Management:**
 ```bash
 npm run cli "新しいWebサイト開発プロジェクトを作成して"
@@ -159,14 +174,37 @@ npm run test:watch
 
 ```
 src/
-├── agent/          # Core agent logic
-├── clients/        # External API clients (Claude, Notion)
-├── prompts/        # System prompts and messaging
-├── thread/         # Conversation thread management
-├── types/          # TypeScript type definitions
-├── utils/          # Utility functions
-└── cli.ts          # Command-line interface
+├── agent/              # Core agent logic
+│   └── task-agent.ts   # Main TaskAgent with 8 available tools
+├── clients/            # External API clients (Claude, Notion)
+│   ├── claude.ts       # Claude AI client
+│   ├── notion.ts       # Notion API client with full CRUD operations
+│   └── notionUtils.ts  # Notion utility functions
+├── prompts/            # System prompts and messaging
+│   └── system-prompt.ts # 12-factor agents system prompt
+├── thread/             # Conversation thread management
+├── types/              # TypeScript type definitions
+│   ├── tools.ts        # Tool call interfaces
+│   ├── toolGuards.ts   # Type guard functions
+│   └── task.ts         # Task information interface
+├── utils/              # Utility functions
+│   ├── notion-query-builder.ts  # Notion query construction
+│   └── notion-task-parser.ts    # Notion response parsing
+└── cli.ts              # Command-line interface
 ```
+
+## Available Tools
+
+The TaskAgent supports 8 different tools for comprehensive task and project management:
+
+1. **get_tasks** - Retrieve and filter tasks
+2. **get_task_details** - Get detailed information about a specific task including page content
+3. **create_task** - Create new tasks with full GTD categorization
+4. **update_task** - Modify existing tasks (title, type, dates, project, status)
+5. **delete_task** - Remove tasks (requires human approval)
+6. **create_project** - Create new projects with importance levels
+7. **request_more_information** - Ask for clarification when needed
+8. **done_for_now** - Provide natural language responses
 
 
 ## License
