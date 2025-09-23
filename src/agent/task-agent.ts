@@ -174,11 +174,11 @@ export class TaskAgent {
               },
               scheduled_date: {
                 type: ['string', 'null'],
-                description: 'New scheduled date in ISO format, or null to remove'
+                description: 'New scheduled date in ISO format, or null to remove',
               },
               project_id: {
                 type: ['string', 'null'],
-                description: 'New related project ID, or null to remove'
+                description: 'New related project ID, or null to remove',
               },
               is_archived: {
                 type: 'boolean',

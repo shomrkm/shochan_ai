@@ -8,8 +8,13 @@
 import type {
   PageObjectResponse,
   CreatePageResponse,
+  QueryDatabaseResponse,
+  BlockObjectResponse,
+  PartialBlockObjectResponse,
 } from '@notionhq/client/build/src/api-endpoints';
 import type { TaskInfo } from '../types/task';
+
+type NotionPageResponse = QueryDatabaseResponse['results'][number];
 
 /**
  * Parses Notion API responses into TaskInfo objects
@@ -18,7 +23,7 @@ export class NotionTaskParser {
   /**
    * Parse multiple tasks from Notion query response
    */
-  async parseTasksFromNotionResponse(results: any[]): Promise<TaskInfo[]> {
+  async parseTasksFromNotionResponse(results: NotionPageResponse[]): Promise<TaskInfo[]> {
     const tasks: TaskInfo[] = [];
 
     for (const result of results) {
@@ -95,11 +100,14 @@ export class NotionTaskParser {
   /**
    * Type guard to check if response is a full page response
    */
-  isFullPageResponse(response: CreatePageResponse): response is PageObjectResponse {
+  isFullPageResponse(response: NotionPageResponse): response is PageObjectResponse {
     return (
-      (response as any).object === 'page' &&
+      typeof response === 'object' &&
+      response !== null &&
+      'object' in response &&
+      response.object === 'page' &&
       'created_time' in response &&
-      (('url' in response) as any)
+      'url' in response
     );
   }
 
@@ -133,7 +141,10 @@ export class NotionTaskParser {
     return prop.date?.start;
   }
 
-  private extractRelationFromProperty(properties: any, propertyName: string): string | undefined {
+  private extractRelationFromProperty(
+    properties: PageObjectResponse['properties'],
+    propertyName: string
+  ): string | undefined {
     const prop = properties[propertyName];
     if (!prop || prop.type !== 'relation') return undefined;
 
@@ -147,32 +158,61 @@ export class NotionTaskParser {
     return prop.formula?.boolean || false;
   }
 
-  private extractTextFromBlock(block: any): string | null {
-    if (!block.type) return null;
+  private extractTextFromBlock(
+    block: BlockObjectResponse | PartialBlockObjectResponse
+  ): string | null {
+    if (!this.isValidBlock(block)) return null;
 
     const blockType = block.type;
-    const blockData = block[blockType];
+    const blockData = this.getBlockData(block, blockType);
 
-    if (!blockData) return null;
+    if (!blockData || typeof blockData !== 'object') return null;
 
-    if (blockData.rich_text && Array.isArray(blockData.rich_text)) {
+    if (this.hasRichText(blockData)) {
       return blockData.rich_text
-        .map((text: any) => text.plain_text || '')
+        .map((text: { plain_text?: string }) => text.plain_text || '')
         .join('');
     }
 
-    if (blockData.text && Array.isArray(blockData.text)) {
-      return blockData.text
-        .map((text: any) => text.plain_text || '')
-        .join('');
+    if (this.hasText(blockData)) {
+      return blockData.text.map((text: { plain_text?: string }) => text.plain_text || '').join('');
     }
 
-    if (blockData.caption && Array.isArray(blockData.caption)) {
+    if (this.hasCaption(blockData)) {
       return blockData.caption
-        .map((text: any) => text.plain_text || '')
+        .map((text: { plain_text?: string }) => text.plain_text || '')
         .join('');
     }
 
     return null;
+  }
+
+  private isValidBlock(block: unknown): block is { type: string } {
+    return (
+      typeof block === 'object' &&
+      block !== null &&
+      'type' in block &&
+      typeof (block as { type: unknown }).type === 'string'
+    );
+  }
+
+  private getBlockData(block: { type: string }, blockType: string): unknown {
+    return (block as Record<string, unknown>)[blockType];
+  }
+
+  private hasRichText(
+    blockData: object
+  ): blockData is { rich_text: Array<{ plain_text?: string }> } {
+    return (
+      'rich_text' in blockData && Array.isArray((blockData as { rich_text: unknown }).rich_text)
+    );
+  }
+
+  private hasText(blockData: object): blockData is { text: Array<{ plain_text?: string }> } {
+    return 'text' in blockData && Array.isArray((blockData as { text: unknown }).text);
+  }
+
+  private hasCaption(blockData: object): blockData is { caption: Array<{ plain_text?: string }> } {
+    return 'caption' in blockData && Array.isArray((blockData as { caption: unknown }).caption);
   }
 }
