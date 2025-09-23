@@ -15,7 +15,6 @@ export class TaskAgent {
 
   async agetnLoop(thread: Thread): Promise<Thread> {
     while (true) {
-
       let nextStep: ToolCall | null = null;
       try {
         nextStep = await this.determineNextStep(thread);
@@ -45,6 +44,7 @@ export class TaskAgent {
         case 'create_project':
         case 'update_task':
         case 'get_tasks':
+        case 'get_task_details':
           await this.handleNextStep(nextStep, thread);
           continue;
       }
@@ -189,6 +189,17 @@ export class TaskAgent {
           },
         },
         {
+          name: 'get_task_details',
+          description: 'Get detailed information about a specific task by its ID',
+          input_schema: {
+            type: 'object',
+            properties: {
+              task_id: { type: 'string', description: 'ID of the task to retrieve details for' },
+            },
+            required: ['task_id'],
+          },
+        },
+        {
           name: 'done_for_now',
           description:
             'Complete conversation with natural response for now, return the result of the tool you used',
@@ -243,6 +254,14 @@ export class TaskAgent {
       }
       case 'update_task': {
         const result = await this.notion.updateTask(nextStep);
+        thread.events.push({
+          type: 'tool_response',
+          data: result,
+        });
+        return thread;
+      }
+      case 'get_task_details': {
+        const result = await this.notion.getTaskDetails(nextStep);
         thread.events.push({
           type: 'tool_response',
           data: result,

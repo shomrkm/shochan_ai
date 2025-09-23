@@ -13,6 +13,7 @@ import {
   isGetTasksTool,
   isDeleteTaskTool,
   isUpdateTaskTool,
+  isGetTaskDetailsTool,
 } from '../types/toolGuards';
 
 export class NotionClient {
@@ -124,10 +125,6 @@ export class NotionClient {
     }
   }
 
-  // データベース接続テスト用
-  /**
-   * Get tasks with optional filtering
-   */
   async getTasks(tool: ToolCall) {
     if (!isGetTasksTool(tool)) {
       throw new Error('Invalid tool call');
@@ -250,6 +247,62 @@ export class NotionClient {
       console.error('❌ [NOTION] Update task failed:', error);
       throw new Error(
         `Failed to update task: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getTaskDetails(tool: ToolCall) {
+    if (!isGetTaskDetailsTool(tool)) {
+      throw new Error('Invalid tool call');
+    }
+
+    const { task_id } = tool.parameters;
+
+    try {
+      console.log(`🔍 [NOTION] Getting task details for ${task_id}`);
+
+      const pageResponse = await this.client.pages.retrieve({
+        page_id: task_id,
+      });
+
+      if (!this.taskParser.isFullPageResponse(pageResponse)) {
+        throw new Error(
+          'Notion returned a partial page response. Ensure the integration has access to the page/database.'
+        );
+      }
+
+      const task = this.taskParser.parseTaskFromNotionPage(pageResponse);
+
+      try {
+        console.log(`🔍 [NOTION] Getting page content for ${task_id}`);
+        const blocksResponse = await this.client.blocks.children.list({
+          block_id: task_id,
+          page_size: 100,
+        });
+
+        const content = this.taskParser.parseContentFromBlocks(blocksResponse.results);
+        task.content = content;
+
+        console.log(`✅ [NOTION] Task details and content retrieved successfully for ${task_id}`);
+      } catch (contentError) {
+        console.warn(`⚠️ [NOTION] Could not retrieve content for ${task_id}:`, contentError);
+        task.content = undefined;
+      }
+
+      return task;
+    } catch (error) {
+      console.error('❌ [NOTION] Get task details failed:', error);
+
+      if (error instanceof Error && error.message.includes('Could not find page')) {
+        throw new Error(`Task with ID ${task_id} not found`);
+      }
+
+      if (error instanceof Error && error.message.includes('unauthorized')) {
+        throw new Error(`Access denied to task ${task_id}. Check integration permissions.`);
+      }
+
+      throw new Error(
+        `Failed to get task details: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

@@ -10,4 +10,5 @@ export interface TaskInfo {
   updated_at: Date;
   notion_url?: string;
   status: 'active' | 'completed' | 'archived';
+  content?: string;
 }

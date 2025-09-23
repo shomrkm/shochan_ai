@@ -56,3 +56,10 @@ export interface UpdateTaskTool extends ToolCall {
     is_archived?: boolean;
   };
 }
+
+export interface GetTaskDetailsTool extends ToolCall {
+  intent: 'get_task_details';
+  parameters: {
+    task_id: string;
+  };
+}

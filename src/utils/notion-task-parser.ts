@@ -45,7 +45,7 @@ export class NotionTaskParser {
     // Extract basic task information
     const title = this.extractTextFromProperty(properties, 'Name') || 'Untitled Task';
     const description = this.extractTextFromProperty(properties, 'Description') || '';
-    const task_type = this.extractSelectFromProperty(properties, 'task_type') || 'Next Actions';
+    const task_type = this.extractSelectFromProperty(properties, 'task_type') || '';
 
     // Extract dates
     const scheduled_date = this.extractDateFromProperty(properties, 'due_date');
@@ -114,6 +114,58 @@ export class NotionTaskParser {
     if (!prop || prop.type !== 'formula') return false;
 
     return prop.formula?.boolean || false;
+  }
+
+  /**
+   * Parse content from Notion blocks array
+   */
+  parseContentFromBlocks(blocks: any[]): string {
+    const content: string[] = [];
+
+    for (const block of blocks) {
+      try {
+        const text = this.extractTextFromBlock(block);
+        if (text) {
+          content.push(text);
+        }
+      } catch (error) {
+        console.warn(`Failed to parse block ${block.id}:`, error);
+      }
+    }
+
+    return content.join('\n');
+  }
+
+  /**
+   * Extract text content from a single block
+   */
+  private extractTextFromBlock(block: any): string | null {
+    if (!block.type) return null;
+
+    const blockType = block.type;
+    const blockData = block[blockType];
+
+    if (!blockData) return null;
+
+    if (blockData.rich_text && Array.isArray(blockData.rich_text)) {
+      return blockData.rich_text
+        .map((text: any) => text.plain_text || '')
+        .join('');
+    }
+
+    if (blockData.text && Array.isArray(blockData.text)) {
+      return blockData.text
+        .map((text: any) => text.plain_text || '')
+        .join('');
+    }
+
+    if (blockData.caption && Array.isArray(blockData.caption)) {
+      return blockData.caption
+        .map((text: any) => text.plain_text || '')
+        .join('');
+    }
+
+    return null;
   }
 
   /**

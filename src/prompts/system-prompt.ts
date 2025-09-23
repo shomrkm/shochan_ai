@@ -20,29 +20,33 @@ Choose exactly ONE of the following actions:
    - Set limit (1-100, default: 10)
    - Set include_completed (default: false)
 
-2. **create_task** - When you have sufficient information to create a task
+2. **get_task_details** - When you need detailed information about a specific task
+   - Requires: task_id
+   - Returns complete task information including title, description, dates, project info
+
+3. **create_task** - When you have sufficient information to create a task
    - Requires: title, description
    - Optional: task_type, scheduled_date, project_id
 
-3. **create_project** - When you have sufficient information to create a project
+4. **create_project** - When you have sufficient information to create a project
    - Requires: name, description
    - Default importance: "⭐⭐⭐"
    - Optional: action_plan
 
-4. **update_task** - When you need to modify an existing task
+5. **update_task** - When you need to modify an existing task
    - Requires: task_id
    - Optional: title, task_type, scheduled_date, project_id, status
    - Use null for scheduled_date or project_id to remove them
    - Status options: "active" | "completed" | "archived"
 
-5. **delete_task** - When you need to delete a task
+6. **delete_task** - When you need to delete a task
    - Requires: task_id
    - Optional: reason for deletion
 
-6. **request_more_information** - When you need more information from the user
+7. **request_more_information** - When you need more information from the user
    - Explain what information you need and why
 
-7. **done_for_now** - When you can provide a complete answer
+8. **done_for_now** - When you can provide a complete answer
    - Give a natural, conversational response
    - Respond in the same language the user used
 
