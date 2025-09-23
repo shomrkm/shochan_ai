@@ -72,7 +72,38 @@ export class NotionTaskParser {
     };
   }
 
-  // ===== Property Extraction Methods =====
+  /**
+   * Parse content from Notion blocks array
+   */
+  parseContentFromBlocks(blocks: any[]): string {
+    const content: string[] = [];
+
+    for (const block of blocks) {
+      try {
+        const text = this.extractTextFromBlock(block);
+        if (text) {
+          content.push(text);
+        }
+      } catch (error) {
+        console.warn(`Failed to parse block ${block.id}:`, error);
+      }
+    }
+
+    return content.join('\n');
+  }
+
+  /**
+   * Type guard to check if response is a full page response
+   */
+  isFullPageResponse(response: CreatePageResponse): response is PageObjectResponse {
+    return (
+      (response as any).object === 'page' &&
+      'created_time' in response &&
+      (('url' in response) as any)
+    );
+  }
+
+  // ===== Private Property Extraction Methods =====
 
   private extractTextFromProperty(properties: any, propertyName: string): string | undefined {
     const prop = properties[propertyName];
@@ -116,29 +147,6 @@ export class NotionTaskParser {
     return prop.formula?.boolean || false;
   }
 
-  /**
-   * Parse content from Notion blocks array
-   */
-  parseContentFromBlocks(blocks: any[]): string {
-    const content: string[] = [];
-
-    for (const block of blocks) {
-      try {
-        const text = this.extractTextFromBlock(block);
-        if (text) {
-          content.push(text);
-        }
-      } catch (error) {
-        console.warn(`Failed to parse block ${block.id}:`, error);
-      }
-    }
-
-    return content.join('\n');
-  }
-
-  /**
-   * Extract text content from a single block
-   */
   private extractTextFromBlock(block: any): string | null {
     if (!block.type) return null;
 
@@ -166,16 +174,5 @@ export class NotionTaskParser {
     }
 
     return null;
-  }
-
-  /**
-   * Type guard to check if response is a full page response
-   */
-  isFullPageResponse(response: CreatePageResponse): response is PageObjectResponse {
-    return (
-      (response as any).object === 'page' &&
-      'created_time' in response &&
-      (('url' in response) as any)
-    );
   }
 }
