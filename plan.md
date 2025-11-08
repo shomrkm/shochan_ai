@@ -42,22 +42,44 @@
 - TypeScript サポート: 4.9以上
 - インストール: `npm install openai`
 
-### 2. **推奨モデル**
+### 2. **使用する API**
+- **Responses API** (`responses.create()`) ⭐ **採用**
+  - 2025年3月に導入された最新の統合 API
+  - Chat Completions API と Assistants API の長所を統合
+  - サーバーサイド会話履歴管理（`previous_response_id` で自動管理）
+  - Function calling 完全対応
+  - 将来の拡張に対応（Web検索、ファイル検索、コード実行など）
+  - キャッシュ最適化により 40-80% のコスト削減
+
+**選択理由**:
+- 将来的な拡張性を考慮（Web検索機能などの追加が容易）
+- サーバーサイド会話管理により実装がシンプル化
+- コスト効率が高い（キャッシュ最適化）
+- OpenAI が新規プロジェクトに推奨している API
+
+**代替案**: Chat Completions API も引き続きサポートされており、必要に応じて使用可能
+
+### 3. **推奨モデル**
 - **GPT-4o** (`gpt-4o`) - Function calling 対応、最新で最も高性能
 - **GPT-4o mini** (`gpt-4o-mini`) - コスト効率重視の場合
 - **GPT-4 Turbo** (`gpt-4-turbo`) - 代替オプション
 
-### 3. **API 機能マッピング**
+### 4. **API 機能マッピング**
 
-| Anthropic 機能 | OpenAI 相当機能 | 互換性 |
-|---------------|---------------|--------|
-| `messages.create()` | `chat.completions.create()` | ✅ 完全互換 |
+| Anthropic 機能 | OpenAI Responses API 相当機能 | 互換性 |
+|---------------|------------------------------|--------|
+| `messages.create()` | `responses.create()` | ✅ 完全互換 |
 | `tools` (Function calling) | `tools` (Function calling) | ✅ 完全互換 |
-| `system` (システムプロンプト) | `messages[{role: 'system'}]` | ✅ 完全互換 |
-| `conversationHistory` | `messages` 配列 | ✅ 完全互換 |
+| `system` (システムプロンプト) | `instructions` パラメータ | ✅ 完全互換 |
+| `conversationHistory` (手動管理) | `previous_response_id` (自動管理) | ⭐ 改善 |
 | `max_tokens` | `max_tokens` | ✅ 完全互換 |
 
-### 4. **主な違い**
+**Responses API の追加機能**:
+- `store: true` - サーバーサイドに会話履歴を保存
+- `previous_response_id` - 前回のレスポンス ID で会話を継続
+- `tools: [{ type: 'web_search_preview' }]` - 将来的に Web検索などのビルトインツールを追加可能
+
+### 5. **主な違い**
 
 #### Anthropic API (現在)
 ```typescript
@@ -76,25 +98,32 @@ return {
 };
 ```
 
-#### OpenAI API (移行後)
+#### OpenAI Responses API (移行後)
 ```typescript
-const response = await client.chat.completions.create({
+const response = await client.responses.create({
   model: 'gpt-4o',
   max_tokens: 1024,
-  messages: [
-    { role: 'system', content: systemPrompt },
-    ...conversationHistory,
-    { role: 'user', content: userMessage }
-  ],
+  instructions: systemPrompt,
+  input: userMessage,
+  previous_response_id: previousResponseId, // 会話継続の場合
   tools: tools,
+  store: true, // サーバーサイドに会話履歴を保存
 });
 
-const toolCall = response.choices[0]?.message.tool_calls?.[0];
-return {
-  intent: toolCall.function.name,
-  parameters: JSON.parse(toolCall.function.arguments)
-};
+// Tool call の抽出
+const item = response.output.find(item => item.type === 'function_call');
+if (item && item.type === 'function_call') {
+  return {
+    intent: item.name,
+    parameters: item.arguments // Already parsed as object
+  };
+}
 ```
+
+**Responses API の利点**:
+- `previous_response_id` で会話履歴を自動管理（手動で messages 配列を管理する必要なし）
+- `store: true` でサーバーサイドに会話を保存
+- `item.arguments` は既にパースされたオブジェクト（JSON.parse 不要）
 
 ### 5. **ツール定義の違い**
 
@@ -192,8 +221,8 @@ import type { ToolCall } from '../types/tools';
 type Params = {
   systemPrompt: string;
   userMessage: string;
-  conversationHistory?: OpenAI.ChatCompletionMessageParam[];
-  tools?: OpenAI.ChatCompletionTool[];
+  previousResponseId?: string; // Responses API で会話履歴を管理
+  tools?: OpenAI.ResponseCreateParams.Tool[];
 };
 
 export class OpenAIClient {
@@ -212,42 +241,42 @@ export class OpenAIClient {
   async generateToolCall({
     systemPrompt,
     userMessage,
-    conversationHistory = [],
+    previousResponseId,
     tools = [],
-  }: Params): Promise<ToolCall | null> {
+  }: Params): Promise<{ toolCall: ToolCall | null; responseId: string }> {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const messages: OpenAI.ChatCompletionMessageParam[] = [
-          {
-            role: 'system',
-            content: systemPrompt,
-          },
-          ...conversationHistory,
-          {
-            role: 'user',
-            content: userMessage,
-          },
-        ];
-
-        const response = await this.client.chat.completions.create({
+        const response = await this.client.responses.create({
           model: 'gpt-4o',
           max_tokens: 1024,
-          messages,
+          instructions: systemPrompt,
+          input: userMessage,
+          previous_response_id: previousResponseId,
           tools: tools.length > 0 ? tools : undefined,
+          store: true, // サーバーサイドに会話履歴を保存
         });
 
-        const choice = response.choices[0];
-        if (!choice?.message.tool_calls || choice.message.tool_calls.length === 0) {
-          return null;
+        // Responses API の output から function_call を抽出
+        const functionCallItem = response.output.find(
+          (item) => item.type === 'function_call'
+        );
+
+        if (!functionCallItem || functionCallItem.type !== 'function_call') {
+          return {
+            toolCall: null,
+            responseId: response.id,
+          };
         }
 
-        const toolCall = choice.message.tool_calls[0];
         return {
-          intent: toolCall.function.name,
-          parameters: JSON.parse(toolCall.function.arguments) as Record<string, unknown>,
+          toolCall: {
+            intent: functionCallItem.name,
+            parameters: functionCallItem.arguments, // Already parsed as object
+          },
+          responseId: response.id, // 次回の会話継続に使用
         };
       } catch (error) {
         if (this.isRetryableError(error) && attempt < maxRetries) {
@@ -282,6 +311,15 @@ export class OpenAIClient {
 }
 ```
 
+**重要な変更点**:
+1. `conversationHistory` → `previousResponseId` に変更（サーバーサイド管理）
+2. `responses.create()` を使用
+3. `instructions` パラメータでシステムプロンプトを指定
+4. `response.output` から `function_call` を抽出
+5. `response.id` を返却して次回の会話継続に使用
+6. `store: true` で会話履歴をサーバーに保存
+```
+
 #### 2.2 `task-agent.ts` の更新
 
 ```typescript
@@ -297,7 +335,9 @@ export class TaskAgent {
 
   private async determineNextStep(thread: Thread) {
     return await this.claude.generateToolCall({
-      // ...
+      systemPrompt: 'You are a helpful assistant...',
+      userMessage: builPrompt(thread.serializeForLLM()),
+      tools: [ /* ... */ ],
     });
   }
 }
@@ -309,18 +349,40 @@ import { OpenAIClient } from '../clients/openai';
 
 export class TaskAgent {
   private openai: OpenAIClient;
+  private currentResponseId?: string; // Responses API の response ID を保持
 
   constructor() {
     this.openai = new OpenAIClient();
   }
 
   private async determineNextStep(thread: Thread) {
-    return await this.openai.generateToolCall({
-      // ...
+    const { toolCall, responseId } = await this.openai.generateToolCall({
+      systemPrompt: 'You are a helpful assistant...',
+      userMessage: builPrompt(thread.serializeForLLM()),
+      previousResponseId: this.currentResponseId, // 前回の response ID で会話継続
+      tools: [ /* ... */ ],
     });
+
+    // Response ID を保存して次回の会話継続に使用
+    this.currentResponseId = responseId;
+
+    return toolCall;
   }
 }
 ```
+
+**重要な変更点**:
+1. インポート: `ClaudeClient` → `OpenAIClient`
+2. プロパティ名: `claude` → `openai`
+3. `currentResponseId` プロパティを追加して response ID を管理
+4. `generateToolCall` の戻り値が `{ toolCall, responseId }` に変更
+5. `previousResponseId` を渡して会話を継続（サーバーサイドで履歴管理）
+
+**Thread クラスについて**:
+- Thread クラスは**変更不要**です
+- `awaitingHumanResponse()` と `awaitingHumanApproval()` は引き続き機能します
+- `serializeForLLM()` で Thread の状態を OpenAI に渡します
+- Responses API の会話履歴とは別に、アプリケーション固有のイベント管理を継続
 
 #### 2.3 ツール定義の変換
 
@@ -379,30 +441,95 @@ tools: [
 
 `src/clients/openai.ts`:
 ```typescript
-// Anthropic 型を OpenAI 型に置き換え
+// Anthropic 型を OpenAI Responses API 型に置き換え
 import OpenAI from 'openai';
 
 type Params = {
   systemPrompt: string;
   userMessage: string;
-  conversationHistory?: OpenAI.ChatCompletionMessageParam[];
-  tools?: OpenAI.ChatCompletionTool[];
+  previousResponseId?: string; // サーバーサイド会話管理用
+  tools?: OpenAI.ResponseCreateParams.Tool[];
 };
 ```
 
-#### 3.2 会話履歴の型互換性
+#### 3.2 会話履歴の管理方法の変更
 
-**Anthropic 型**:
+**Anthropic API (現在)**:
 ```typescript
-Anthropic.MessageParam[]
+// クライアント側で会話履歴を配列で管理
+conversationHistory?: Anthropic.MessageParam[]
 ```
 
-**OpenAI 型**:
+**OpenAI Responses API (移行後)**:
 ```typescript
-OpenAI.ChatCompletionMessageParam[]
+// サーバーサイドで会話履歴を管理（response ID のみ保持）
+previousResponseId?: string
 ```
 
-型構造は互換性があるため、`Thread` クラスの変更は不要。
+**メリット**:
+- OpenAI API への messages 配列の送信が不要（会話履歴は OpenAI サーバーが管理）
+- `previous_response_id` のみを保持すればよい
+- サーバーサイドでのキャッシュ最適化（40-80%のコスト削減）
+
+**Thread クラスについて**:
+Thread クラスは引き続き必要です。以下の重要な役割があるため：
+
+1. **イベント履歴の管理**: `events` 配列でアプリケーション内のイベントを記録
+2. **LLM 用のコンテキスト作成**: `serializeForLLM()` で現在のスレッド状態を文字列化
+3. **状態判定**:
+   - `awaitingHumanResponse()` - `request_more_information` や `done_for_now` の検出
+   - `awaitingHumanApproval()` - `delete_task` などの危険な操作の検出
+
+**重要**: Responses API はメッセージ履歴を管理しますが、Thread クラスはアプリケーション固有の状態管理とビジネスロジックに必要です。両者は異なる目的で使用されます。
+
+#### 3.3 アーキテクチャ: Thread と Responses API の役割分担
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      TaskAgent                              │
+│  - currentResponseId: string (Responses API の ID 管理)      │
+│  - agentLoop(thread: Thread)                                │
+└─────────────────┬───────────────────────────────────────────┘
+                  │
+         ┌────────┴────────┐
+         │                 │
+         ▼                 ▼
+┌────────────────┐  ┌──────────────────────────────────────┐
+│ Thread クラス   │  │ OpenAI Responses API                 │
+│                │  │ (サーバーサイド)                      │
+├────────────────┤  ├──────────────────────────────────────┤
+│ 役割:          │  │ 役割:                                │
+│ ・イベント記録  │  │ ・メッセージ履歴の保存               │
+│ ・状態判定      │  │ ・会話コンテキストの管理             │
+│ ・LLM用文字列化 │  │ ・キャッシュ最適化                   │
+│                │  │                                      │
+│ データ:        │  │ データ:                              │
+│ events: [      │  │ previous_response_id:                │
+│   {type: '...'},│  │   "resp_abc123"                     │
+│   {type: '...'},│  │                                      │
+│ ]              │  │ ※ OpenAI サーバーに保存              │
+│                │  │                                      │
+│ メソッド:       │  │ API:                                 │
+│ ・awaitingHuman│  │ responses.create({                   │
+│   Response()   │  │   previous_response_id: "...",       │
+│ ・awaitingHuman│  │   store: true                        │
+│   Approval()   │  │ })                                   │
+│ ・serializeFor │  │                                      │
+│   LLM()        │  │                                      │
+└────────────────┘  └──────────────────────────────────────┘
+
+【データフロー】
+1. Thread.serializeForLLM() → OpenAI API への input として渡す
+2. OpenAI API は previous_response_id で過去の会話を自動参照
+3. OpenAI からの response.id を TaskAgent.currentResponseId に保存
+4. Tool call の結果を Thread.events に追加
+5. Thread.awaitingHumanResponse() で次のアクションを判定
+```
+
+**まとめ**:
+- **Thread**: アプリケーション固有のビジネスロジック（承認待ち、状態管理）
+- **Responses API**: 汎用的な会話履歴管理（OpenAI サーバーで自動管理）
+- 両者は**協調動作**し、それぞれ異なる責務を持つ
 
 ---
 
@@ -584,14 +711,14 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 - 各ツールの `description` を詳細化
 - 実際の使用パターンでのテスト実施
 
-### リスク2: 会話履歴のフォーマット違い
+### リスク2: Responses API の新規性
 
-**リスク**: メッセージ形式の微妙な違いによる互換性問題
+**リスク**: Responses API は2025年3月に導入されたばかりで、ドキュメントやコミュニティサポートが限定的
 
 **対策**:
-- `Thread` クラスの型定義を確認
-- 必要に応じて型変換ロジックを追加
-- 統合テストで会話の流れを検証
+- 公式ドキュメントとクックブックを参照
+- 必要に応じて Chat Completions API へのフォールバック可能な設計
+- 初期段階での動作検証を重点的に実施
 
 ### リスク3: コストの変動
 
@@ -738,8 +865,81 @@ npm run cli "今日のタスクを教えて"
 
 **コスト削減率**: 約83% (Input)、約87% (Output)
 
-### C. 参考リンク
+### C. 将来の拡張性（Responses API のメリット）
 
+Responses API を採用することで、将来的に以下の機能を簡単に追加できます:
+
+#### 1. **Web検索機能**
+```typescript
+const response = await client.responses.create({
+  model: 'gpt-4o',
+  instructions: systemPrompt,
+  input: userMessage,
+  tools: [
+    { type: 'web_search_preview' }, // Web検索ツールを追加
+    ...existingTools
+  ],
+});
+```
+
+**ユースケース**:
+- 最新のプロジェクト管理手法を検索
+- タスク管理のベストプラクティスを調査
+- 関連する記事やドキュメントの検索
+
+#### 2. **ファイル検索機能**
+```typescript
+const response = await client.responses.create({
+  model: 'gpt-4o',
+  instructions: systemPrompt,
+  input: userMessage,
+  tools: [
+    {
+      type: 'file_search',
+      // Notion からエクスポートしたドキュメントを検索可能
+    },
+  ],
+});
+```
+
+**ユースケース**:
+- 過去のプロジェクト資料の検索
+- タスク履歴の分析
+- ドキュメント内容の要約
+
+#### 3. **コード実行機能**（将来的に）
+```typescript
+const response = await client.responses.create({
+  model: 'gpt-4o',
+  instructions: systemPrompt,
+  input: userMessage,
+  tools: [
+    { type: 'code_interpreter' },
+  ],
+});
+```
+
+**ユースケース**:
+- タスクの進捗データの可視化
+- プロジェクトメトリクスの計算
+- レポート生成の自動化
+
+#### 4. **マルチターン会話の最適化**
+
+サーバーサイドでの会話管理により:
+- 長期的な会話セッションの維持
+- 会話の分岐（フォーク）が可能
+- 会話履歴の効率的な管理
+
+### D. 参考リンク
+
+**Responses API**:
+- [Responses API Documentation](https://platform.openai.com/docs/api-reference/responses)
+- [Responses vs Chat Completions Guide](https://platform.openai.com/docs/guides/responses-vs-chat-completions)
+- [Responses API Cookbook](https://cookbook.openai.com/examples/responses_api/responses_example)
+- [Migration Guide](https://platform.openai.com/docs/guides/migrate-to-responses)
+
+**一般的な OpenAI リソース**:
 - [OpenAI API Documentation](https://platform.openai.com/docs)
 - [OpenAI Node.js SDK GitHub](https://github.com/openai/openai-node)
 - [Function Calling Guide](https://platform.openai.com/docs/guides/function-calling)
@@ -749,16 +949,26 @@ npm run cli "今日のタスクを教えて"
 
 ## 結論
 
-この移行計画に従うことで、Anthropic API から OpenAI API への移行を安全かつ効率的に実行できます。主な変更点は以下の通りです:
+この移行計画に従うことで、Anthropic API から OpenAI Responses API への移行を安全かつ効率的に実行できます。主な変更点は以下の通りです:
 
 1. **SDK の置き換え**: `@anthropic-ai/sdk` → `openai`
-2. **クライアントクラスのリファクタリング**: `ClaudeClient` → `OpenAIClient`
-3. **ツール定義形式の変換**: Anthropic 形式 → OpenAI 形式
-4. **環境変数の変更**: `ANTHROPIC_API_KEY` → `OPENAI_API_KEY`
+2. **API の選択**: Anthropic Messages API → OpenAI Responses API
+3. **クライアントクラスのリファクタリング**: `ClaudeClient` → `OpenAIClient`
+4. **会話管理の変更**: クライアント側配列管理 → サーバーサイド ID 管理
+5. **ツール定義形式の変換**: Anthropic 形式 → OpenAI 形式
+6. **環境変数の変更**: `ANTHROPIC_API_KEY` → `OPENAI_API_KEY`
 
-移行によるメリット:
+### 移行によるメリット
+
+**即時的なメリット**:
 - **コスト削減**: 約83-87%のコスト削減
+- **キャッシュ最適化**: Responses API により40-80%の追加コスト削減
 - **最新モデル**: GPT-4o による高精度な function calling
-- **豊富なドキュメント**: OpenAI の充実したドキュメントとコミュニティサポート
+- **シンプルな実装**: サーバーサイド会話管理により実装が簡潔に
 
-リスクは適切に管理され、ロールバック計画も準備されています。
+**将来的なメリット**:
+- **拡張性**: Web検索、ファイル検索、コード実行などの機能を簡単に追加可能
+- **最新技術**: OpenAI の最新機能をいち早く利用可能
+- **豊富なエコシステム**: 充実したドキュメントとコミュニティサポート
+
+リスクは適切に管理され、ロールバック計画も準備されています。Responses API の採用により、将来的な機能拡張が容易になります。
