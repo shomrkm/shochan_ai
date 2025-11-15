@@ -185,7 +185,10 @@ export class TaskAgent {
                 description: 'New type of task in GTD system',
               },
               scheduled_date: {
-                type: 'string',
+                anyOf: [
+                  { type: 'string', description: 'New scheduled date in ISO format' },
+                  { type: 'null', description: 'Remove scheduled date' }
+                ],
                 description: 'New scheduled date in ISO format, or null to remove',
               },
               project_id: {
