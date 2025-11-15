@@ -1,7 +1,7 @@
 import { builPrompt } from '../prompts/system-prompt';
 import { OpenAIClient } from '../clients/openai';
 import { NotionClient } from '../clients/notion';
-import { Thread } from '../thread/thread';
+import type { Thread } from '../thread/thread';
 
 import type { ToolCall } from '../types/tools';
 export class TaskAgent {

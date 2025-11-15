@@ -1,6 +1,6 @@
 import * as readline from 'readline';
 import { TaskAgent } from './agent/task-agent';
-import { Thread, Event } from './thread/thread';
+import { Thread, type Event } from './thread/thread';
 import dotenv from 'dotenv';
 
 dotenv.config();

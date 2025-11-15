@@ -78,7 +78,7 @@ export class OpenAIClient {
         };
       } catch (error) {
         if (this.isRetryableError(error) && attempt < maxRetries) {
-          const delay = baseDelay * Math.pow(2, attempt - 1); // Exponential backoff
+          const delay = baseDelay * 2 ** (attempt - 1); // Exponential backoff
           console.log(
             `🔄 OpenAI API error (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`
           );
