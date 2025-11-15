@@ -192,7 +192,7 @@ export class TaskAgent {
                 description: 'New scheduled date in ISO format, or null to remove',
               },
               project_id: {
-                type: 'string',
+                type: ['string', 'null'],
                 description: 'New related project ID, or null to remove',
               },
               is_archived: {
