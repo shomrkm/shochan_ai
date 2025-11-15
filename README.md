@@ -28,7 +28,7 @@ Shochan AI is a TypeScript-based intelligent agent built as a personal project f
 - Node.js (v18 or higher)
 - TypeScript
 - Notion account with API access
-- Anthropic API key
+- OpenAI API key
 
 ## Installation
 
@@ -45,7 +45,7 @@ npm install
 
 3. Create a `.env` file in the root directory with the following variables:
 ```env
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 NOTION_API_KEY=your_notion_api_key_here
 NOTION_TASKS_DATABASE_ID=your_notion_tasks_database_id
 NOTION_PROJECTS_DATABASE_ID=your_notion_projects_database_id
@@ -139,7 +139,7 @@ npm run cli "新しいWebサイト開発プロジェクトを作成して"
 
 ### Environment Variables
 
-- `ANTHROPIC_API_KEY`: Your Anthropic API key for AI access
+- `OPENAI_API_KEY`: Your OpenAI API key for AI access
 - `NOTION_API_KEY`: Your Notion integration token
 - `NOTION_TASKS_DATABASE_ID`: The ID of your tasks Notion database
 - `NOTION_PROJECTS_DATABASE_ID`: The ID of your projects Notion database
@@ -176,8 +176,8 @@ npm run test:watch
 src/
 ├── agent/              # Core agent logic
 │   └── task-agent.ts   # Main TaskAgent with 8 available tools
-├── clients/            # External API clients (Claude, Notion)
-│   ├── claude.ts       # Claude AI client
+├── clients/            # External API clients (OpenAI, Notion)
+│   ├── openai.ts       # OpenAI client using Responses API
 │   ├── notion.ts       # Notion API client with full CRUD operations
 │   └── notionUtils.ts  # Notion utility functions
 ├── prompts/            # System prompts and messaging
