@@ -21,11 +21,11 @@
    - **Unit Tests**: Run `npm test` to ensure all tests pass
    - **Code Quality**: Verify implementation follows existing patterns
 
-4. **Commit Confirmation Protocol**
+4. **Commit Confirmation Protocol (CRITICAL - NEVER SKIP)**
+   - **NEVER create git commits without explicit user permission**
    - Present completed work summary to user
-   - Request explicit approval: "Task X.Y が完了しました。レビューをお願いします"
-   - Wait for user confirmation before proceeding with git commit
-   - Only commit after receiving "OK" or similar approval
+   - Request explicit approval: "Task X.Y が完了しました。レビューをお願いします。コミットしてもよろしいですか？"
+   - **WAIT** for user confirmation before proceeding with git commit
 
 ### Code Quality Standards
 

@@ -10,14 +10,14 @@ Shochan AI is built as a conversational AI agent that bridges natural language r
 graph TD
     CLI[CLI Interface<br/>Entry point for user interaction] --> Agent[Task Agent<br/>Core orchestrator and decision maker]
     Agent --> Thread[Thread<br/>Conversation state management]
-    Thread --> Claude[Claude Client<br/>AI processing]
+    Thread --> OpenAI[OpenAI Client<br/>AI processing]
     Thread --> Notion[Notion Client<br/>API operations]
     Thread --> Utils[Utils<br/>Helper functions]
-    
+
     style CLI fill:#e1f5fe
     style Agent fill:#f3e5f5
     style Thread fill:#fff3e0
-    style Claude fill:#e8f5e8
+    style OpenAI fill:#e8f5e8
     style Notion fill:#fce4ec
     style Utils fill:#f1f8e9
 ```
@@ -51,7 +51,7 @@ The central orchestrator that implements the main agent loop and decision-making
 
 **Agent Loop Flow:**
 ```
-1. Determine Next Step (via Claude)
+1. Determine Next Step (via OpenAI GPT-4o)
 2. Add step to conversation thread
 3. Execute tool if needed
 4. Continue loop until done_for_now or request_more_information
@@ -92,19 +92,27 @@ interface Event {
 
 ### 4. External Clients
 
-#### Claude Client (`src/clients/claude.ts`)
+#### OpenAI Client (`src/clients/openai.ts`)
 
-Handles integration with Anthropic's Claude API.
+Handles integration with OpenAI's API via Responses API.
 
 **Responsibilities:**
-- Generate structured tool calls from natural language
+- Generate structured function calls from natural language using GPT-4o
 - Manage API communication with retry logic
 - Handle rate limiting and error recovery
 
 **Features:**
+- OpenAI Responses API for server-side conversation management
+- Automatic JSON parsing of function arguments
 - Configurable retry mechanism (3 attempts with exponential backoff)
-- Comprehensive error handling
-- Support for conversation history and tool definitions
+- Support for function calling with 8 tools
+- Cost optimization via server-side conversation caching (`previous_response_id` and `store: true`)
+
+**API Integration Details:**
+- Uses `ResponseInput` with `instructions` (system prompt) and `previous_response_id` (conversation continuation)
+- Function calls received via `response.output.function_call` structure
+- Server-side conversation history management eliminates manual message array construction
+- Retry logic handles 429 (rate limit) and 500-504 (server errors)
 
 #### Notion Client (`src/clients/notion.ts`)
 
@@ -157,7 +165,7 @@ Supporting utilities for data processing and API interactions.
 flowchart LR
     A[User Input] --> B[CLI]
     B --> C[TaskAgent]
-    C --> D[Claude Client]
+    C --> D[OpenAI Client]
     D --> E[Tool Call]
     E --> F[Tool Execution]
     F --> G[Notion Client]
@@ -168,7 +176,7 @@ flowchart LR
     J --> K[Final Response]
     K --> B
     B --> L[User Output]
-    
+
     style A fill:#e3f2fd
     style L fill:#e3f2fd
     style C fill:#f3e5f5
@@ -212,7 +220,7 @@ tasks: [
 ### 1. Agent Pattern
 
 The TaskAgent implements a classical agent pattern with:
-- **Perception**: Natural language understanding via Claude
+- **Perception**: Natural language understanding via OpenAI GPT-4o
 - **Decision Making**: Tool selection and parameter determination
 - **Action**: Tool execution against external systems
 - **Learning**: Conversation context accumulation
@@ -237,7 +245,7 @@ The system uses strategy pattern for:
 ### Environment Variables
 
 ```env
-ANTHROPIC_API_KEY          # Claude API access
+OPENAI_API_KEY             # OpenAI API access
 NOTION_API_KEY             # Notion integration token
 NOTION_TASKS_DATABASE_ID   # Tasks database identifier
 NOTION_PROJECTS_DATABASE_ID # Projects database identifier
@@ -245,10 +253,11 @@ NOTION_PROJECTS_DATABASE_ID # Projects database identifier
 
 ### System Configuration
 
-- **Claude Model**: claude-3-5-sonnet-20241022
-- **Max Tokens**: 1024 for tool call generation
+- **OpenAI Model**: gpt-4o (GPT-4 Optimized)
+- **Max Tokens**: 1024 for function call generation
 - **Retry Policy**: 3 attempts with exponential backoff
 - **Default Limits**: 10 tasks per query, configurable up to 100
+- **API Type**: OpenAI Responses API with server-side conversation storage
 
 ## Error Handling Strategy
 
@@ -325,7 +334,7 @@ graph TD
 ### 1. Unit Testing
 
 - Individual component testing with Vitest
-- Mock external dependencies (Claude, Notion APIs)
+- Mock external dependencies (OpenAI, Notion APIs)
 - Type guard validation testing
 - Utility function testing
 
@@ -355,7 +364,7 @@ npm test         # Test suite execution
 
 - Node.js 18+ environment
 - Environment variable configuration
-- Network access to Anthropic and Notion APIs
+- Network access to OpenAI and Notion APIs
 
 ### 3. Monitoring
 

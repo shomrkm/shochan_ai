@@ -1,15 +1,15 @@
 import { builPrompt } from '../prompts/system-prompt';
-import { ClaudeClient } from '../clients/claude';
+import { OpenAIClient } from '../clients/openai';
 import { NotionClient } from '../clients/notion';
 import { Thread } from '../thread/thread';
 
 import type { ToolCall } from '../types/tools';
 export class TaskAgent {
-  private claude: ClaudeClient;
+  private openai: OpenAIClient;
   private notion: NotionClient;
 
   constructor() {
-    this.claude = new ClaudeClient();
+    this.openai = new OpenAIClient();
     this.notion = new NotionClient();
   }
 
@@ -52,14 +52,16 @@ export class TaskAgent {
   }
 
   private async determineNextStep(thread: Thread) {
-    return await this.claude.generateToolCall({
+    const { toolCall } = await this.openai.generateToolCall({
       systemPrompt: 'You are a helpful assistant that can help with Notion GTD system management.',
-      userMessage: builPrompt(thread.serializeForLLM()),
+      inputMessages: [{ role: 'user', content: builPrompt(thread.serializeForLLM()) }],
       tools: [
         {
+          type: 'function',
           name: 'create_task',
           description: 'Create a new task in the GTD system',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               title: { type: 'string', description: 'Task title' },
@@ -76,9 +78,11 @@ export class TaskAgent {
           },
         },
         {
+          type: 'function',
           name: 'create_project',
           description: 'Create a new project',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               name: { type: 'string', description: 'Project name' },
@@ -94,9 +98,11 @@ export class TaskAgent {
           },
         },
         {
+          type: 'function',
           name: 'get_tasks',
           description: 'Retrieve tasks with optional filtering and sorting',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               task_type: {
@@ -137,9 +143,11 @@ export class TaskAgent {
           },
         },
         {
+          type: 'function',
           name: 'request_more_information',
           description: 'Request more information from the user',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               message: { type: 'string', description: 'Message to request more information' },
@@ -148,9 +156,11 @@ export class TaskAgent {
           },
         },
         {
+          type: 'function',
           name: 'delete_task',
           description: 'Delete a task from the GTD system',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               task_id: { type: 'string', description: 'ID of the task to delete' },
@@ -160,9 +170,11 @@ export class TaskAgent {
           },
         },
         {
+          type: 'function',
           name: 'update_task',
           description: 'Update an existing task in the GTD system',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               task_id: { type: 'string', description: 'ID of the task to update' },
@@ -173,7 +185,10 @@ export class TaskAgent {
                 description: 'New type of task in GTD system',
               },
               scheduled_date: {
-                type: ['string', 'null'],
+                anyOf: [
+                  { type: 'string', description: 'New scheduled date in ISO format' },
+                  { type: 'null', description: 'Remove scheduled date' }
+                ],
                 description: 'New scheduled date in ISO format, or null to remove',
               },
               project_id: {
@@ -189,9 +204,11 @@ export class TaskAgent {
           },
         },
         {
+          type: 'function',
           name: 'get_task_details',
           description: 'Get detailed information about a specific task by its ID',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               task_id: { type: 'string', description: 'ID of the task to retrieve details for' },
@@ -200,10 +217,12 @@ export class TaskAgent {
           },
         },
         {
+          type: 'function',
           name: 'done_for_now',
           description:
             'Complete conversation with natural response for now, return the result of the tool you used',
-          input_schema: {
+          strict: null,
+          parameters: {
             type: 'object',
             properties: {
               message: {
@@ -216,6 +235,8 @@ export class TaskAgent {
         },
       ],
     });
+
+    return toolCall;
   }
 
   async handleNextStep(nextStep: ToolCall, thread: Thread): Promise<Thread> {
