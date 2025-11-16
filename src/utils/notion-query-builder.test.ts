@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { assert, describe, expect, it } from 'vitest';
 import { NotionQueryBuilder } from './notion-query-builder';
 
 describe('NotionQueryBuilder', () => {
@@ -297,7 +297,11 @@ describe('NotionQueryBuilder', () => {
           sort_order: 'asc',
         });
 
-        expect(result.filter?.and).toHaveLength(4);
+        if (result.filter && 'and' in result.filter) {
+          expect(result.filter.and).toHaveLength(4);
+        } else {
+          assert(false, 'filter is not an object');
+        }
         expect(result.sorts).toHaveLength(1);
         expect(result.sorts?.[0]).toMatchObject({
           property: 'due_date',
