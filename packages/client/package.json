@@ -1,0 +1,21 @@
+{
+  "name": "@shochan_ai/client",
+  "version": "0.0.1",
+  "description": "API clients for Shochan AI (OpenAI, Notion)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["client", "openai", "notion"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@notionhq/client": "^4.0.1",
+    "openai": "^6.8.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}
