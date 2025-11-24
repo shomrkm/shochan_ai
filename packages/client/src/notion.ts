@@ -1,12 +1,12 @@
 import { Client } from '@notionhq/client';
-import type { ToolCall } from '../types/tools';
+import type { ToolCall } from '@shochan_ai/core';
 import {
   buildProjectCreatePageParams,
   buildTaskCreatePageParams,
   buildTaskUpdatePageParams,
 } from './notionUtils';
-import { NotionQueryBuilder } from '../utils/notion-query-builder';
-import { NotionTaskParser } from '../utils/notion-task-parser';
+import { NotionQueryBuilder } from '@shochan_ai/core';
+import { NotionTaskParser } from '@shochan_ai/core';
 import {
   isCreateProjectTool,
   isCreateTaskTool,
@@ -14,7 +14,7 @@ import {
   isDeleteTaskTool,
   isUpdateTaskTool,
   isGetTaskDetailsTool,
-} from '../types/toolGuards';
+} from '@shochan_ai/core';
 
 export class NotionClient {
   private client: Client;

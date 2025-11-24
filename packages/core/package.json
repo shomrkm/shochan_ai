@@ -1,0 +1,18 @@
+{
+  "name": "@shochan_ai/core",
+  "version": "0.0.1",
+  "description": "Core business logic for Shochan AI (CLI & Web shared)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "keywords": ["agent", "task-management", "core"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.9.2"
+  }
+}

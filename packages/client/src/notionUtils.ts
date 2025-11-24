@@ -4,7 +4,7 @@ import type {
   BuildTaskUpdatePageParamsArgs,
   NotionCreatePageParams,
   NotionUpdatePageParams,
-} from '../types/notion';
+} from '@shochan_ai/core';
 
 export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): NotionCreatePageParams {
   const { databaseId, title, description, task_type, scheduled_date, project_id } = args;

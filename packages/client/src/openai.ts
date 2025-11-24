@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { ToolCall } from '../types/tools';
+import type { ToolCall } from '@shochan_ai/core';
 
 type InputMessage =
   | { role: 'user' | 'system' | 'developer'; content: string }

@@ -1,9 +1,13 @@
+#!/usr/bin/env node
+
 import * as readline from 'readline';
 import { TaskAgent } from './agent/task-agent';
-import { Thread, type Event } from './thread/thread';
+import { Thread, type Event } from '@shochan_ai/core';
 import dotenv from 'dotenv';
+import path from 'path';
 
-dotenv.config();
+// Load .env from repository root
+dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
 
 export async function cli() {
   const args = process.argv.slice(2);

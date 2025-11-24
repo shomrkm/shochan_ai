@@ -1,10 +1,10 @@
-import { builPrompt } from '../prompts/system-prompt';
-import { OpenAIClient } from '../clients/openai';
-import { NotionClient } from '../clients/notion';
-import type { Thread } from '../thread/thread';
+import { builPrompt } from '@shochan_ai/core';
+import { OpenAIClient } from '@shochan_ai/client';
+import { NotionClient } from '@shochan_ai/client';
+import type { Thread } from '@shochan_ai/core';
 import { taskAgentTools } from './task-agent-tools';
 
-import type { ToolCall } from '../types/tools';
+import type { ToolCall } from '@shochan_ai/core';
 export class TaskAgent {
   private openai: OpenAIClient;
   private notion: NotionClient;

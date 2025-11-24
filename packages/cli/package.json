@@ -1,0 +1,27 @@
+{
+  "name": "@shochan_ai/cli",
+  "version": "0.0.1",
+  "description": "CLI interface for Shochan AI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "shochan-ai": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "start": "node dist/index.js"
+  },
+  "keywords": ["cli", "task-management"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@shochan_ai/core": "workspace:*",
+    "@shochan_ai/client": "workspace:*",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "typescript": "^5.9.2"
+  }
+}
