@@ -4,15 +4,56 @@
 
 Shochan AI is built as a conversational AI agent that bridges natural language requests with structured operations on external systems (Notion databases). The architecture follows clean separation of concerns with a focus on type safety, maintainability, and extensibility.
 
+The project is structured as a **monorepo** using pnpm workspaces to enable code sharing and modular development.
+
+## Monorepo Structure
+
+```
+shochan_ai/
+├── packages/
+│   ├── core/              # Business logic (zero dependencies)
+│   │   ├── src/
+│   │   │   ├── thread/    # Conversation state management
+│   │   │   ├── types/     # Type definitions and guards
+│   │   │   ├── utils/     # Utility functions
+│   │   │   └── prompts/   # System prompts
+│   │   └── package.json
+│   │
+│   ├── client/            # API clients (depends on core)
+│   │   ├── src/
+│   │   │   ├── openai.ts  # OpenAI client
+│   │   │   └── notion.ts  # Notion client
+│   │   └── package.json
+│   │
+│   └── cli/               # CLI implementation (depends on core + client)
+│       ├── src/
+│       │   ├── index.ts   # CLI entry point
+│       │   └── agent/     # TaskAgent
+│       └── package.json
+│
+├── pnpm-workspace.yaml    # Workspace configuration
+├── tsconfig.base.json     # Shared TypeScript config
+└── package.json           # Root package with scripts
+```
+
+**Dependency Graph:**
+```
+packages/core (no dependencies)
+    ↑
+packages/client (depends on @shochan_ai/core)
+    ↑
+packages/cli (depends on @shochan_ai/core + @shochan_ai/client)
+```
+
 ## High-Level Architecture
 
 ```mermaid
 graph TD
-    CLI[CLI Interface<br/>Entry point for user interaction] --> Agent[Task Agent<br/>Core orchestrator and decision maker]
-    Agent --> Thread[Thread<br/>Conversation state management]
-    Thread --> OpenAI[OpenAI Client<br/>AI processing]
-    Thread --> Notion[Notion Client<br/>API operations]
-    Thread --> Utils[Utils<br/>Helper functions]
+    CLI[CLI Package<br/>packages/cli<br/>Entry point for user interaction] --> Agent[Task Agent<br/>packages/cli/src/agent<br/>Core orchestrator and decision maker]
+    Agent --> Thread[Thread<br/>packages/core/src/thread<br/>Conversation state management]
+    Agent --> OpenAI[OpenAI Client<br/>packages/client<br/>AI processing]
+    Agent --> Notion[Notion Client<br/>packages/client<br/>API operations]
+    Agent --> Utils[Utils<br/>packages/core/src/utils<br/>Helper functions]
 
     style CLI fill:#e1f5fe
     style Agent fill:#f3e5f5
@@ -24,24 +65,46 @@ graph TD
 
 ## Core Components
 
-### 1. CLI Interface (`src/cli.ts`)
+### 1. CLI Interface (`packages/cli/src/index.ts`)
 
 The command-line interface serves as the entry point for user interactions.
+
+**Location:** `packages/cli/src/index.ts`
 
 **Responsibilities:**
 - Parse command-line arguments
 - Initialize the TaskAgent with user input
 - Handle conversational loops for multi-turn interactions
 - Manage user input/output for interactive sessions
+- Load environment variables from repository root
 
 **Key Features:**
 - Single-command execution mode
 - Interactive conversation handling
 - Graceful error handling and process management
+- Shebang support for direct execution (`#!/usr/bin/env node`)
 
-### 2. Task Agent (`src/agent/task-agent.ts`)
+**Package Configuration:**
+```json
+{
+  "name": "@shochan_ai/cli",
+  "bin": {
+    "shochan-ai": "./dist/index.js"
+  },
+  "dependencies": {
+    "@shochan_ai/core": "workspace:*",
+    "@shochan_ai/client": "workspace:*"
+  }
+}
+```
+
+### 2. Task Agent (`packages/cli/src/agent/task-agent.ts`)
 
 The central orchestrator that implements the main agent loop and decision-making logic.
+
+**Location:** `packages/cli/src/agent/task-agent.ts`
+
+**Note:** TaskAgent is located in the CLI package as it represents application logic rather than core framework logic.
 
 **Responsibilities:**
 - Convert natural language to structured tool calls via Claude
@@ -67,9 +130,13 @@ The central orchestrator that implements the main agent loop and decision-making
 - `request_more_information`: Ask user for clarification
 - `done_for_now`: Provide final response to user
 
-### 3. Thread Management (`src/thread/thread.ts`)
+### 3. Thread Management (`packages/core/src/thread/thread.ts`)
 
 Manages conversation state and context serialization.
+
+**Location:** `packages/core/src/thread/thread.ts`
+
+**Package:** `@shochan_ai/core` (zero dependencies)
 
 **Responsibilities:**
 - Store conversation events in chronological order
@@ -92,9 +159,13 @@ interface Event {
 
 ### 4. External Clients
 
-#### OpenAI Client (`src/clients/openai.ts`)
+#### OpenAI Client (`packages/client/src/openai.ts`)
 
 Handles integration with OpenAI's API via Responses API.
+
+**Location:** `packages/client/src/openai.ts`
+
+**Package:** `@shochan_ai/client` (depends on `@shochan_ai/core`)
 
 **Responsibilities:**
 - Generate structured function calls from natural language using GPT-4o
@@ -114,9 +185,13 @@ Handles integration with OpenAI's API via Responses API.
 - Server-side conversation history management eliminates manual message array construction
 - Retry logic handles 429 (rate limit) and 500-504 (server errors)
 
-#### Notion Client (`src/clients/notion.ts`)
+#### Notion Client (`packages/client/src/notion.ts`)
 
 Manages all interactions with Notion databases.
+
+**Location:** `packages/client/src/notion.ts`
+
+**Package:** `@shochan_ai/client` (depends on `@shochan_ai/core`)
 
 **Responsibilities:**
 - CRUD operations on tasks and projects
@@ -132,9 +207,13 @@ Manages all interactions with Notion databases.
 - Project creation with importance levels
 - Proper error handling and validation
 
-### 5. Type System (`src/types/`)
+### 5. Type System (`packages/core/src/types/`)
 
 Comprehensive type definitions ensuring type safety across the application.
+
+**Location:** `packages/core/src/types/`
+
+**Package:** `@shochan_ai/core` (zero dependencies)
 
 **Key Type Categories:**
 - **Tool Types**: Structured definitions for all supported tools
@@ -148,9 +227,13 @@ Comprehensive type definitions ensuring type safety across the application.
 - Discriminated unions for tool calls
 - Comprehensive error type definitions
 
-### 6. Utilities (`src/utils/`)
+### 6. Utilities (`packages/core/src/utils/`)
 
 Supporting utilities for data processing and API interactions.
+
+**Location:** `packages/core/src/utils/`
+
+**Package:** `@shochan_ai/core` (zero dependencies)
 
 **Components:**
 - **Notion Query Builder**: Constructs complex database queries with filtering and sorting
@@ -354,17 +437,47 @@ graph TD
 
 ### 1. Build Process
 
+**Monorepo Build Commands:**
 ```bash
-npm run build    # TypeScript compilation
-npm run check    # Linting and formatting
-npm test         # Test suite execution
+# Build all packages
+pnpm build          # Builds packages/core, packages/client, packages/cli
+
+# Build specific package
+pnpm --filter @shochan_ai/core build
+pnpm --filter @shochan_ai/client build
+pnpm --filter @shochan_ai/cli build
+
+# Run CLI
+pnpm cli "your message here"
+
+# Testing
+pnpm test           # Run all tests (vitest)
+pnpm test:watch     # Watch mode
+
+# Code Quality
+pnpm check          # Biome linting and formatting
+pnpm check:fix      # Auto-fix issues
 ```
+
+**Build Order:**
+TypeScript project references ensure correct build order:
+1. `packages/core` (no dependencies)
+2. `packages/client` (depends on core)
+3. `packages/cli` (depends on core + client)
 
 ### 2. Runtime Requirements
 
 - Node.js 18+ environment
-- Environment variable configuration
+- pnpm 8+ (for workspace support)
+- Environment variable configuration (`.env` in repository root)
 - Network access to OpenAI and Notion APIs
+
+**Environment Variables:**
+The CLI automatically loads `.env` from the repository root:
+```typescript
+// packages/cli/src/index.ts
+dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
+```
 
 ### 3. Monitoring
 
@@ -378,19 +491,19 @@ npm test         # Test suite execution
 
 The architecture supports easy addition of new tools as demonstrated by the recent `get_task_details` implementation:
 
-1. Define tool interface in `src/types/tools.ts`
-2. Add type guard function in `src/types/toolGuards.ts`
+1. Define tool interface in `packages/core/src/types/tools.ts`
+2. Add type guard function in `packages/core/src/types/toolGuards.ts`
 3. Add tool definition to TaskAgent tool list in system prompt
-4. Implement tool execution in handleNextStep method
-5. Add corresponding method in NotionClient
+4. Implement tool execution in `packages/cli/src/agent/task-agent.ts`
+5. Add corresponding method in `packages/client/src/notion.ts`
 6. Update system prompt documentation
 
 ### 2. Additional Clients
 
 New external service integration follows the pattern:
 
-1. Create client class in `src/clients/`
-2. Define service-specific types
+1. Create client class in `packages/client/src/`
+2. Define service-specific types in `packages/core/src/types/`
 3. Add to TaskAgent dependency injection
 4. Implement error handling and retry logic
 
@@ -405,4 +518,4 @@ The Thread system can be extended for:
 
 ## Conclusion
 
-Shochan AI's architecture prioritizes simplicity, type safety, and maintainability while providing a robust foundation for natural language task management. The clean separation of concerns and comprehensive error handling make it suitable for both development and production use cases.
+Shochan AI's architecture prioritizes simplicity, type safety, and maintainability while providing a robust foundation for natural language task management. The monorepo structure enables code sharing and modular development, while maintaining clean separation of concerns and comprehensive error handling suitable for both development and production use cases.
