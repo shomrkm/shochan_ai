@@ -719,39 +719,60 @@ export function getStreamManager(): StreamManager {
 
 ## 実装フェーズ
 
-### フェーズ1: 基盤整備
+### フェーズ1: 基盤整備 ✅ 一部完了 / 🔄 進行中
 
 **目的:** モノレポ構造への移行と型システムの強化
 
+**ステータス:** 2025-01-23 開始、モノレポ構造は完了、循環依存の問題が判明
+
 **タスク:**
 
-1. **モノレポ構造のセットアップ**
-   - `pnpm-workspace.yaml` 作成
-   - `packages/core`, `packages/client`, `packages/cli`, `packages/web` ディレクトリ作成
-   - 各パッケージに `package.json`, `tsconfig.json` を配置
-   - ルートの `package.json` に workspace 設定
+1. **モノレポ構造のセットアップ** ✅ 完了
+   - ✅ `pnpm-workspace.yaml` 作成
+   - ✅ `packages/core`, `packages/client`, `packages/cli` ディレクトリ作成（`packages/web` は Phase 4 で作成）
+   - ✅ 各パッケージに `package.json`, `tsconfig.json` を配置
+   - ✅ ルートの `package.json` に workspace 設定
+   - ✅ `tsconfig.base.json` で共通 TypeScript 設定を定義
 
-2. **既存コードの移行**
-   - `src/agent/`, `src/thread/`, `src/types/` → `packages/core/src/`
-   - `src/clients/` → `packages/client/src/`
-   - `src/cli.ts` → `packages/cli/src/`
-   - import パスを `@shochan_ai/core` 等に修正
+2. **既存コードの移行** ✅ 完了
+   - ✅ `src/agent/`, `src/thread/`, `src/types/`, `src/prompts/`, `src/utils/` → `packages/core/src/`
+   - ✅ `src/clients/` → `packages/client/src/`
+   - ✅ `src/cli.ts` → `packages/cli/src/index.ts`（bin 対応のため index.ts にリネーム）
+   - ✅ import パスを `@shochan_ai/core`, `@shochan_ai/client` 等に修正
+   - ✅ `packages/core/src/index.ts` と `packages/client/src/index.ts` でエクスポート定義
+   - ✅ CLI に shebang `#!/usr/bin/env node` を追加
 
-3. **型定義の強化**
+3. **依存関係の整理** ✅ 完了
+   - ✅ `packages/core/package.json` に @notionhq/client, openai を追加
+   - ✅ `packages/client/package.json` に @shochan_ai/core を追加
+   - ✅ `packages/client/tsconfig.json` に core への参照を追加
+   - ✅ `pnpm install` 実行成功
+
+4. **循環依存の解決** 🔄 進行中
+   - ⚠️ **問題点:** packages/core が TaskAgent を含み、TaskAgent が OpenAIClient/NotionClient に依存
+   - ⚠️ packages/core → packages/client → packages/core という循環依存が発生
+   - 🔄 **対応方針:** TaskAgent を packages/cli に一時的に移動（Phase 2 で正しいアーキテクチャにリファクタ）
+
+5. **型定義の強化** 🔜 未着手（Phase 2 に延期）
    - `packages/core/src/types/index.ts` で Discriminated Unions 定義
    - `ToolCall`, `Event`, `AgentState` の型を厳密に定義
    - 既存の `any` を排除
 
-4. **StateStore インターフェースの定義**
+6. **StateStore インターフェースの定義** 🔜 未着手（Phase 2 に延期）
    - `packages/core/src/state/store.ts` にインターフェース定義
    - `InMemoryStateStore` 実装（CLI用）
 
 **完了条件:**
-- `pnpm install` が成功する
-- 既存のテストが全てパスする
-- 型エラーがゼロ
+- ✅ `pnpm install` が成功する
+- ⏳ 循環依存を解決する
+- ⏳ 既存のテストが全てパスする
+- ⏳ 型エラーがゼロ
 
-**所要時間:** 1-2日
+**判明した課題:**
+- TaskAgent の配置が不適切で循環依存が発生
+- Phase 2 で Stateless Reducer パターンに移行する際に、正しいアーキテクチャに再設計が必要
+
+**所要時間:** 1-2日（予定）→ 実際: 1日目完了、循環依存解決に追加作業が必要
 
 ---
 

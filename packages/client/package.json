@@ -12,6 +12,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@shochan_ai/core": "workspace:*",
     "@notionhq/client": "^4.0.1",
     "openai": "^6.8.1"
   },
