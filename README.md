@@ -26,6 +26,7 @@ Shochan AI is a TypeScript-based intelligent agent built as a personal project f
 ## Prerequisites
 
 - Node.js (v18 or higher)
+- pnpm (v8 or higher)
 - TypeScript
 - Notion account with API access
 - OpenAI API key
@@ -40,7 +41,7 @@ cd shochan_ai
 
 2. Install dependencies:
 ```bash
-npm install
+pnpm install
 ```
 
 3. Create a `.env` file in the root directory with the following variables:
@@ -58,17 +59,9 @@ NOTION_PROJECTS_DATABASE_ID=your_notion_projects_database_id
 Run the agent with a natural language command:
 
 ```bash
-npm run cli "Show me my tasks for today"
-npm run cli "Create a new project for learning TypeScript"
-npm run cli "Add a task to review the quarterly report"
-```
-
-### Development Mode
-
-Run in development mode with hot reloading:
-
-```bash
-npm run dev
+pnpm cli "Show me my tasks for today"
+pnpm cli "Create a new project for learning TypeScript"
+pnpm cli "Add a task to review the quarterly report"
 ```
 
 ### Build and Run
@@ -76,41 +69,41 @@ npm run dev
 Build the project and run:
 
 ```bash
-npm run build
-npm start
+pnpm build
+pnpm cli "your message here"
 ```
 
 ## Example Interactions
 
 **Task Retrieval:**
 ```bash
-npm run cli "今週のタスクを10件教えて"
+pnpm cli "今週のタスクを10件教えて"
 # Returns up to 10 tasks for this week
 ```
 
 **Task Creation:**
 ```bash
-npm run cli "明日までにレポートを完成させるタスクを作成して"
+pnpm cli "明日までにレポートを完成させるタスクを作成して"
 # Creates a task to complete a report by tomorrow
 ```
 
 **Task Details:**
 ```bash
-npm run cli "タスクID 277d4af9764f803a81ccef04703e79fb の詳細を教えて"
+pnpm cli "タスクID 277d4af9764f803a81ccef04703e79fb の詳細を教えて"
 # Gets detailed information including page content for a specific task
 ```
 
 **Task Management:**
 ```bash
-npm run cli "タスクを完了状態に更新して"
+pnpm cli "タスクを完了状態に更新して"
 # Updates task status to completed
-npm run cli "不要なタスクを削除して"
+pnpm cli "不要なタスクを削除して"
 # Deletes a task (requires approval)
 ```
 
 **Project Management:**
 ```bash
-npm run cli "新しいWebサイト開発プロジェクトを作成して"
+pnpm cli "新しいWebサイト開発プロジェクトを作成して"
 # Creates a new website development project
 ```
 
@@ -146,52 +139,68 @@ npm run cli "新しいWebサイト開発プロジェクトを作成して"
 
 ## Commands
 
-- `npm run build`: Build the TypeScript project
-- `npm start`: Run the built application
-- `npm run dev`: Run in development mode
-- `npm run cli`: Run CLI with arguments
-- `npm test`: Run test suite
-- `npm run test:watch`: Run tests in watch mode
-- `npm run format`: Format code with Biome
-- `npm run lint`: Lint code with Biome
-- `npm run check`: Run all checks (format + lint)
+- `pnpm build`: Build all packages in the monorepo
+- `pnpm cli`: Run CLI with arguments
+- `pnpm test`: Run test suite
+- `pnpm test:watch`: Run tests in watch mode
+- `pnpm format`: Format code with Biome
+- `pnpm lint`: Lint code with Biome
+- `pnpm check`: Run all checks (format + lint)
+- `pnpm check:fix`: Auto-fix formatting and linting issues
 
 ## Testing
 
 Run the test suite:
 
 ```bash
-npm test
+pnpm test
 ```
 
 Run tests in watch mode:
 
 ```bash
-npm run test:watch
+pnpm test:watch
 ```
 
 ## Project Structure
 
+This project uses a monorepo structure with pnpm workspaces:
+
 ```
-src/
-├── agent/              # Core agent logic
-│   └── task-agent.ts   # Main TaskAgent with 8 available tools
-├── clients/            # External API clients (OpenAI, Notion)
-│   ├── openai.ts       # OpenAI client using Responses API
-│   ├── notion.ts       # Notion API client with full CRUD operations
-│   └── notionUtils.ts  # Notion utility functions
-├── prompts/            # System prompts and messaging
-│   └── system-prompt.ts # 12-factor agents system prompt
-├── thread/             # Conversation thread management
-├── types/              # TypeScript type definitions
-│   ├── tools.ts        # Tool call interfaces
-│   ├── toolGuards.ts   # Type guard functions
-│   └── task.ts         # Task information interface
-├── utils/              # Utility functions
-│   ├── notion-query-builder.ts  # Notion query construction
-│   └── notion-task-parser.ts    # Notion response parsing
-└── cli.ts              # Command-line interface
+packages/
+├── core/                        # Business logic (zero dependencies)
+│   ├── src/
+│   │   ├── thread/             # Conversation thread management
+│   │   ├── types/              # TypeScript type definitions
+│   │   │   ├── tools.ts        # Tool call interfaces
+│   │   │   ├── toolGuards.ts   # Type guard functions
+│   │   │   └── task.ts         # Task information interface
+│   │   ├── utils/              # Utility functions
+│   │   │   ├── notion-query-builder.ts  # Notion query construction
+│   │   │   └── notion-task-parser.ts    # Notion response parsing
+│   │   └── prompts/            # System prompts and messaging
+│   │       └── system-prompt.ts # 12-factor agents system prompt
+│   └── package.json
+│
+├── client/                      # API clients (depends on core)
+│   ├── src/
+│   │   ├── openai.ts           # OpenAI client using Responses API
+│   │   ├── notion.ts           # Notion API client with full CRUD operations
+│   │   └── notionUtils.ts      # Notion utility functions
+│   └── package.json
+│
+└── cli/                         # CLI implementation (depends on core + client)
+    ├── src/
+    │   ├── index.ts            # Command-line interface
+    │   └── agent/
+    │       └── task-agent.ts   # Main TaskAgent with 8 available tools
+    └── package.json
 ```
+
+**Dependency Graph:**
+- `packages/core` has zero dependencies
+- `packages/client` depends on `@shochan_ai/core`
+- `packages/cli` depends on `@shochan_ai/core` and `@shochan_ai/client`
 
 ## Available Tools
 
