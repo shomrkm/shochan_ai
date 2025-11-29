@@ -2,7 +2,7 @@
 
 import * as readline from 'readline';
 import { TaskAgent } from './agent/task-agent';
-import { isAwaitingApprovalEvent, isToolCallEvent, Thread, type Event } from '@shochan_ai/core';
+import { isAwaitingHumanResponseTool, isToolCallEvent, Thread, type Event } from '@shochan_ai/core';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -25,8 +25,8 @@ export async function cli() {
   let lastEvent = newThread.events.slice(-1)[0];
 
   while (true) {
-    if (thread.awaitingHumanResponse() && isAwaitingApprovalEvent(lastEvent)) {
-      const humanResponse = await askHuman(lastEvent.data.parameters.message as string);
+    if (thread.awaitingHumanResponse() && isToolCallEvent(lastEvent) && isAwaitingHumanResponseTool(lastEvent.data)) {
+      const humanResponse = await askHuman(lastEvent.data.parameters.message);
       thread.events.push(humanResponse);
       lastEvent = humanResponse;
       continue;

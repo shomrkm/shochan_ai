@@ -1,9 +1,4 @@
-export interface ToolCall {
-  intent: string;
-  parameters: Record<string, unknown>;
-}
-
-export interface CreateTaskTool extends ToolCall {
+export interface CreateTaskTool {
   intent: 'create_task';
   parameters: {
     title: string;
@@ -14,7 +9,7 @@ export interface CreateTaskTool extends ToolCall {
   };
 }
 
-export interface CreateProjectTool extends ToolCall {
+export interface CreateProjectTool {
   intent: 'create_project';
   parameters: {
     name: string;
@@ -24,7 +19,7 @@ export interface CreateProjectTool extends ToolCall {
   };
 }
 
-export interface GetTasksTool extends ToolCall {
+export interface GetTasksTool {
   intent: 'get_tasks';
   parameters: {
     task_type?: 'Today' | 'Next Actions' | 'Someday / Maybe' | 'Wait for' | 'Routin';
@@ -37,7 +32,7 @@ export interface GetTasksTool extends ToolCall {
   };
 }
 
-export interface DeleteTaskTool extends ToolCall {
+export interface DeleteTaskTool {
   intent: 'delete_task';
   parameters: {
     task_id: string;
@@ -45,7 +40,7 @@ export interface DeleteTaskTool extends ToolCall {
   };
 }
 
-export interface UpdateTaskTool extends ToolCall {
+export interface UpdateTaskTool {
   intent: 'update_task';
   parameters: {
     task_id: string;
@@ -57,9 +52,37 @@ export interface UpdateTaskTool extends ToolCall {
   };
 }
 
-export interface GetTaskDetailsTool extends ToolCall {
+export interface GetTaskDetailsTool {
   intent: 'get_task_details';
   parameters: {
     task_id: string;
   };
 }
+
+export interface RequestMoreInformationTool {
+  intent: 'request_more_information';
+  parameters: {
+    message: string;
+  };
+}
+
+export interface DoneForNowTool {
+  intent: 'done_for_now';
+  parameters: {
+    message: string;
+  };
+}
+
+/**
+ * Union type of all available tool calls.
+ * TypeScript will automatically narrow the type based on the intent field.
+ */
+export type ToolCall =
+  | CreateTaskTool
+  | CreateProjectTool
+  | GetTasksTool
+  | DeleteTaskTool
+  | UpdateTaskTool
+  | GetTaskDetailsTool
+  | RequestMoreInformationTool
+  | DoneForNowTool;

@@ -19,7 +19,17 @@ export {
 	isAwaitingApprovalEvent,
 	isCompleteEvent,
 } from './types/event';
-export type { ToolCall } from './types/tools';
+export type {
+  ToolCall,
+  CreateTaskTool,
+  CreateProjectTool,
+  GetTasksTool,
+  DeleteTaskTool,
+  UpdateTaskTool,
+  GetTaskDetailsTool,
+  RequestMoreInformationTool,
+  DoneForNowTool,
+} from './types/tools';
 export type {
   BuildProjectPageParamsArgs,
   BuildTaskPageParamsArgs,
@@ -37,6 +47,9 @@ export {
   isDeleteTaskTool,
   isUpdateTaskTool,
   isGetTaskDetailsTool,
+  isRequestMoreInformationTool,
+  isDoneForNowTool,
+  isAwaitingHumanResponseTool,
 } from './types/toolGuards';
 
 // Utils

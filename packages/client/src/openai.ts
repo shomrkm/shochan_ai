@@ -72,8 +72,8 @@ export class OpenAIClient {
             intent: functionCallItem.name,
             parameters: (typeof functionCallItem.arguments === 'string'
               ? JSON.parse(functionCallItem.arguments)
-              : functionCallItem.arguments) as Record<string, unknown>,
-          },
+              : functionCallItem.arguments) as ToolCall['parameters'],
+          } as ToolCall,
           fullOutput: response.output,
         };
       } catch (error) {
