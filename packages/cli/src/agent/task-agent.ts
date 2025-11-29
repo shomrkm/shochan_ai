@@ -22,6 +22,7 @@ export class TaskAgent {
       } catch (error) {
         thread.events.push({
           type: 'error',
+          timestamp: Date.now(),
           data: {
             error: error instanceof Error ? error.message : 'Unknown error',
           },
@@ -32,6 +33,7 @@ export class TaskAgent {
 
       thread.events.push({
         type: 'tool_call',
+        timestamp: Date.now(),
         data: nextStep,
       });
 
@@ -68,6 +70,7 @@ export class TaskAgent {
         const result = await this.notion.getTasks(nextStep);
         thread.events.push({
           type: 'tool_response',
+          timestamp: Date.now(),
           data: result,
         });
         return thread;
@@ -76,6 +79,7 @@ export class TaskAgent {
         const result = await this.notion.createTask(nextStep);
         thread.events.push({
           type: 'tool_response',
+          timestamp: Date.now(),
           data: result,
         });
         return thread;
@@ -84,6 +88,7 @@ export class TaskAgent {
         const result = await this.notion.createProject(nextStep);
         thread.events.push({
           type: 'tool_response',
+          timestamp: Date.now(),
           data: result,
         });
         return thread;
@@ -92,6 +97,7 @@ export class TaskAgent {
         const result = await this.notion.deleteTask(nextStep);
         thread.events.push({
           type: 'tool_response',
+          timestamp: Date.now(),
           data: result,
         });
         return thread;
@@ -100,6 +106,7 @@ export class TaskAgent {
         const result = await this.notion.updateTask(nextStep);
         thread.events.push({
           type: 'tool_response',
+          timestamp: Date.now(),
           data: result,
         });
         return thread;
@@ -108,6 +115,7 @@ export class TaskAgent {
         const result = await this.notion.getTaskDetails(nextStep);
         thread.events.push({
           type: 'tool_response',
+          timestamp: Date.now(),
           data: result,
         });
         return thread;

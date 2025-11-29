@@ -2,7 +2,7 @@
 
 import * as readline from 'readline';
 import { TaskAgent } from './agent/task-agent';
-import { Thread, type Event } from '@shochan_ai/core';
+import { isAwaitingApprovalEvent, isToolCallEvent, Thread, type Event } from '@shochan_ai/core';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -19,29 +19,22 @@ export async function cli() {
 
   const message = args.join(' ');
   const taskAgent = new TaskAgent();
-  const thread = new Thread([{ type: 'user_input', data: message }]);
+  const thread = new Thread([{ type: 'user_input', timestamp: Date.now(), data: message }]);
 
   let newThread = await taskAgent.agetnLoop(thread);
   let lastEvent = newThread.events.slice(-1)[0];
 
   while (true) {
-    if (thread.awaitingHumanResponse()) {
-      const humanResponse = await askHuman(lastEvent.data.parameters.message);
+    if (thread.awaitingHumanResponse() && isAwaitingApprovalEvent(lastEvent)) {
+      const humanResponse = await askHuman(lastEvent.data.parameters.message as string);
       thread.events.push(humanResponse);
       lastEvent = humanResponse;
       continue;
     }
 
-    if (thread.awaitingHumanApproval() && (await askHumanApproval())) {
+    if (thread.awaitingHumanApproval() && (await askHumanApproval()) && isToolCallEvent(lastEvent)) {
       newThread = await taskAgent.handleNextStep(lastEvent.data, newThread);
       lastEvent = newThread.events.slice(-1)[0];
-      continue;
-    }
-    if (thread.awaitingHumanApproval() && !(await askHumanApproval())) {
-      thread.events.push({
-        type: 'tool response',
-        data: `user denied the operation to ${lastEvent.type}`,
-      });
       continue;
     }
 
@@ -61,6 +54,7 @@ async function askHuman(message: string): Promise<Event> {
       rl.close();
       resolve({
         type: 'user_input',
+        timestamp: Date.now(),
         data: answer.trim(),
       });
     });

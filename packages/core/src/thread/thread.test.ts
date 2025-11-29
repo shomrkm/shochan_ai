@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { type Event, Thread } from './thread';
+import type { Event, ToolCallEvent } from '../types/event';
+import { Thread } from './thread';
 
 describe('Thread', () => {
   describe('serializeForLLM', () => {
@@ -13,8 +14,9 @@ describe('Thread', () => {
     it('serializes single event with simple data', () => {
       const events: Event[] = [
         {
-          type: 'user_message',
-          data: { intent: 'create_task', message: 'Create a new task' },
+          type: 'tool_call',
+          timestamp: Date.now(),
+          data: { intent: 'create_task', parameters: { title: 'task title' } },
         },
       ];
       const thread = new Thread(events);
@@ -23,16 +25,16 @@ describe('Thread', () => {
       // Expected output:
       //
       // <create_task>
-      // message: Create a new task
+      // parameters: {message: Create a new task}
       // </create_task>
       //
-      expect(result).toBe('\n<create_task>\nmessage: Create a new task\n</create_task>\n');
+      expect(result).toBe('\n<create_task>\nparameters: {title: task title}\n</create_task>\n');
     });
 
     it('serializes multiple events', () => {
       const events: Event[] = [
-        { type: 'user_message', data: { intent: 'create_task', title: 'Task 1' } },
-        { type: 'assistant_response', data: { intent: 'task_created', task_id: '123' } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'create_task', parameters: { title: 'Task 1' } } },
+        { type: 'tool_response', timestamp: Date.now(), data: { task_id: '123' } },
       ];
       const thread = new Thread(events);
       const result = thread.serializeForLLM();
@@ -40,32 +42,32 @@ describe('Thread', () => {
       // Expected output (events joined with '\n'):
       //
       // <create_task>
-      // title: Task 1
+      // parameters: {title: Task 1}
       // </create_task>
       //
-      // <task_created>
+      // <tool_response>
       // task_id: 123
-      // </task_created>
+      // </tool_response>
       //
       expect(result).toBe(
-        '\n<create_task>\ntitle: Task 1\n</create_task>\n' +
+        '\n<create_task>\nparameters: {title: Task 1}\n</create_task>\n' +
           '\n' + // join separator
-          '\n<task_created>\ntask_id: 123\n</task_created>\n',
+          '\n<tool_response>\ntask_id: 123\n</tool_response>\n',
       );
     });
 
     it('uses event type when intent is not present', () => {
-      const events: Event[] = [{ type: 'custom_event', data: { value: 42 } }];
+      const events: Event[] = [{ type: 'user_input', timestamp: Date.now(), data: 'User message' }];
       const thread = new Thread(events);
       const result = thread.serializeForLLM();
 
       // Expected output (uses event.type instead of data.intent):
       //
-      // <custom_event>
-      // value: 42
-      // </custom_event>
+      // <user_input>
+      // User message
+      // </user_input>
       //
-      expect(result).toBe('\n<custom_event>\nvalue: 42\n</custom_event>\n');
+      expect(result).toBe('\n<user_input>\nUser message\n</user_input>\n');
     });
   });
 
@@ -73,63 +75,64 @@ describe('Thread', () => {
     const thread = new Thread([]);
 
     it('serializes event with object data', () => {
-      const event: Event = {
-        type: 'test',
-        data: { intent: 'test_intent', key1: 'value1', key2: 'value2' },
+      const event: ToolCallEvent = {
+        type: 'tool_call',
+        timestamp: Date.now(),
+        data: { intent: 'test_intent', parameters: { key1: 'value1', key2: 'value2' } },
       };
       const result = thread.serializeOneEvent(event);
 
       // Expected output:
       //
       // <test_intent>
-      // key1: value1
-      // key2: value2
+      // parameters: {key1: value1, key2: value2}
       // </test_intent>
       //
-      expect(result).toBe('\n<test_intent>\nkey1: value1\nkey2: value2\n</test_intent>\n');
+      expect(result).toBe('\n<test_intent>\nparameters: {key1: value1, key2: value2}\n</test_intent>\n');
     });
 
     it('serializes event with non-object data', () => {
-      const event: Event = { type: 'test', data: 'simple string' };
+      const event: Event = { type: 'user_input', timestamp: Date.now(), data: 'simple string' };
       const result = thread.serializeOneEvent(event);
 
       // Expected output:
       //
-      // <test>
+      // <user_input>
       // simple string
-      // </test>
+      // </user_input>
       //
-      expect(result).toBe('\n<test>\nsimple string\n</test>\n');
+      expect(result).toBe('\n<user_input>\nsimple string\n</user_input>\n');
     });
 
     it('filters out intent from serialized keys', () => {
-      const event: Event = {
-        type: 'test',
-        data: { intent: 'my_intent', field: 'value' },
+      const event: ToolCallEvent = {
+        type: 'tool_call',
+        timestamp: Date.now(),
+        data: { intent: 'my_intent', parameters: { field: 'value' } },
       };
       const result = thread.serializeOneEvent(event);
 
       // Expected output (intent is used as tag name but not serialized as field):
       //
       // <my_intent>
-      // field: value
+      // parameters: {field: value}
       // </my_intent>
       //
-      expect(result).toBe('\n<my_intent>\nfield: value\n</my_intent>\n');
+      expect(result).toBe('\n<my_intent>\nparameters: {field: value}\n</my_intent>\n');
       expect(result).not.toContain('intent:');
     });
 
     it('handles empty object data', () => {
-      const event: Event = { type: 'test', data: {} };
+      const event: Event = { type: 'tool_response', timestamp: Date.now(), data: {} };
       const result = thread.serializeOneEvent(event);
 
       // Expected output (empty content between tags):
       //
-      // <test>
+      // <tool_response>
       //
-      // </test>
+      // </tool_response>
       //
-      expect(result).toBe('\n<test>\n\n</test>\n');
+      expect(result).toBe('\n<tool_response>\n\n</tool_response>\n');
     });
   });
 
@@ -274,8 +277,8 @@ describe('Thread', () => {
   describe('awaitingHumanResponse', () => {
     it('returns true when last event is request_more_information', () => {
       const events: Event[] = [
-        { type: 'event1', data: { intent: 'some_intent' } },
-        { type: 'event2', data: { intent: 'request_more_information' } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'some_intent', parameters: {} } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'request_more_information', parameters: {} } },
       ];
       const thread = new Thread(events);
 
@@ -284,8 +287,8 @@ describe('Thread', () => {
 
     it('returns true when last event is done_for_now', () => {
       const events: Event[] = [
-        { type: 'event1', data: { intent: 'some_intent' } },
-        { type: 'event2', data: { intent: 'done_for_now' } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'some_intent', parameters: {} } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'done_for_now', parameters: {} } },
       ];
       const thread = new Thread(events);
 
@@ -294,8 +297,8 @@ describe('Thread', () => {
 
     it('returns false when last event is neither request_more_information nor done_for_now', () => {
       const events: Event[] = [
-        { type: 'event1', data: { intent: 'request_more_information' } },
-        { type: 'event2', data: { intent: 'create_task' } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'request_more_information', parameters: {} } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'create_task', parameters: {} } },
       ];
       const thread = new Thread(events);
 
@@ -303,7 +306,7 @@ describe('Thread', () => {
     });
 
     it('returns false when last event has different intent', () => {
-      const events: Event[] = [{ type: 'event', data: { intent: 'other_intent' } }];
+      const events: Event[] = [{ type: 'tool_call', timestamp: Date.now(), data: { intent: 'other_intent', parameters: {} } }];
       const thread = new Thread(events);
 
       expect(thread.awaitingHumanResponse()).toBe(false);
@@ -313,8 +316,8 @@ describe('Thread', () => {
   describe('awaitingHumanApproval', () => {
     it('returns true when last event is delete_task', () => {
       const events: Event[] = [
-        { type: 'event1', data: { intent: 'create_task' } },
-        { type: 'event2', data: { intent: 'delete_task' } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'create_task', parameters: {} } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'delete_task', parameters: {} } },
       ];
       const thread = new Thread(events);
 
@@ -323,8 +326,8 @@ describe('Thread', () => {
 
     it('returns false when last event is not delete_task', () => {
       const events: Event[] = [
-        { type: 'event1', data: { intent: 'delete_task' } },
-        { type: 'event2', data: { intent: 'create_task' } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'delete_task', parameters: {} } },
+        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'create_task', parameters: {} } },
       ];
       const thread = new Thread(events);
 
@@ -332,7 +335,7 @@ describe('Thread', () => {
     });
 
     it('returns false when last event has different intent', () => {
-      const events: Event[] = [{ type: 'event', data: { intent: 'update_task' } }];
+      const events: Event[] = [{ type: 'tool_call', timestamp: Date.now(), data: { intent: 'update_task', parameters: {} } }];
       const thread = new Thread(events);
 
       expect(thread.awaitingHumanApproval()).toBe(false);
@@ -343,8 +346,9 @@ describe('Thread', () => {
     it('handles event with special characters in data', () => {
       const events: Event[] = [
         {
-          type: 'test',
-          data: { intent: 'test', message: 'Special: <>&"\'\\n\\t' },
+          type: 'tool_call',
+          timestamp: Date.now(),
+          data: { intent: 'test', parameters: { message: 'Special: <>&"\'\\n\\t' } },
         },
       ];
       const thread = new Thread(events);
@@ -353,53 +357,57 @@ describe('Thread', () => {
       // Expected output (special characters are preserved as-is):
       //
       // <test>
-      // message: Special: <>&"'\n\t
+      // parameters: {message: Special: <>&"'\n\t}
       // </test>
       //
-      expect(result).toBe('\n<test>\nmessage: Special: <>&"\'\\n\\t\n</test>\n');
+      expect(result).toBe('\n<test>\nparameters: {message: Special: <>&"\'\\n\\t}\n</test>\n');
     });
 
     it('handles event with very long data', () => {
       const longString = 'a'.repeat(10000);
-      const events: Event[] = [{ type: 'test', data: { intent: 'test', content: longString } }];
+      const events: Event[] = [{
+        type: 'tool_call',
+        timestamp: Date.now(),
+        data: { intent: 'test', parameters: { content: longString } }
+      }];
       const thread = new Thread(events);
       const result = thread.serializeForLLM();
 
-      expect(result).toBe(`\n<test>\ncontent: ${longString}\n</test>\n`);
+      expect(result).toBe(`\n<test>\nparameters: {content: ${longString}}\n</test>\n`);
     });
 
     it('handles event with numeric type', () => {
-      const events: Event[] = [{ type: 'test', data: 42 }];
+      const events: Event[] = [{
+        type: 'error',
+        timestamp: Date.now(),
+        data: { error: '42', code: '42' }
+      }];
       const thread = new Thread(events);
       const result = thread.serializeForLLM();
 
       // Expected output:
       //
-      // <test>
-      // 42
-      // </test>
+      // <error>
+      // error: 42
+      // code: 42
+      // </error>
       //
-      expect(result).toBe('\n<test>\n42\n</test>\n');
-    });
-
-    it('handles event with null data throws error (known limitation)', () => {
-      const events: Event[] = [{ type: 'test', data: null }];
-      const thread = new Thread(events);
-
-      // Current implementation has a bug: typeof null === 'object' but Object.keys(null) throws
-      expect(() => thread.serializeForLLM()).toThrow('Cannot convert undefined or null to object');
+      expect(result).toBe('\n<error>\nerror: 42\ncode: 42\n</error>\n');
     });
 
     it('handles deeply nested object structures', () => {
       const events: Event[] = [
         {
-          type: 'test',
+          type: 'tool_call',
+          timestamp: Date.now(),
           data: {
             intent: 'test',
-            level1: {
-              level2: {
-                level3: {
-                  level4: 'deep value',
+            parameters: {
+              level1: {
+                level2: {
+                  level3: {
+                    level4: 'deep value',
+                  },
                 },
               },
             },
@@ -412,11 +420,11 @@ describe('Thread', () => {
       // Expected output (nested objects are serialized inline):
       //
       // <test>
-      // level1: {level2: {level3: {level4: deep value}}}
+      // parameters: {level1: {level2: {level3: {level4: deep value}}}}
       // </test>
       //
       expect(result).toBe(
-        '\n<test>\nlevel1: {level2: {level3: {level4: deep value}}}\n</test>\n',
+        '\n<test>\nparameters: {level1: {level2: {level3: {level4: deep value}}}}\n</test>\n',
       );
     });
   });

@@ -1,8 +1,24 @@
 // Thread
 export { Thread } from './thread/thread';
-export type { Event } from './thread/thread';
 
 // Types
+export type {
+	Event,
+	UserInputEvent,
+	ToolCallEvent,
+	ToolResponseEvent,
+	ErrorEvent,
+	AwaitingApprovalEvent,
+	CompleteEvent,
+} from './types/event';
+export {
+	isUserInputEvent,
+	isToolCallEvent,
+	isToolResponseEvent,
+	isErrorEvent,
+	isAwaitingApprovalEvent,
+	isCompleteEvent,
+} from './types/event';
 export type { ToolCall } from './types/tools';
 export type {
   BuildProjectPageParamsArgs,
