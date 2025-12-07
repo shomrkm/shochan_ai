@@ -58,3 +58,6 @@ export { NotionTaskParser } from './utils/notion-task-parser';
 
 // Prompts
 export { builPrompt } from './prompts/system-prompt';
+
+// State Management
+export type { StateStore } from './state/state-store';
