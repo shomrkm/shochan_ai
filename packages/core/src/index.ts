@@ -61,3 +61,4 @@ export { builPrompt } from './prompts/system-prompt';
 
 // State Management
 export type { StateStore } from './state/state-store';
+export { InMemoryStateStore } from './state/in-memory-state-store';
