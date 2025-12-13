@@ -68,4 +68,5 @@ export type { AgentReducer } from './agent/agent-reducer';
 export type { ToolExecutor, ToolExecutionResult } from './agent/tool-executor';
 export { NotionToolExecutor } from './agent/notion-tool-executor';
 export { ThreadReducer } from './agent/thread-reducer';
+export { LLMAgentReducer } from './agent/llm-agent-reducer';
 export { AgentOrchestrator } from './agent/agent-orchestrator';
