@@ -41,7 +41,3 @@ export function isRequestMoreInformationTool(tool: ToolCall): tool is RequestMor
 export function isDoneForNowTool(tool: ToolCall): tool is DoneForNowTool {
   return tool.intent === 'done_for_now';
 }
-
-export function isAwaitingHumanResponseTool(tool: ToolCall): tool is RequestMoreInformationTool | DoneForNowTool {
-  return isRequestMoreInformationTool(tool) || isDoneForNowTool(tool);
-}

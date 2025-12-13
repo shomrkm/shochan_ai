@@ -10,11 +10,11 @@ export class LLMAgentReducer<
 	TLLMClient extends {
 		generateToolCall(params: {
 			systemPrompt: string;
-			inputMessages: unknown[];
-			tools: unknown[];
+			inputMessages: Array<unknown>;
+			tools?: Array<unknown>;
 		}): Promise<{ toolCall: unknown | null }>;
 	},
-	TTools extends unknown[],
+	TTools extends Array<unknown>,
 > implements AgentReducer<Thread, Event>
 {
 	constructor(

@@ -49,7 +49,6 @@ export {
   isGetTaskDetailsTool,
   isRequestMoreInformationTool,
   isDoneForNowTool,
-  isAwaitingHumanResponseTool,
 } from './types/toolGuards';
 
 // Utils

@@ -67,20 +67,4 @@ export class Thread {
 
     return `{${entries}}`;
   }
-
-  awaitingHumanResponse(): boolean {
-    const lastEvent = this.events[this.events.length - 1];
-    if (!lastEvent || !isToolCallEvent(lastEvent)) {
-      return false;
-    }
-    return ['request_more_information', 'done_for_now'].includes(lastEvent.data.intent);
-  }
-
-  awaitingHumanApproval(): boolean {
-    const lastEvent = this.events[this.events.length - 1];
-    if (!lastEvent || !isToolCallEvent(lastEvent)) {
-      return false;
-    }
-    return lastEvent.data.intent === 'delete_task';
-  }
 }
