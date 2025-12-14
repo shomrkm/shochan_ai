@@ -23,15 +23,14 @@ export class AgentOrchestrator {
 	}
 
 	async executeToolCall(toolCallEvent: Event): Promise<Thread> {
-		const stateWithToolCall = await this.processEvent(toolCallEvent);
+		await this.processEvent(toolCallEvent);
 
 		if (toolCallEvent.type !== 'tool_call') {
 			throw new Error('Event must be a tool_call event');
 		}
 
 		const result = await this.executor.execute(toolCallEvent.data);
-		const finalState = this.reducer.reduce(stateWithToolCall, result.event);
-		this.stateStore.setState(finalState);
+		const finalState = await this.processEvent(result.event);
 
 		return finalState;
 	}
