@@ -24,7 +24,7 @@ export class AgentOrchestrator {
 
 	/**
 	 * Executes a tool call and adds both the tool call and response events to state.
-	 * @param toolCallEvent - Must be a ToolCallEvent (enforced by TypeScript)
+	 * @param toolCallEvent - ToolCallEvent
 	 */
 	async executeToolCall(toolCallEvent: ToolCallEvent): Promise<Thread> {
 		await this.processEvent(toolCallEvent);

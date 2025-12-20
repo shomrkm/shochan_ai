@@ -1,5 +1,6 @@
 import { Thread } from '../thread/thread';
 import type { Event, ToolCallEvent } from '../types/event';
+import type { ToolCall } from '../types/tools';
 import type { AgentReducer } from './agent-reducer';
 
 /**
@@ -12,7 +13,7 @@ export class LLMAgentReducer<
 			systemPrompt: string;
 			inputMessages: Array<unknown>;
 			tools?: Array<unknown>;
-		}): Promise<{ toolCall: unknown | null }>;
+		}): Promise<{ toolCall: ToolCall | null }>;
 	},
 	TTools extends Array<unknown>,
 > implements AgentReducer<Thread, Event>
@@ -51,6 +52,6 @@ export class LLMAgentReducer<
 			type: 'tool_call',
 			timestamp: Date.now(),
 			data: toolCall,
-		} as ToolCallEvent;
+		};
 	}
 }
