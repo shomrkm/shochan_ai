@@ -168,13 +168,15 @@ This project uses a monorepo structure with pnpm workspaces:
 
 ```
 packages/
-├── core/                        # Business logic (zero dependencies)
+├── core/                        # Business logic (zod only)
 │   ├── src/
+│   │   ├── agent/              # Stateless Reducer, Orchestrator, Executors
 │   │   ├── thread/             # Conversation thread management
-│   │   ├── types/              # TypeScript type definitions
-│   │   │   ├── tools.ts        # Tool call interfaces
+│   │   ├── state/              # State persistence interfaces
+│   │   ├── types/              # TypeScript type definitions with zod schemas
+│   │   │   ├── tools.ts        # Tool call schemas and inferred types
 │   │   │   ├── toolGuards.ts   # Type guard functions
-│   │   │   └── task.ts         # Task information interface
+│   │   │   └── event.ts        # Event type definitions
 │   │   ├── utils/              # Utility functions
 │   │   │   ├── notion-query-builder.ts  # Notion query construction
 │   │   │   └── notion-task-parser.ts    # Notion response parsing
@@ -184,27 +186,27 @@ packages/
 │
 ├── client/                      # API clients (depends on core)
 │   ├── src/
-│   │   ├── openai.ts           # OpenAI client using Responses API
+│   │   ├── openai.ts           # OpenAI client with runtime validation
 │   │   ├── notion.ts           # Notion API client with full CRUD operations
 │   │   └── notionUtils.ts      # Notion utility functions
 │   └── package.json
 │
 └── cli/                         # CLI implementation (depends on core + client)
     ├── src/
-    │   ├── index.ts            # Command-line interface
+    │   ├── index.ts            # CLI entry point with AgentOrchestrator
     │   └── agent/
-    │       └── task-agent.ts   # Main TaskAgent with 8 available tools
+    │       └── task-agent-tools.ts  # Tool definitions for OpenAI
     └── package.json
 ```
 
 **Dependency Graph:**
-- `packages/core` has zero dependencies
+- `packages/core` depends on zod only (for runtime type validation)
 - `packages/client` depends on `@shochan_ai/core`
 - `packages/cli` depends on `@shochan_ai/core` and `@shochan_ai/client`
 
 ## Available Tools
 
-The TaskAgent supports 8 different tools for comprehensive task and project management:
+The agent supports 8 different tools for comprehensive task and project management:
 
 1. **get_tasks** - Retrieve and filter tasks
 2. **get_task_details** - Get detailed information about a specific task including page content

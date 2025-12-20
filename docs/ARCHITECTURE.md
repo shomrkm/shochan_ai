@@ -11,12 +11,12 @@ The project is structured as a **monorepo** using pnpm workspaces to enable code
 ```
 shochan_ai/
 ├── packages/
-│   ├── core/              # Business logic (zero dependencies)
+│   ├── core/              # Business logic
 │   │   ├── src/
 │   │   │   ├── agent/     # Stateless Reducer, Orchestrator, Executors
 │   │   │   ├── thread/    # Conversation state management
 │   │   │   ├── state/     # State persistence interfaces
-│   │   │   ├── types/     # Type definitions and guards
+│   │   │   ├── types/     # Type definitions ansd Zod schemas
 │   │   │   ├── utils/     # Utility functions
 │   │   │   └── prompts/   # System prompts
 │   │   └── package.json
@@ -40,7 +40,7 @@ shochan_ai/
 
 **Dependency Graph:**
 ```
-packages/core (no dependencies)
+packages/core
     ↑
 packages/client (depends on @shochan_ai/core)
     ↑
@@ -95,9 +95,11 @@ The architecture separates three key responsibilities:
 
 ### 3. Type Safety
 
+- **Zod Schemas**: Tool calls use zod for schema definition and runtime validation
 - **Discriminated Unions**: All events and tool calls use TypeScript discriminated unions
 - **No `any`**: Strict type checking throughout the codebase
-- **Runtime Validation**: Type guards for runtime type safety
+- **Runtime Validation**: Zod validation at API boundaries, type guards for internal checks
+- **Single Source of Truth**: Types are inferred from zod schemas (`type ToolCall = z.infer<typeof toolCallSchema>`)
 
 ## Core Components
 
@@ -169,7 +171,7 @@ The central coordinator that manages the interaction between Reducer, Executor, 
 
 **Location:** `packages/core/src/agent/agent-orchestrator.ts`
 
-**Package:** `@shochan_ai/core` (zero dependencies)
+**Package:** `@shochan_ai/core`
 
 **Responsibilities:**
 - Coordinate Reducer for state transitions
@@ -200,7 +202,7 @@ Generic AgentReducer implementation that uses an LLM to determine next tool call
 
 **Location:** `packages/core/src/agent/llm-agent-reducer.ts`
 
-**Package:** `@shochan_ai/core` (zero dependencies)
+**Package:** `@shochan_ai/core`
 
 **Responsibilities:**
 - Implement pure state transitions (add events to thread)
@@ -236,7 +238,7 @@ Interface for executing tools with side effects.
 
 **Location:** `packages/core/src/agent/tool-executor.ts`
 
-**Package:** `@shochan_ai/core` (zero dependencies)
+**Package:** `@shochan_ai/core`
 
 **Responsibilities:**
 - Define interface for tool execution
@@ -248,9 +250,9 @@ interface ToolExecutor {
   execute(toolCall: ToolCall): Promise<ToolExecutionResult>;
 }
 
-type ToolExecutionResult =
-  | { success: true; data: unknown }
-  | { success: false; error: string };
+type ToolExecutionResult = {
+  event: Event;  // Returns tool_response or error event
+};
 ```
 
 **Implementation:** `NotionToolExecutor` (`packages/core/src/agent/notion-tool-executor.ts`)
@@ -271,12 +273,23 @@ Immutable data structure for conversation state.
 
 **Location:** `packages/core/src/thread/thread.ts`
 
-**Package:** `@shochan_ai/core` (zero dependencies)
+**Package:** `@shochan_ai/core`
 
 **Responsibilities:**
 - Store conversation events in chronological order (immutable)
 - Serialize conversation context for LLM consumption
 - Provide recursive object serialization for complex data structures
+
+**Immutability:**
+```typescript
+class Thread {
+  readonly events: readonly Event[];  // Immutable event history
+  
+  constructor(events: readonly Event[]) {
+    this.events = [...events];  // Defensive copy
+  }
+}
+```
 
 **Event Structure:**
 ```typescript
@@ -319,15 +332,13 @@ Interface for state persistence with multiple implementations.
 
 **Location:** `packages/core/src/state/state-store.ts`
 
-**Package:** `@shochan_ai/core` (zero dependencies)
+**Package:** `@shochan_ai/core`
 
 **Interface:**
 ```typescript
-interface StateStore<T> {
-  get(id: string): Promise<T | null>;
-  set(id: string, state: T): Promise<void>;
-  delete(id: string): Promise<void>;
-  list(): Promise<Array<{ id: string; state: T }>>;
+interface StateStore<TState = Thread> {
+  getState(): TState;
+  setState(state: TState): void;
 }
 ```
 
@@ -381,36 +392,53 @@ Manages all interactions with Notion databases.
 
 ### 8. Type System (`packages/core/src/types/`)
 
-Comprehensive type definitions ensuring type safety across the application.
+Comprehensive type definitions ensuring type safety across the application using **zod schemas as the single source of truth**.
 
 **Location:** `packages/core/src/types/`
 
-**Package:** `@shochan_ai/core` (zero dependencies)
+**Package:** `@shochan_ai/core`
 
 **Key Type Categories:**
 - **Event Types**: Discriminated union of all event types
-- **Tool Types**: Discriminated union of all tool calls
+- **Tool Types**: Zod schemas with inferred TypeScript types
 - **Notion Types**: Database schema and API response types
 - **Task Types**: GTD system task categorizations
 - **Tool Guards**: Runtime type validation functions
 
 **Type Safety Features:**
+- **Single Source of Truth**: Types are inferred from zod schemas
 - Strict TypeScript configuration
-- Runtime type validation via type guards
+- Runtime validation via zod at API boundaries
 - Discriminated unions for events and tool calls
 - No use of `any` type
 
-**Tool Call Discriminated Union:**
+**Zod Schema-Based Types (Single Source of Truth):**
 ```typescript
-type ToolCall =
-  | { intent: 'create_task'; parameters: CreateTaskParams }
-  | { intent: 'create_project'; parameters: CreateProjectParams }
-  | { intent: 'update_task'; parameters: UpdateTaskParams }
-  | { intent: 'delete_task'; parameters: DeleteTaskParams }
-  | { intent: 'get_tasks'; parameters: GetTasksParams }
-  | { intent: 'get_task_details'; parameters: GetTaskDetailsParams }
-  | { intent: 'done_for_now'; parameters: DoneParams }
-  | { intent: 'request_more_information'; parameters: RequestInfoParams };
+import { z } from 'zod';
+
+// Define schema once
+export const createTaskSchema = z.object({
+  intent: z.literal('create_task'),
+  parameters: z.object({
+    title: z.string(),
+    description: z.string(),
+    task_type: taskTypeSchema,
+    scheduled_date: z.string().optional(),
+    project_id: z.string().optional(),
+  }),
+});
+
+// Discriminated union schema
+export const toolCallSchema = z.discriminatedUnion('intent', [
+  createTaskSchema,
+  createProjectSchema,
+  getTasksSchema,
+  // ... other tool schemas
+]);
+
+// Type inferred from schema (no manual type definition needed)
+export type ToolCall = z.infer<typeof toolCallSchema>;
+export type CreateTaskTool = z.infer<typeof createTaskSchema>;
 ```
 
 ### 9. Utilities (`packages/core/src/utils/`)
@@ -419,7 +447,7 @@ Supporting utilities for data processing and API interactions.
 
 **Location:** `packages/core/src/utils/`
 
-**Package:** `@shochan_ai/core` (zero dependencies)
+**Package:** `@shochan_ai/core`
 
 **Components:**
 - **Notion Query Builder**: Constructs complex database queries with filtering and sorting
@@ -647,8 +675,9 @@ graph TD
 
 ### 3. Input Validation
 
+- Runtime validation of LLM responses using zod schemas
+- `ToolCallValidationError` provides detailed error messages for invalid tool calls
 - Comprehensive type checking at API boundaries
-- Runtime validation of tool parameters via type guards
 - Sanitization of user inputs before external API calls
 
 ## Testing Strategy
@@ -705,7 +734,7 @@ pnpm check:fix      # Auto-fix issues
 
 **Build Order:**
 TypeScript project references ensure correct build order:
-1. `packages/core` (no dependencies)
+1. `packages/core`
 2. `packages/client` (depends on core)
 3. `packages/cli` (depends on core + client)
 
@@ -759,11 +788,12 @@ graph TD
 
 The architecture supports easy addition of new tools:
 
-1. Define tool interface in `packages/core/src/types/tools.ts`
-2. Add type guard function in `packages/core/src/types/toolGuards.ts`
-3. Add tool to system prompt and tool definitions
-4. Implement tool execution in `ToolExecutor`
-5. Update Notion client if needed
+1. Define zod schema in `packages/core/src/types/tools.ts`
+2. Add schema to `toolCallSchema` discriminated union (type is auto-inferred)
+3. Add type guard function in `packages/core/src/types/toolGuards.ts`
+4. Add tool to system prompt and tool definitions
+5. Implement tool execution in `ToolExecutor`
+6. Update Notion client if needed
 
 ### 3. Additional Clients
 
