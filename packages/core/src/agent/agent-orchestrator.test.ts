@@ -154,7 +154,7 @@ describe('AgentOrchestrator', () => {
 			expect(executor.execute).toHaveBeenCalledTimes(1);
 		});
 
-		it('should not call executor.execute for non-tool_call events', async () => {
+		it('should not call executor.execute for non-tool_call events via processEvent', async () => {
 			const userInputEvent: UserInputEvent = {
 				type: 'user_input',
 				timestamp: Date.now(),
@@ -166,20 +166,8 @@ describe('AgentOrchestrator', () => {
 			expect(executor.execute).not.toHaveBeenCalled();
 		});
 
-		it('should throw error if event is not a tool_call', async () => {
-			const userInputEvent: UserInputEvent = {
-				type: 'user_input',
-				timestamp: Date.now(),
-				data: 'Not a tool call',
-			};
-
-			await expect(
-				orchestrator.executeToolCall(userInputEvent),
-			).rejects.toThrow('Event must be a tool_call event');
-
-			// Should not call executor if validation fails
-			expect(executor.execute).not.toHaveBeenCalled();
-		});
+		// Note: "should throw error if event is not a tool_call" test removed
+		// because TypeScript now enforces ToolCallEvent type at compile time
 
 		it('should persist state after tool execution', async () => {
 			const toolCallEvent: ToolCallEvent = {

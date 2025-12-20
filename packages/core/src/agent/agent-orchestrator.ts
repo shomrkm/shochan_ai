@@ -1,5 +1,5 @@
 import type { Thread } from '../thread/thread';
-import type { Event } from '../types/event';
+import type { Event, ToolCallEvent } from '../types/event';
 import type { AgentReducer } from './agent-reducer';
 import type { ToolExecutor } from './tool-executor';
 import type { StateStore } from '../state/state-store';
@@ -22,12 +22,12 @@ export class AgentOrchestrator {
 		return newState;
 	}
 
-	async executeToolCall(toolCallEvent: Event): Promise<Thread> {
+	/**
+	 * Executes a tool call and adds both the tool call and response events to state.
+	 * @param toolCallEvent - Must be a ToolCallEvent (enforced by TypeScript)
+	 */
+	async executeToolCall(toolCallEvent: ToolCallEvent): Promise<Thread> {
 		await this.processEvent(toolCallEvent);
-
-		if (toolCallEvent.type !== 'tool_call') {
-			throw new Error('Event must be a tool_call event');
-		}
 
 		const result = await this.executor.execute(toolCallEvent.data);
 		const finalState = await this.processEvent(result.event);
