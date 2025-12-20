@@ -938,48 +938,122 @@ packages/
 
 ---
 
-### フェーズ4: Web API の実装
+### フェーズ4: Web API の実装 🔄 IN PROGRESS
 
-**目的:** Express + SSE で Web API を実装し、Vercel KV でセッション管理
+**開始日:** 2025-12-20
+
+**目的:** Express + SSE で Web API を実装し、Redis でセッション管理
+
+**実装方針:**
+- ローカル開発時も Redis を使用（Docker Compose でローカルRedis環境）
+- 最初から Redis 対応で実装
+- 認証機能は後回し（個人利用想定）
 
 **タスク:**
 
-1. **Express サーバーのセットアップ**
-   - `packages/web/src/server.ts` 作成
-   - ルーティング設定
-   - CORS, JSON middleware
+#### Phase 4.1: Docker Compose でローカルRedis環境をセットアップ
 
-2. **エージェント API の実装**
-   - `packages/web/src/routes/agent.ts` 作成
-   - `POST /api/agent/query` エンドポイント
-   - `POST /api/agent/approve/:conversationId` エンドポイント
+- `docker-compose.yml` 作成
+- Redis コンテナ設定（ポート6379）
+- 起動確認
 
-3. **SSE ストリーミングの実装**
-   - `better-sse` ライブラリ導入
-   - `packages/web/src/routes/stream.ts` 作成
-   - `GET /api/stream/:conversationId` エンドポイント
-   - `StreamManager` 実装
+#### Phase 4.2: packages/web パッケージの基本構成を作成
 
-4. **Redis State Store の実装**
-   - Vercel KV (Redis) のセットアップ
-   - `packages/web/src/state/redis-store.ts` 作成
-   - `StateStore` インターフェースの実装
-   - 有効期限設定（1時間）
+- ディレクトリ構造作成
+  ```
+  packages/web/
+  ├── src/
+  │   ├── server.ts
+  │   ├── routes/
+  │   ├── state/
+  │   └── streaming/
+  ├── package.json
+  └── tsconfig.json
+  ```
+- `package.json` 設定
+- `tsconfig.json` 設定
+- 依存パッケージインストール
+  - express
+  - better-sse
+  - redis
+  - cors
+  - 型定義パッケージ
 
-5. **環境変数の設定**
-   - `.env` に `REDIS_URL` 追加
-   - `NOTION_API_KEY`, `OPENAI_API_KEY` の確認
+#### Phase 4.3: RedisStateStore を実装
 
-6. **ローカルでの動作確認**
-   - `pnpm web:dev` でサーバー起動
-   - curl で API テスト
-   - SSE 接続確認
+- `packages/web/src/state/redis-store.ts` 作成
+- `StateStore<Thread>` インターフェース実装
+- Redis接続管理
+- 有効期限設定（1時間）
+- エラーハンドリング
+- テスト作成
+
+#### Phase 4.4: StreamManager を実装（better-sse）
+
+- `packages/web/src/streaming/manager.ts` 作成
+- セッション管理
+- イベント送信
+- 接続/切断処理
+- テスト作成
+
+#### Phase 4.5: Express サーバーとルーティングを実装
+
+- `packages/web/src/server.ts` 作成
+- Express アプリケーション設定
+- CORS middleware
+- JSON parser middleware
+- エラーハンドリング middleware
+- ヘルスチェックエンドポイント
+
+#### Phase 4.6: エージェントAPIルート実装（query, approve）
+
+- `packages/web/src/routes/agent.ts` 作成
+- `POST /api/agent/query` エンドポイント
+  - リクエスト検証
+  - AgentOrchestrator による処理開始
+  - conversationId 返却
+  - バックグラウンドでエージェント実行
+- `POST /api/agent/approve/:conversationId` エンドポイント
+  - 承認/拒否の処理
+  - エージェント再開
+- エラーハンドリング
+- テスト作成
+
+#### Phase 4.7: SSEストリーミングルート実装
+
+- `packages/web/src/routes/stream.ts` 作成
+- `GET /api/stream/:conversationId` エンドポイント
+- SSE セッション作成
+- StreamManager との統合
+- 接続/切断イベント処理
+- テスト作成
+
+#### Phase 4.8: 統合テストと動作確認
+
+- 環境変数の設定（`.env`）
+  - `REDIS_URL=redis://localhost:6379`
+  - `NOTION_API_KEY`
+  - `OPENAI_API_KEY`
+  - `NOTION_TASKS_DATABASE_ID`
+  - `NOTION_PROJECTS_DATABASE_ID`
+- Docker Compose でRedis起動
+- Express サーバー起動（`pnpm web:dev`）
+- curl で API テスト
+  - POST /api/agent/query
+  - GET /api/stream/:conversationId
+  - POST /api/agent/approve/:conversationId
+- SSE 接続確認
+- Redis データ確認
+- エラーケースの確認
 
 **完了条件:**
-- Express サーバーが起動
-- REST API が正常に動作
-- SSE でリアルタイムイベントを受信できる
-- Redis に状態が保存される
+- ✅ Docker Compose でローカルRedisが起動
+- ✅ Express サーバーが起動
+- ✅ REST API が正常に動作
+- ✅ SSE でリアルタイムイベントを受信できる
+- ✅ Redis に状態が保存される
+- ✅ 全テストがパス
+- ✅ 型エラーがゼロ
 
 **所要時間:** 3-4日
 
@@ -1214,5 +1288,5 @@ packages/
 ---
 
 **作成日:** 2025-01-23
-**最終更新:** 2025-01-23
-**ステータス:** 計画確定
+**最終更新:** 2025-12-20
+**ステータス:** Phase 4 実装中（Phase 1-3 完了）
