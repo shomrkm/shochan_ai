@@ -8,6 +8,7 @@ import type {
 	UserInputEvent,
 	ToolCallEvent,
 	ToolResponseEvent,
+	ErrorEvent,
 } from '../types/event';
 import type { ToolCall } from '../types/tools';
 import type { ToolExecutor, ToolExecutionResult } from './tool-executor';
@@ -26,6 +27,25 @@ class MockToolExecutor implements ToolExecutor {
 					success: true,
 					tool: toolCall.intent,
 					parameters: toolCall.parameters,
+				},
+			};
+			return { event };
+		},
+	);
+}
+
+/**
+ * Mock ToolExecutor that returns error events
+ */
+class ErrorMockToolExecutor implements ToolExecutor {
+	execute = vi.fn(
+		async (_toolCall: ToolCall): Promise<ToolExecutionResult> => {
+			const event: ErrorEvent = {
+				type: 'error',
+				timestamp: Date.now(),
+				data: {
+					error: 'API connection failed',
+					code: 'CONNECTION_ERROR',
 				},
 			};
 			return { event };
@@ -342,6 +362,107 @@ describe('AgentOrchestrator', () => {
 			// Verify call order and parameters
 			expect(executor.execute).toHaveBeenNthCalledWith(1, toolCall1.data);
 			expect(executor.execute).toHaveBeenNthCalledWith(2, toolCall2.data);
+		});
+	});
+
+	describe('Error handling', () => {
+		it('should add error event to state when executor returns an error', async () => {
+			const errorExecutor = new ErrorMockToolExecutor();
+			const errorOrchestrator = new AgentOrchestrator(
+				new ThreadReducer(),
+				errorExecutor,
+				new InMemoryStateStore(new Thread([])),
+			);
+
+			const toolCallEvent: ToolCallEvent = {
+				type: 'tool_call',
+				timestamp: Date.now(),
+				data: {
+					intent: 'get_tasks',
+					parameters: {},
+				},
+			};
+
+			const finalState = await errorOrchestrator.executeToolCall(toolCallEvent);
+
+			// Should have 2 events: tool_call + error
+			expect(finalState.events).toHaveLength(2);
+			expect(finalState.events[0].type).toBe('tool_call');
+			expect(finalState.events[1].type).toBe('error');
+
+			// Verify error details
+			const errorEvent = finalState.events[1] as ErrorEvent;
+			expect(errorEvent.data.error).toBe('API connection failed');
+			expect(errorEvent.data.code).toBe('CONNECTION_ERROR');
+		});
+
+		it('should continue processing after error event', async () => {
+			const errorExecutor = new ErrorMockToolExecutor();
+			const errorOrchestrator = new AgentOrchestrator(
+				new ThreadReducer(),
+				errorExecutor,
+				new InMemoryStateStore(new Thread([])),
+			);
+
+			// First: user input
+			const userInput: UserInputEvent = {
+				type: 'user_input',
+				timestamp: 1000,
+				data: 'Get my tasks',
+			};
+			await errorOrchestrator.processEvent(userInput);
+
+			// Second: tool call that fails
+			const toolCallEvent: ToolCallEvent = {
+				type: 'tool_call',
+				timestamp: 2000,
+				data: {
+					intent: 'get_tasks',
+					parameters: {},
+				},
+			};
+			await errorOrchestrator.executeToolCall(toolCallEvent);
+
+			// Third: another user input after error
+			const userInput2: UserInputEvent = {
+				type: 'user_input',
+				timestamp: 3000,
+				data: 'Try again',
+			};
+			const finalState = await errorOrchestrator.processEvent(userInput2);
+
+			// Should have: user_input, tool_call, error, user_input
+			expect(finalState.events).toHaveLength(4);
+			expect(finalState.events[0].type).toBe('user_input');
+			expect(finalState.events[1].type).toBe('tool_call');
+			expect(finalState.events[2].type).toBe('error');
+			expect(finalState.events[3].type).toBe('user_input');
+		});
+
+		it('should persist error state in state store', async () => {
+			const errorExecutor = new ErrorMockToolExecutor();
+			const errorStateStore = new InMemoryStateStore(new Thread([]));
+			const errorOrchestrator = new AgentOrchestrator(
+				new ThreadReducer(),
+				errorExecutor,
+				errorStateStore,
+			);
+
+			const toolCallEvent: ToolCallEvent = {
+				type: 'tool_call',
+				timestamp: Date.now(),
+				data: {
+					intent: 'get_tasks',
+					parameters: {},
+				},
+			};
+
+			await errorOrchestrator.executeToolCall(toolCallEvent);
+
+			// Verify error is persisted in state store
+			const storedState = errorStateStore.getState();
+			expect(storedState.events).toHaveLength(2);
+			expect(storedState.events[1].type).toBe('error');
 		});
 	});
 });
