@@ -8,12 +8,16 @@
     "build": "tsc",
     "clean": "rm -rf dist"
   },
-  "keywords": ["client", "openai", "notion"],
+  "keywords": [
+    "client",
+    "openai",
+    "notion"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@shochan_ai/core": "workspace:*",
     "@notionhq/client": "^4.0.1",
+    "@shochan_ai/core": "workspace:*",
     "openai": "^6.8.1"
   },
   "devDependencies": {

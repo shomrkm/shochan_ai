@@ -29,7 +29,10 @@ export type {
   GetTaskDetailsTool,
   RequestMoreInformationTool,
   DoneForNowTool,
+  TaskType,
+  Importance,
 } from './types/tools';
+export { toolCallSchema } from './types/tools';
 export type {
   BuildProjectPageParamsArgs,
   BuildTaskPageParamsArgs,

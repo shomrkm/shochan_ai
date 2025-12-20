@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import type { ToolCall } from '@shochan_ai/core';
+import { toolCallSchema, type ToolCall } from '@shochan_ai/core';
 
 type InputMessage =
   | { role: 'user' | 'system' | 'developer'; content: string }
@@ -16,6 +16,19 @@ type GenerateToolCallResult = {
   toolCall: ToolCall | null;
   fullOutput: OpenAI.Responses.ResponseOutputItem[];
 };
+
+/**
+ * Error thrown when OpenAI API returns an invalid tool call structure.
+ */
+export class ToolCallValidationError extends Error {
+  constructor(
+    public readonly rawToolCall: unknown,
+    public readonly validationErrors: string[],
+  ) {
+    super(`Invalid tool call from OpenAI API: ${validationErrors.join(', ')}`);
+    this.name = 'ToolCallValidationError';
+  }
+}
 
 export class OpenAIClient {
   private client: OpenAI;
@@ -61,21 +74,11 @@ export class OpenAIClient {
         );
 
         if (!functionCallItem) {
-          return {
-            toolCall: null,
-            fullOutput: response.output,
-          };
+          return { toolCall: null, fullOutput: response.output };
         }
 
-        return {
-          toolCall: {
-            intent: functionCallItem.name,
-            parameters: (typeof functionCallItem.arguments === 'string'
-              ? JSON.parse(functionCallItem.arguments)
-              : functionCallItem.arguments) as ToolCall['parameters'],
-          } as ToolCall,
-          fullOutput: response.output,
-        };
+        const toolCall = this.parseToolCall(functionCallItem);
+        return { toolCall, fullOutput: response.output };
       } catch (error) {
         if (this.isRetryableError(error) && attempt < maxRetries) {
           const delay = baseDelay * 2 ** (attempt - 1); // Exponential backoff
@@ -92,6 +95,30 @@ export class OpenAIClient {
     }
 
     throw new Error('Max retries exceeded for OpenAI API');
+  }
+
+  /**
+   * Parses a function call from OpenAI API response and validates with zod schema.
+   * @throws ToolCallValidationError if the tool call doesn't match expected schema
+   */
+  private parseToolCall(
+    functionCall: OpenAI.Responses.ResponseFunctionToolCall
+  ): ToolCall {
+    const rawToolCall = {
+      intent: functionCall.name,
+      parameters: JSON.parse(functionCall.arguments),
+    };
+
+    const result = toolCallSchema.safeParse(rawToolCall);
+
+    if (!result.success) {
+      const errors = result.error.issues.map(
+        (issue) => `${issue.path.join('.')}: ${issue.message}`
+      );
+      throw new ToolCallValidationError(rawToolCall, errors);
+    }
+
+    return result.data;
   }
 
   private isRetryableError(error: unknown): boolean {

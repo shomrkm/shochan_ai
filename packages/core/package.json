@@ -8,10 +8,16 @@
     "build": "tsc",
     "clean": "rm -rf dist"
   },
-  "keywords": ["agent", "task-management", "core"],
+  "keywords": [
+    "agent",
+    "task-management",
+    "core"
+  ],
   "author": "",
   "license": "ISC",
-  "dependencies": {},
+  "dependencies": {
+    "zod": "^4.2.1"
+  },
   "devDependencies": {
     "typescript": "^5.9.2"
   }
