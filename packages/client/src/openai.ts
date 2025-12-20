@@ -22,7 +22,7 @@ type GenerateToolCallResult = {
  */
 export class ToolCallValidationError extends Error {
   constructor(
-    public readonly rawToolCall: unknown,
+    public readonly toolCall: unknown,
     public readonly validationErrors: string[],
   ) {
     super(`Invalid tool call from OpenAI API: ${validationErrors.join(', ')}`);
@@ -104,18 +104,18 @@ export class OpenAIClient {
   private parseToolCall(
     functionCall: OpenAI.Responses.ResponseFunctionToolCall
   ): ToolCall {
-    const rawToolCall = {
+    const toolCall = {
       intent: functionCall.name,
       parameters: JSON.parse(functionCall.arguments),
     };
 
-    const result = toolCallSchema.safeParse(rawToolCall);
+    const result = toolCallSchema.safeParse(toolCall);
 
     if (!result.success) {
       const errors = result.error.issues.map(
         (issue) => `${issue.path.join('.')}: ${issue.message}`
       );
-      throw new ToolCallValidationError(rawToolCall, errors);
+      throw new ToolCallValidationError(toolCall, errors);
     }
 
     return result.data;
