@@ -39,7 +39,7 @@ export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
         scheduled_date: { type: 'string', description: 'Scheduled date in ISO format' },
         project_id: { type: 'string', description: 'Related project ID' },
       },
-      required: ['title', 'description', 'task_type'],
+      required: ['title'],
     },
   },
   {

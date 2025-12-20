@@ -10,7 +10,6 @@ import {
 	builPrompt,
 	type Event,
 	type ToolCallEvent,
-	isToolCallEvent,
 } from '@shochan_ai/core';
 import { OpenAIClient, NotionClient } from '@shochan_ai/client';
 import { taskAgentTools } from './agent/task-agent-tools';
@@ -56,57 +55,100 @@ async function processUserInput(
 	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
 	userInputEvent: Event,
 ): Promise<void> {
-	// Add user input to thread
 	let currentThread = await orchestrator.processEvent(userInputEvent);
 
-	// Agent loop: LLM → Tool Execution → LLM
 	while (true) {
-		// Generate next tool call via LLM
-		const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+		const toolCallEvent = await generateToolCall(orchestrator, reducer, currentThread);
+		if (!toolCallEvent || toolCallEvent.shouldExit) break;
 
-		if (!toolCallEvent) {
-			console.log('\n✅ Agent finished without tool call');
-			break;
-		}
+		const shouldContinue = await handleToolCall(
+			toolCallEvent.event,
+			orchestrator,
+			reducer,
+			toolCallEvent.thread,
+		);
 
-		const toolCall = toolCallEvent.data;
-		console.log(`\n🔧 Tool call: ${toolCall.intent}`);
-
-		// Check if this tool requires approval
-		if (toolCall.intent === 'delete_task') {
-			const approved = await askHumanApproval(toolCall);
-			if (!approved) {
-				console.log('❌ Operation cancelled by user');
-				break;
-			}
-		}
-
-		// Check if this is done_for_now (terminal)
-		if (toolCall.intent === 'done_for_now') {
-			console.log(`\n💬 ${toolCall.parameters.message}`);
-			break;
-		}
-
-		// Check if this is request_more_information (needs user input, then continue)
-		if (toolCall.intent === 'request_more_information') {
-			console.log(`\n💬 ${toolCall.parameters.message}`);
-			const humanResponse = await askHuman('');
-			await processUserInput(orchestrator, reducer, humanResponse);
-			break; // Exit current loop, recursion handles the rest
-		}
-
-		// Execute tool call
-		currentThread = await orchestrator.executeToolCall(toolCallEvent);
-
-		// Log the result
-		const lastEvent = currentThread.events[currentThread.events.length - 1];
-		if (lastEvent.type === 'tool_response') {
-			console.log('✅ Tool executed successfully');
-		} else if (lastEvent.type === 'error') {
-			console.error(`❌ Error: ${lastEvent.data.error}`);
-			break;
+		if (!shouldContinue.continue) break;
+		if (shouldContinue.newThread) {
+			currentThread = shouldContinue.newThread;
 		}
 	}
+}
+
+async function generateToolCall(
+	orchestrator: AgentOrchestrator,
+	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
+	currentThread: Thread,
+): Promise<{ event: ToolCallEvent; thread: Thread; shouldExit: false } | { thread: Thread; shouldExit: true } | null> {
+	try {
+		const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+		
+		if (!toolCallEvent) {
+			console.log('\n✅ Agent finished without tool call');
+			return null;
+		}
+
+		console.log(`\n🔧 Tool call: ${toolCallEvent.data.intent}`);
+		return { event: toolCallEvent, thread: currentThread, shouldExit: false };
+	} catch (error) {
+		console.error(`\n❌ Error generating tool call: ${error instanceof Error ? error.message : String(error)}`);
+		const errorEvent: Event = {
+			type: 'error',
+			timestamp: Date.now(),
+			data: {
+				error: error instanceof Error ? error.message : String(error),
+				code: 'LLM_TOOL_CALL_GENERATION_FAILED',
+			},
+		};
+		const updatedThread = await orchestrator.processEvent(errorEvent);
+		return { thread: updatedThread, shouldExit: true };
+	}
+}
+
+async function handleToolCall(
+	toolCallEvent: ToolCallEvent,
+	orchestrator: AgentOrchestrator,
+	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
+	currentThread: Thread,
+): Promise<{ continue: boolean; newThread?: Thread }> {
+	const toolCall = toolCallEvent.data;
+
+	// Handle approval-required tools
+	if (toolCall.intent === 'delete_task') {
+		const approved = await askHumanApproval(toolCall);
+		if (!approved) {
+			console.log('❌ Operation cancelled by user');
+			return { continue: false };
+		}
+	}
+
+	// Handle terminal tools
+	if (toolCall.intent === 'done_for_now') {
+		console.log(`\n💬 ${toolCall.parameters.message}`);
+		return { continue: false };
+	}
+
+	// Handle request for more information
+	if (toolCall.intent === 'request_more_information') {
+		console.log(`\n💬 ${toolCall.parameters.message}`);
+		const humanResponse = await askHuman('');
+		await processUserInput(orchestrator, reducer, humanResponse);
+		return { continue: false };
+	}
+
+	// Execute tool and handle result
+	const newThread = await orchestrator.executeToolCall(toolCallEvent);
+	const lastEvent = newThread.events[newThread.events.length - 1];
+
+	if (lastEvent.type === 'tool_response') {
+		console.log('✅ Tool executed successfully');
+		return { continue: true, newThread };
+	} else if (lastEvent.type === 'error') {
+		console.error(`❌ Error: ${lastEvent.data.error}`);
+		return { continue: false };
+	}
+
+	return { continue: true, newThread };
 }
 
 async function askHuman(message: string): Promise<Event> {

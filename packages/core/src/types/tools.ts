@@ -27,8 +27,8 @@ export const createTaskSchema = z.object({
 	intent: z.literal('create_task'),
 	parameters: z.object({
 		title: z.string(),
-		description: z.string(),
-		task_type: taskTypeSchema,
+		description: z.string().optional(),
+		task_type: taskTypeSchema.optional(),
 		scheduled_date: z.string().optional(),
 		project_id: z.string().optional(),
 	}),
