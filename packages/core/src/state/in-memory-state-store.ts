@@ -3,6 +3,15 @@ import type { Thread } from '../thread/thread';
 
 /**
  * In-memory state storage for CLI. For Web, use RedisStateStore.
+ * 
+ * **Warning**: Does not protect against mutations. Always create new state objects instead of mutating.
+ * 
+ * @example
+ * // ✅ Correct
+ * store.setState(new Thread([...store.getState().events, newEvent]));
+ * 
+ * // ❌ Wrong
+ * store.getState().events.push(newEvent);
  */
 export class InMemoryStateStore<TState = Thread> implements StateStore<TState> {
 	private state: TState;
