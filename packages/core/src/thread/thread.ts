@@ -1,13 +1,11 @@
-export interface Event {
-  type: string;
-  data: any;
-}
+import type { Event } from '../types/event';
+import { isToolCallEvent } from '../types/event';
 
 export class Thread {
-  events: Event[] = [];
+  readonly events: readonly Event[];
 
-  constructor(events: Event[]) {
-    this.events = events;
+  constructor(events: readonly Event[]) {
+    this.events = [...events];
   }
 
   serializeForLLM() {
@@ -19,18 +17,35 @@ export class Thread {
   }
 
   serializeOneEvent(e: Event) {
+    // Extract tag name - for tool calls, use the intent field
+    const tagName = isToolCallEvent(e) ? e.data.intent : e.type;
+    const content = this.serializeEventData(e.data);
+
     return this.trimLeadingWhitespace(`
-            <${e.data?.intent || e.type}>
-            ${
-              typeof e.data !== 'object'
-                ? e.data
-                : Object.keys(e.data)
-                    .filter((k) => k !== 'intent')
-                    .map((k) => `${k}: ${this.serializeValue(e.data[k])}`)
-                    .join('\n')
-            }
-            </${e.data?.intent || e.type}>
+            <${tagName}>
+            ${content}
+            </${tagName}>
         `);
+  }
+
+  private serializeEventData(data: unknown): string {
+    if (data === null || data === undefined) {
+      return '';
+    }
+
+    if (typeof data === 'string') {
+      return data;
+    }
+
+    if (typeof data === 'object') {
+      const dataObj = data as Record<string, unknown>;
+      const filteredKeys = Object.keys(dataObj).filter((k) => k !== 'intent');
+      return filteredKeys
+        .map((k) => `${k}: ${this.serializeValue(dataObj[k])}`)
+        .join('\n');
+    }
+
+    return String(data);
   }
 
   private serializeValue(value: unknown): string {
@@ -51,15 +66,5 @@ export class Thread {
       .join(', ');
 
     return `{${entries}}`;
-  }
-
-  awaitingHumanResponse(): boolean {
-    const lastEvent = this.events[this.events.length - 1];
-    return ['request_more_information', 'done_for_now'].includes(lastEvent.data.intent);
-  }
-
-  awaitingHumanApproval(): boolean {
-    const lastEvent = this.events[this.events.length - 1];
-    return lastEvent.data.intent === 'delete_task';
   }
 }

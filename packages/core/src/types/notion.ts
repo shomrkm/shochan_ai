@@ -1,8 +1,8 @@
 export interface BuildTaskPageParamsArgs {
   databaseId: string;
   title: string;
-  description: string;
-  task_type: string;
+  description?: string;
+  task_type?: string;
   scheduled_date?: string;
   project_id?: string;
 }

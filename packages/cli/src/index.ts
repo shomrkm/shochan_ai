@@ -1,90 +1,193 @@
 #!/usr/bin/env node
 
 import * as readline from 'readline';
-import { TaskAgent } from './agent/task-agent';
-import { Thread, type Event } from '@shochan_ai/core';
+import {
+	Thread,
+	LLMAgentReducer,
+	NotionToolExecutor,
+	AgentOrchestrator,
+	InMemoryStateStore,
+	builPrompt,
+	type Event,
+	type ToolCallEvent,
+} from '@shochan_ai/core';
+import { OpenAIClient, NotionClient } from '@shochan_ai/client';
+import { taskAgentTools } from './agent/task-agent-tools';
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env from repository root
 dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
 
 export async function cli() {
-  const args = process.argv.slice(2);
+	const args = process.argv.slice(2);
 
-  if (args.length === 0) {
-    console.error('Error: Please provide a message as a command line argument');
-    process.exit(1);
-  }
+	if (args.length === 0) {
+		console.error('Error: Please provide a message as a command line argument');
+		process.exit(1);
+	}
 
-  const message = args.join(' ');
-  const taskAgent = new TaskAgent();
-  const thread = new Thread([{ type: 'user_input', data: message }]);
+	const message = args.join(' ');
 
-  let newThread = await taskAgent.agetnLoop(thread);
-  let lastEvent = newThread.events.slice(-1)[0];
+	// Initialize clients
+	const openaiClient = new OpenAIClient();
+	const notionClient = new NotionClient();
 
-  while (true) {
-    if (thread.awaitingHumanResponse()) {
-      const humanResponse = await askHuman(lastEvent.data.parameters.message);
-      thread.events.push(humanResponse);
-      lastEvent = humanResponse;
-      continue;
-    }
+	// Initialize components
+	const initialThread = new Thread([]);
+	const reducer = new LLMAgentReducer(openaiClient, taskAgentTools, builPrompt);
+	const executor = new NotionToolExecutor(notionClient);
+	const stateStore = new InMemoryStateStore<Thread>(initialThread);
 
-    if (thread.awaitingHumanApproval() && (await askHumanApproval())) {
-      newThread = await taskAgent.handleNextStep(lastEvent.data, newThread);
-      lastEvent = newThread.events.slice(-1)[0];
-      continue;
-    }
-    if (thread.awaitingHumanApproval() && !(await askHumanApproval())) {
-      thread.events.push({
-        type: 'tool response',
-        data: `user denied the operation to ${lastEvent.type}`,
-      });
-      continue;
-    }
+	const orchestrator = new AgentOrchestrator(reducer, executor, stateStore);
 
-    newThread = await taskAgent.agetnLoop(thread);
-    lastEvent = newThread.events.slice(-1)[0];
-  }
+	// Process initial user input
+	const userInputEvent: Event = {
+		type: 'user_input',
+		timestamp: Date.now(),
+		data: message,
+	};
+
+	await processUserInput(orchestrator, reducer, userInputEvent);
+}
+
+async function processUserInput(
+	orchestrator: AgentOrchestrator,
+	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
+	userInputEvent: Event,
+): Promise<void> {
+	let currentThread = await orchestrator.processEvent(userInputEvent);
+
+	while (true) {
+		const toolCallEvent = await generateToolCall(orchestrator, reducer, currentThread);
+		if (!toolCallEvent || toolCallEvent.shouldExit) break;
+
+		const shouldContinue = await handleToolCall(
+			toolCallEvent.event,
+			orchestrator,
+			reducer,
+			toolCallEvent.thread,
+		);
+
+		if (!shouldContinue.continue) break;
+		if (shouldContinue.newThread) {
+			currentThread = shouldContinue.newThread;
+		}
+	}
+}
+
+async function generateToolCall(
+	orchestrator: AgentOrchestrator,
+	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
+	currentThread: Thread,
+): Promise<{ event: ToolCallEvent; thread: Thread; shouldExit: false } | { thread: Thread; shouldExit: true } | null> {
+	try {
+		const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+		
+		if (!toolCallEvent) {
+			console.log('\n✅ Agent finished without tool call');
+			return null;
+		}
+
+		console.log(`\n🔧 Tool call: ${toolCallEvent.data.intent}`);
+		return { event: toolCallEvent, thread: currentThread, shouldExit: false };
+	} catch (error) {
+		console.error(`\n❌ Error generating tool call: ${error instanceof Error ? error.message : String(error)}`);
+		const errorEvent: Event = {
+			type: 'error',
+			timestamp: Date.now(),
+			data: {
+				error: error instanceof Error ? error.message : String(error),
+				code: 'LLM_TOOL_CALL_GENERATION_FAILED',
+			},
+		};
+		const updatedThread = await orchestrator.processEvent(errorEvent);
+		return { thread: updatedThread, shouldExit: true };
+	}
+}
+
+async function handleToolCall(
+	toolCallEvent: ToolCallEvent,
+	orchestrator: AgentOrchestrator,
+	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
+	currentThread: Thread,
+): Promise<{ continue: boolean; newThread?: Thread }> {
+	const toolCall = toolCallEvent.data;
+
+	// Handle approval-required tools
+	if (toolCall.intent === 'delete_task') {
+		const approved = await askHumanApproval(toolCall);
+		if (!approved) {
+			console.log('❌ Operation cancelled by user');
+			return { continue: false };
+		}
+	}
+
+	// Handle terminal tools
+	if (toolCall.intent === 'done_for_now') {
+		console.log(`\n💬 ${toolCall.parameters.message}`);
+		return { continue: false };
+	}
+
+	// Handle request for more information
+	if (toolCall.intent === 'request_more_information') {
+		console.log(`\n💬 ${toolCall.parameters.message}`);
+		const humanResponse = await askHuman('');
+		await processUserInput(orchestrator, reducer, humanResponse);
+		return { continue: false };
+	}
+
+	// Execute tool and handle result
+	const newThread = await orchestrator.executeToolCall(toolCallEvent);
+	const lastEvent = newThread.events[newThread.events.length - 1];
+
+	if (lastEvent.type === 'tool_response') {
+		console.log('✅ Tool executed successfully');
+		return { continue: true, newThread };
+	} else if (lastEvent.type === 'error') {
+		console.error(`❌ Error: ${lastEvent.data.error}`);
+		return { continue: false };
+	}
+
+	return { continue: true, newThread };
 }
 
 async function askHuman(message: string): Promise<Event> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
 
-  return new Promise((resolve) => {
-    rl.question(`${message}\n> `, (answer) => {
-      rl.close();
-      resolve({
-        type: 'user_input',
-        data: answer.trim(),
-      });
-    });
-  });
+	return new Promise((resolve) => {
+		rl.question(`\n${message}\n> `, (answer) => {
+			rl.close();
+			resolve({
+				type: 'user_input',
+				timestamp: Date.now(),
+				data: answer.trim(),
+			});
+		});
+	});
 }
 
-async function askHumanApproval(): Promise<boolean> {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+async function askHumanApproval(toolCall: ToolCallEvent['data']): Promise<boolean> {
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
 
-  console.log('\n⚠️  Confirmation');
-  console.log('Are you sure you want to proceed?\n');
+	console.log('\n⚠️  Confirmation Required');
+	console.log(`Tool: ${toolCall.intent}`);
+	console.log(`Parameters: ${JSON.stringify(toolCall.parameters, null, 2)}`);
 
-  return new Promise((resolve) => {
-    rl.question('Continue? (yes/no): ', (answer) => {
-      rl.close();
-      const response = answer.trim().toLowerCase();
-      resolve(response === 'yes' || response === 'y');
-    });
-  });
+	return new Promise((resolve) => {
+		rl.question('\nContinue? (yes/no): ', (answer) => {
+			rl.close();
+			const response = answer.trim().toLowerCase();
+			resolve(response === 'yes' || response === 'y');
+		});
+	});
 }
 
 if (require.main === module) {
-  cli().catch(console.error);
+	cli().catch(console.error);
 }

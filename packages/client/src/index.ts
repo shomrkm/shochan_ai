@@ -1,5 +1,5 @@
 // OpenAI Client
-export { OpenAIClient } from './openai';
+export { OpenAIClient, ToolCallValidationError } from './openai';
 
 // Notion Client
 export { NotionClient } from './notion';

@@ -23,11 +23,15 @@ export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): Notion
           },
         ],
       },
-      task_type: {
-        select: {
-          name: task_type,
-        },
-      },
+      ...(task_type
+        ? {
+            task_type: {
+              select: {
+                name: task_type,
+              },
+            },
+          }
+        : {}),
       ...(scheduled_date
         ? {
             due_date: {
@@ -58,7 +62,7 @@ export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): Notion
             {
               type: 'text',
               text: {
-                content: description,
+                content: description || '',
               },
             },
           ],

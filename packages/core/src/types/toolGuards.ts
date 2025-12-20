@@ -6,6 +6,8 @@ import type {
   DeleteTaskTool,
   UpdateTaskTool,
   GetTaskDetailsTool,
+  RequestMoreInformationTool,
+  DoneForNowTool,
 } from './tools';
 
 export function isCreateTaskTool(tool: ToolCall): tool is CreateTaskTool {
@@ -30,4 +32,12 @@ export function isUpdateTaskTool(tool: ToolCall): tool is UpdateTaskTool {
 
 export function isGetTaskDetailsTool(tool: ToolCall): tool is GetTaskDetailsTool {
   return tool.intent === 'get_task_details';
+}
+
+export function isRequestMoreInformationTool(tool: ToolCall): tool is RequestMoreInformationTool {
+  return tool.intent === 'request_more_information';
+}
+
+export function isDoneForNowTool(tool: ToolCall): tool is DoneForNowTool {
+  return tool.intent === 'done_for_now';
 }

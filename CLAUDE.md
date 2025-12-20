@@ -21,11 +21,16 @@
    - **Unit Tests**: Run `npm test` to ensure all tests pass
    - **Code Quality**: Verify implementation follows existing patterns
 
-4. **Commit Confirmation Protocol (CRITICAL - NEVER SKIP)**
-   - **NEVER create git commits without explicit user permission**
-   - Present completed work summary to user
-   - Request explicit approval: "Task X.Y が完了しました。レビューをお願いします。コミットしてもよろしいですか？"
-   - **WAIT** for user confirmation before proceeding with git commit
+4. **Review and Commit Protocol (CRITICAL - NEVER SKIP)**
+   - **ALWAYS wait for user review before committing**
+   - After completing implementation and validation:
+     1. Present completed work summary to user
+     2. Show key changes (file diffs if needed)
+     3. Request explicit review: "実装が完了しました。レビューをお願いします。"
+     4. **WAIT** for user's review and approval
+     5. Only commit after user explicitly approves (e.g., "OK、コミットして")
+   - **NEVER commit automatically**, even if user says "次のタスクに進んで" or similar
+   - Exception: Only commit without asking if user explicitly says "コミットして" in their instruction
 
 ### Code Quality Standards
 
@@ -77,15 +82,6 @@
 - Ask for confirmation before major changes
 - Report any deviations from the implementation plan
 - Request guidance when encountering unexpected issues
-
-## Implementation Plan Reference
-
-All tasks should follow the structure defined in `IMPLEMENTATION_PLAN_XML_CONTEXT.md`:
-- Phase 1: Foundation ✅ COMPLETED
-- Phase 2: Unified Context Manager Enhancement 🔄 IN PROGRESS  
-- Phase 3: TaskCreatorAgent Integration (Planned)
-- Phase 4: Testing & Optimization (Planned)
-- Phase 5: Production Migration & Cleanup (Planned)
 
 ## Current Development Focus
 
