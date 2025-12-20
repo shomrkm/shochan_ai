@@ -2,10 +2,10 @@ import type { Event } from '../types/event';
 import { isToolCallEvent } from '../types/event';
 
 export class Thread {
-  events: Event[] = [];
+  readonly events: readonly Event[];
 
-  constructor(events: Event[]) {
-    this.events = events;
+  constructor(events: readonly Event[]) {
+    this.events = [...events];
   }
 
   serializeForLLM() {
