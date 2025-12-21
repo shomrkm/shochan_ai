@@ -8,11 +8,11 @@ import {
 	AgentOrchestrator,
 	InMemoryStateStore,
 	builPrompt,
+	taskAgentTools,
 	type Event,
 	type ToolCallEvent,
 } from '@shochan_ai/core';
 import { OpenAIClient, NotionClient } from '@shochan_ai/client';
-import { taskAgentTools } from './agent/task-agent-tools';
 import dotenv from 'dotenv';
 import path from 'path';
 
