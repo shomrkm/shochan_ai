@@ -65,7 +65,6 @@ async function processUserInput(
 			toolCallEvent.event,
 			orchestrator,
 			reducer,
-			toolCallEvent.thread,
 		);
 
 		if (!shouldContinue.continue) break;
@@ -109,7 +108,6 @@ async function handleToolCall(
 	toolCallEvent: ToolCallEvent,
 	orchestrator: AgentOrchestrator,
 	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
-	currentThread: Thread,
 ): Promise<{ continue: boolean; newThread?: Thread }> {
 	const toolCall = toolCallEvent.data;
 
@@ -133,12 +131,16 @@ async function handleToolCall(
 		console.log(`\n💬 ${toolCall.parameters.message}`);
 		const humanResponse = await askHuman('');
 		await processUserInput(orchestrator, reducer, humanResponse);
-		return { continue: false };
+		return { continue: true };
 	}
 
 	// Execute tool and handle result
 	const newThread = await orchestrator.executeToolCall(toolCallEvent);
-	const lastEvent = newThread.events[newThread.events.length - 1];
+	const lastEvent = newThread.latestEvent;
+  if (!lastEvent) {
+    console.error('❌ No event found in the thread');
+    return { continue: false };
+  }
 
 	if (lastEvent.type === 'tool_response') {
 		console.log('✅ Tool executed successfully');

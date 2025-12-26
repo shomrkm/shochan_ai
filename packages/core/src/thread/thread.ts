@@ -8,6 +8,14 @@ export class Thread {
     this.events = [...events];
   }
 
+  /**
+   * Get the latest event in the thread
+   * @returns The latest event, or undefined if the thread is empty
+   */
+  get latestEvent(): Event | undefined {
+    return this.events[this.events.length - 1];
+  }
+
   serializeForLLM() {
     return this.events.map((e) => this.serializeOneEvent(e)).join('\n');
   }
