@@ -4,7 +4,6 @@ import {
 	Thread,
 	LLMAgentReducer,
 	NotionToolExecutor,
-	AgentOrchestrator,
 	builPrompt,
 	taskAgentTools,
 	isAwaitingApprovalEvent,
@@ -19,7 +18,8 @@ const router: ExpressRouter = Router();
 // Shared instances
 let redisStore: RedisStateStore;
 let streamManager: StreamManager;
-let orchestrator: AgentOrchestrator;
+let reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>;
+let executor: NotionToolExecutor<NotionClient>;
 
 /**
  * Initialize agent dependencies.
@@ -34,15 +34,8 @@ async function initializeAgent(
 
 	const openaiClient = new OpenAIClient();
 	const notionClient = new NotionClient();
-	const reducer = new LLMAgentReducer(openaiClient, taskAgentTools, builPrompt);
-	const executor = new NotionToolExecutor(notionClient);
-
-	// Create orchestrator with InMemoryStateStore wrapper
-	// (We'll manage Thread persistence separately via Redis)
-	orchestrator = new AgentOrchestrator(reducer, executor, {
-		getState: () => new Thread([]),
-		setState: () => {},
-	});
+	reducer = new LLMAgentReducer(openaiClient, taskAgentTools, builPrompt);
+	executor = new NotionToolExecutor(notionClient);
 }
 
 /**
@@ -154,25 +147,85 @@ async function processAgent(conversationId: string): Promise<void> {
 			throw new Error('Conversation not found');
 		}
 
-		// Process the latest event
-		const latestEvent = currentThread.latestEvent;
-		if (!latestEvent) {
-			throw new Error('Thread has no events');
-		}
-		currentThread = await orchestrator.processEvent(latestEvent);
-		await redisStore.set(conversationId, currentThread);
+		console.log(`🤖 Starting agent processing for: ${conversationId}`);
 
-		// TODO: Implement full agent loop with tool execution
-		// For now, send completion event
+		// Agent loop
+		while (true) {
+			// 1. Generate next tool call via LLM
+			const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+
+			// 2. No tool call - agent finished
+			if (!toolCallEvent) {
+				console.log(`✅ Agent finished (no tool call) for: ${conversationId}`);
+				streamManager.send(conversationId, {
+					type: 'complete',
+					timestamp: Date.now(),
+					data: { message: 'Agent processing completed' },
+				});
+				break;
+			}
+
+			// 3. Add tool_call event to thread and stream it
+			console.log(`🔧 Tool call generated: ${toolCallEvent.data.intent}`);
+			streamManager.send(conversationId, toolCallEvent);
+			currentThread = new Thread([...currentThread.events, toolCallEvent]);
+			await redisStore.set(conversationId, currentThread);
+
+			const toolCall = toolCallEvent.data;
+
+			// 4. Check if approval required (delete_task)
+			if (toolCall.intent === 'delete_task') {
+				console.log(`⚠️  Approval required for: ${conversationId}`);
+				streamManager.send(conversationId, {
+					type: 'awaiting_approval',
+					timestamp: Date.now(),
+					data: toolCall,
+				});
+				break; // Pause - will resume when approval is received
+			}
+
+			// 5. Handle terminal tools
+			if (toolCall.intent === 'done_for_now') {
+				console.log(`✅ Agent finished (done_for_now) for: ${conversationId}`);
+				streamManager.send(conversationId, {
+					type: 'complete',
+					timestamp: Date.now(),
+					data: { message: toolCall.parameters.message },
+				});
+				break;
+			}
+
+			if (toolCall.intent === 'request_more_information') {
+				console.log(`❓ More information requested for: ${conversationId}`);
+				streamManager.send(conversationId, {
+					type: 'complete',
+					timestamp: Date.now(),
+					data: { message: toolCall.parameters.message },
+				});
+				break;
+			}
+
+			// 6. Execute tool
+			console.log(`⚙️  Executing tool: ${toolCall.intent}`);
+			const result = await executor.execute(toolCall);
+
+			// 7. Stream tool_response event
+			streamManager.send(conversationId, result.event);
+			currentThread = new Thread([...currentThread.events, result.event]);
+			await redisStore.set(conversationId, currentThread);
+
+			console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+		}
+	} catch (error) {
+		console.error(`❌ processAgent error for ${conversationId}:`, error);
 		streamManager.send(conversationId, {
-			type: 'complete',
+			type: 'error',
 			timestamp: Date.now(),
 			data: {
-				message: 'Agent processing completed',
+				error: error instanceof Error ? error.message : String(error),
+				code: 'AGENT_PROCESSING_FAILED',
 			},
 		});
-	} catch (error) {
-		console.error(`processAgent error for ${conversationId}:`, error);
 		throw error;
 	}
 }
