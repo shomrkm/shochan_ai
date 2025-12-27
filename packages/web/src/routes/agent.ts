@@ -28,7 +28,7 @@ let executor: NotionToolExecutor<NotionClient>;
 async function initializeAgent(
 	store: RedisStateStore,
 	manager: StreamManager,
-): Promise<void> {
+): Promise<typeof router> {
 	redisStore = store;
 	streamManager = manager;
 
@@ -36,6 +36,8 @@ async function initializeAgent(
 	const notionClient = new NotionClient();
 	reducer = new LLMAgentReducer(openaiClient, taskAgentTools, builPrompt);
 	executor = new NotionToolExecutor(notionClient);
+
+	return router;
 }
 
 /**
@@ -230,5 +232,5 @@ async function processAgent(conversationId: string): Promise<void> {
 	}
 }
 
-export { router as agentRouter };
 export { initializeAgent };
+export default router;

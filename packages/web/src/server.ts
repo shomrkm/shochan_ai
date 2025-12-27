@@ -6,6 +6,10 @@ import express, {
 } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { RedisStateStore } from './state/redis-store';
+import { StreamManager } from './streaming/manager';
+import { initializeAgent } from './routes/agent';
+import { initializeStream } from './routes/stream';
 
 dotenv.config({ path: '../../.env' });
 
@@ -25,9 +29,30 @@ app.get('/health', (_req: Request, res: Response) => {
 	res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// API routes will be added here
-// app.use('/api/agent', agentRouter);
-// app.use('/api/stream', streamRouter);
+// Initialize dependencies and routes
+async function setupRoutes() {
+	const redisStore = new RedisStateStore(process.env.REDIS_URL || 'redis://localhost:6379');
+	const streamManager = new StreamManager();
+
+	await redisStore.connect();
+	console.log('✅ Connected to Redis');
+
+	const agentRouter = await initializeAgent(redisStore, streamManager);
+	const streamRouter = initializeStream(redisStore, streamManager);
+
+	app.use('/api/agent', agentRouter);
+	app.use('/api/stream', streamRouter);
+
+	console.log('✅ Routes initialized');
+}
+
+// Setup routes if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+	setupRoutes().catch((error) => {
+		console.error('Failed to setup routes:', error);
+		process.exit(1);
+	});
+}
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
