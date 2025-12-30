@@ -178,17 +178,25 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 }
 
 /**
+ * Maximum number of iterations to prevent infinite loops.
+ * Protects against LLM generating unexpected continuous responses.
+ */
+const MAX_ITERATIONS = 50;
+
+/**
  * Process agent execution in background.
  * Receives dependencies explicitly instead of using globals.
  *
  * @param conversationId - Unique conversation identifier
  * @param deps - Agent dependencies
+ * @throws {Error} When conversation not found or max iterations reached
  */
 async function processAgent(
 	conversationId: string,
 	deps: AgentDependencies,
 ): Promise<void> {
 	const { redisStore, streamManager, reducer, executor } = deps;
+	let iterations = 0;
 
 	try {
 		let currentThread = await redisStore.get(conversationId);
@@ -199,6 +207,12 @@ async function processAgent(
 		console.log(`🤖 Starting agent processing for: ${conversationId}`);
 
 		while (true) {
+			if (iterations >= MAX_ITERATIONS) {
+				console.error( `🔁 Max iterations reached for ${conversationId} after ${iterations} iterations`);
+				throw new Error(`Maximum iterations (${MAX_ITERATIONS}) reached without completion`);
+			}
+			iterations++;
+
 			const toolCallEvent = await reducer.generateNextToolCall(currentThread);
 
 			if (!toolCallEvent) {
