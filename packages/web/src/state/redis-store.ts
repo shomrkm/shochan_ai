@@ -54,11 +54,8 @@ export class RedisStateStore {
 		}
 
 		try {
-			const parsed = JSON.parse(data);
-			// Reconstruct Thread instance from plain object
-			return new (Thread as new (events: readonly any[]) => Thread)(
-				parsed.events || [],
-			);
+			const parsed = JSON.parse(data)
+			return new Thread(parsed.events || []);
 		} catch (error) {
 			console.error(`Failed to parse Thread for ${conversationId}:`, error);
 			return null;
