@@ -111,25 +111,63 @@ router.post('/approve/:conversationId', async (req: Request, res: Response) => {
 			return;
 		}
 
-		// Add approval event
-		const approvalEvent: Event = {
-			type: 'user_input',
-			timestamp: Date.now(),
-			data: approved ? 'approved' : 'denied',
-		};
+		const pendingToolCall = latestEvent.data;
 
-		const updatedThread = new Thread([...thread.events, approvalEvent]);
-		await redisStore.set(conversationId, updatedThread);
+		if (approved) {
+			// ✅ Approved: Add approval event, then execute the pending tool call directly
+			console.log(`✅ Approval granted for: ${conversationId}`);
 
-		// Resume agent processing
-		processAgent(conversationId).catch((error) => {
-			console.error(`Agent processing failed for ${conversationId}:`, error);
-			streamManager.send(conversationId, {
-				type: 'error',
+			// 1. Add approval event
+			const approvalEvent: Event = {
+				type: 'user_input',
 				timestamp: Date.now(),
-				data: { error: error.message },
+				data: 'approved',
+			};
+			let currentThread = new Thread([...thread.events, approvalEvent]);
+			await redisStore.set(conversationId, currentThread);
+
+			// 2. Execute the pending tool call directly (avoid LLM regenerating the same tool call)
+			console.log(`⚙️  Executing approved tool: ${pendingToolCall.intent}`);
+			const result = await executor.execute(pendingToolCall);
+
+			// 3. Add tool_response event and save to Redis
+			streamManager.send(conversationId, result.event);
+			currentThread = new Thread([...currentThread.events, result.event]);
+			await redisStore.set(conversationId, currentThread);
+
+			console.log(`✅ Tool executed successfully: ${pendingToolCall.intent}`);
+
+			// 4. Resume agent processing (LLM will see the result and generate done_for_now)
+			processAgent(conversationId).catch((error) => {
+				console.error(`Agent processing failed for ${conversationId}:`, error);
+				streamManager.send(conversationId, {
+					type: 'error',
+					timestamp: Date.now(),
+					data: { error: error.message },
+				});
 			});
-		});
+		} else {
+			// ❌ Denied: Add denial event and let LLM handle it
+			console.log(`❌ Approval denied for: ${conversationId}`);
+
+			const denialEvent: Event = {
+				type: 'user_input',
+				timestamp: Date.now(),
+				data: 'denied',
+			};
+			const updatedThread = new Thread([...thread.events, denialEvent]);
+			await redisStore.set(conversationId, updatedThread);
+
+			// Resume agent processing
+			processAgent(conversationId).catch((error) => {
+				console.error(`Agent processing failed for ${conversationId}:`, error);
+				streamManager.send(conversationId, {
+					type: 'error',
+					timestamp: Date.now(),
+					data: { error: error.message },
+				});
+			});
+		}
 
 		res.json({ success: true });
 	} catch (error) {

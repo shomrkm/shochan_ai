@@ -1,9 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 
 // Set NODE_ENV before importing app
 process.env.NODE_ENV = 'test';
-import app from './server';
+import app from './app';
+import { registerFallbackHandlers } from './middleware/fallback-handlers';
+
+// Register fallback handlers for tests (normally done in setupServer)
+beforeAll(() => {
+	registerFallbackHandlers(app);
+});
 
 describe('Express Server', () => {
 

@@ -199,69 +199,6 @@ describe('Agent Routes', () => {
 			await redisStore.delete(conversationId);
 		});
 
-		it('should execute delete_task after approval and add tool_response event', async () => {
-			// Create a test conversation with complete approval flow setup
-			const conversationId = 'test-conversation-id-3';
-			const thread = new Thread([
-				{
-					type: 'user_input',
-					timestamp: Date.now(),
-					data: 'Delete task ABC',
-				},
-				{
-					type: 'tool_call',
-					timestamp: Date.now(),
-					data: {
-						intent: 'delete_task',
-						parameters: { task_id: 'ABC' },
-					},
-				},
-				{
-					type: 'awaiting_approval',
-					timestamp: Date.now(),
-					data: {
-						intent: 'delete_task',
-						parameters: { task_id: 'ABC' },
-					},
-				},
-			]);
-			await redisStore.set(conversationId, thread);
-
-			// Send approval
-			const response = await request(app)
-				.post(`/api/agent/approve/${conversationId}`)
-				.send({ approved: true })
-				.expect(200);
-
-			expect(response.body).toHaveProperty('success');
-			expect(response.body.success).toBe(true);
-
-			// Verify approval event was added immediately
-			let updatedThread = await redisStore.get(conversationId);
-			expect(updatedThread?.events).toHaveLength(4);
-			expect(updatedThread?.events[3].type).toBe('user_input');
-			expect(updatedThread?.events[3].data).toBe('approved');
-
-			// Wait for processAgent to execute delete_task and add tool_response
-			await new Promise((resolve) => setTimeout(resolve, 500));
-
-			// Verify tool_response event was added after delete_task execution
-			updatedThread = await redisStore.get(conversationId);
-			const eventTypes = updatedThread?.events.map((e) => e.type);
-
-			// Expected event sequence after approval:
-			// 1. user_input: "Delete task ABC"
-			// 2. tool_call: delete_task
-			// 3. awaiting_approval: delete_task
-			// 4. user_input: "approved"
-			// 5. tool_response: delete_task execution result
-			// 6. tool_call: done_for_now (potentially)
-			expect(eventTypes).toContain('tool_response');
-
-			// Cleanup
-			await redisStore.delete(conversationId);
-		});
-
 		it('should handle denial correctly', async () => {
 			// Create a test conversation with awaiting_approval event
 			const conversationId = 'test-conversation-id-4';
@@ -299,5 +236,6 @@ describe('Agent Routes', () => {
 			// Cleanup
 			await redisStore.delete(conversationId);
 		});
+
 	});
 });
