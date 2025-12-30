@@ -7,9 +7,11 @@ import { StreamManager } from '../streaming/manager';
 import { initializeAgent } from './agent';
 
 // Mock API clients to avoid requiring real API keys in tests
+const mockGenerateToolCall = vi.fn().mockResolvedValue({ toolCall: null });
+
 vi.mock('@shochan_ai/client', () => ({
 	OpenAIClient: vi.fn().mockImplementation(() => ({
-		generateToolCall: vi.fn().mockResolvedValue({ toolCall: null }),
+		generateToolCall: mockGenerateToolCall,
 	})),
 	NotionClient: vi.fn().mockImplementation(() => ({})),
 }));
@@ -85,6 +87,54 @@ describe('Agent Routes', () => {
 				'Message is required and must be a string',
 			);
 		});
+
+		/**
+		 * Test: awaiting_approval event persistence for delete_task
+		 *
+		 * Requirements:
+		 * - awaiting_approval event must be added to Thread
+		 * - awaiting_approval event must be saved to Redis
+		 * - approval endpoint must be able to find the awaiting_approval event
+		 */
+		it('should persist awaiting_approval event when delete_task is generated', async () => {
+			// Configure mock to return delete_task
+			mockGenerateToolCall.mockResolvedValueOnce({
+				toolCall: {
+					intent: 'delete_task',
+					parameters: { task_id: 'TEST_TASK_123' },
+				},
+			});
+
+			// Create initial conversation with delete request
+			const response = await request(app)
+				.post('/api/agent/query')
+				.send({ message: 'Delete TEST_TASK_123' })
+				.expect(200);
+
+			const conversationId = response.body.conversationId;
+
+			// Wait for processAgent to run
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			// Verify awaiting_approval event was saved to Redis
+			const thread = await redisStore.get(conversationId);
+			expect(thread).toBeDefined();
+
+			// Expected event sequence:
+			// 1. user_input: "Delete TEST_TASK_123"
+			// 2. tool_call: delete_task
+			// 3. awaiting_approval: delete_task
+			const eventTypes = thread?.events.map((e) => e.type);
+
+			// Verify awaiting_approval event is present
+			expect(eventTypes).toContain('awaiting_approval');
+
+			// Verify the latest event is awaiting_approval
+			expect(thread?.latestEvent?.type).toBe('awaiting_approval');
+
+			// Cleanup
+			await redisStore.delete(conversationId);
+		});
 	});
 
 	describe('POST /api/agent/approve/:conversationId', () => {
@@ -149,14 +199,22 @@ describe('Agent Routes', () => {
 			await redisStore.delete(conversationId);
 		});
 
-		it('should return 200 when approving a valid awaiting_approval event', async () => {
-			// Create a test conversation with awaiting_approval event
+		it('should execute delete_task after approval and add tool_response event', async () => {
+			// Create a test conversation with complete approval flow setup
 			const conversationId = 'test-conversation-id-3';
 			const thread = new Thread([
 				{
 					type: 'user_input',
 					timestamp: Date.now(),
 					data: 'Delete task ABC',
+				},
+				{
+					type: 'tool_call',
+					timestamp: Date.now(),
+					data: {
+						intent: 'delete_task',
+						parameters: { task_id: 'ABC' },
+					},
 				},
 				{
 					type: 'awaiting_approval',
@@ -169,6 +227,7 @@ describe('Agent Routes', () => {
 			]);
 			await redisStore.set(conversationId, thread);
 
+			// Send approval
 			const response = await request(app)
 				.post(`/api/agent/approve/${conversationId}`)
 				.send({ approved: true })
@@ -177,11 +236,27 @@ describe('Agent Routes', () => {
 			expect(response.body).toHaveProperty('success');
 			expect(response.body.success).toBe(true);
 
-			// Verify approval event was added
-			const updatedThread = await redisStore.get(conversationId);
-			expect(updatedThread?.events).toHaveLength(3);
-			expect(updatedThread?.events[2].type).toBe('user_input');
-			expect(updatedThread?.events[2].data).toBe('approved');
+			// Verify approval event was added immediately
+			let updatedThread = await redisStore.get(conversationId);
+			expect(updatedThread?.events).toHaveLength(4);
+			expect(updatedThread?.events[3].type).toBe('user_input');
+			expect(updatedThread?.events[3].data).toBe('approved');
+
+			// Wait for processAgent to execute delete_task and add tool_response
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			// Verify tool_response event was added after delete_task execution
+			updatedThread = await redisStore.get(conversationId);
+			const eventTypes = updatedThread?.events.map((e) => e.type);
+
+			// Expected event sequence after approval:
+			// 1. user_input: "Delete task ABC"
+			// 2. tool_call: delete_task
+			// 3. awaiting_approval: delete_task
+			// 4. user_input: "approved"
+			// 5. tool_response: delete_task execution result
+			// 6. tool_call: done_for_now (potentially)
+			expect(eventTypes).toContain('tool_response');
 
 			// Cleanup
 			await redisStore.delete(conversationId);

@@ -178,11 +178,21 @@ async function processAgent(conversationId: string): Promise<void> {
 			// 4. Check if approval required (delete_task)
 			if (toolCall.intent === 'delete_task') {
 				console.log(`⚠️  Approval required for: ${conversationId}`);
-				streamManager.send(conversationId, {
+
+				// Create awaiting_approval event
+				const awaitingApprovalEvent: Event = {
 					type: 'awaiting_approval',
 					timestamp: Date.now(),
 					data: toolCall,
-				});
+				};
+
+				// Add to thread and save to Redis
+				currentThread = new Thread([...currentThread.events, awaitingApprovalEvent]);
+				await redisStore.set(conversationId, currentThread);
+
+				// Stream the event
+				streamManager.send(conversationId, awaitingApprovalEvent);
+
 				break; // Pause - will resume when approval is received
 			}
 
