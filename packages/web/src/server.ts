@@ -30,7 +30,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // Initialize dependencies and routes
-async function setupRoutes() {
+async function setupServer() {
 	const redisStore = new RedisStateStore(process.env.REDIS_URL || 'redis://localhost:6379');
 	const streamManager = new StreamManager();
 
@@ -46,15 +46,7 @@ async function setupRoutes() {
 	console.log('✅ Routes initialized');
 }
 
-// Setup routes if not in test environment
-if (process.env.NODE_ENV !== 'test') {
-	setupRoutes().catch((error) => {
-		console.error('Failed to setup routes:', error);
-		process.exit(1);
-	});
-}
-
-// 404 handler
+// 404 handler - must be registered AFTER routes
 app.use((_req: Request, res: Response) => {
 	res.status(404).json({ error: 'Not Found' });
 });
@@ -68,14 +60,21 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
 	});
 });
 
-// Start server only if not in test environment
+// Setup server and start listening
 if (process.env.NODE_ENV !== 'test') {
-	app.listen(PORT, () => {
-		console.log(
-			`🚀 Shochan AI Web API server running on http://localhost:${PORT}`,
-		);
-		console.log(`📊 Health check: http://localhost:${PORT}/health`);
-	});
+	setupServer()
+		.then(() => {
+			app.listen(PORT, () => {
+				console.log(
+					`🚀 Shochan AI Web API server running on http://localhost:${PORT}`,
+				);
+				console.log(`📊 Health check: http://localhost:${PORT}/health`);
+			});
+		})
+		.catch((error) => {
+			console.error('Failed to setup server:', error);
+			process.exit(1);
+		});
 }
 
 export default app;
