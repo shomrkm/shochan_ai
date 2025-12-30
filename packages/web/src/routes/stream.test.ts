@@ -4,7 +4,7 @@ import express, { type Express } from 'express';
 import { Thread } from '@shochan_ai/core';
 import { RedisStateStore } from '../state/redis-store';
 import { StreamManager } from '../streaming/manager';
-import { initializeStream } from './stream';
+import { createStreamRouter, type StreamDependencies } from './stream';
 
 describe('Stream Route', () => {
 	let app: Express;
@@ -22,7 +22,13 @@ describe('Stream Route', () => {
 
 		await redisStore.connect();
 
-		const streamRouter = initializeStream(redisStore, streamManager);
+		// Create dependencies using factory function pattern
+		const deps: StreamDependencies = {
+			redisStore,
+			streamManager,
+		};
+
+		const streamRouter = createStreamRouter(deps);
 		app.use('/api/stream', streamRouter);
 	});
 

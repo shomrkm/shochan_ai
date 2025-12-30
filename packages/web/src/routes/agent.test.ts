@@ -4,17 +4,13 @@ import express, { type Express } from 'express';
 import { Thread } from '@shochan_ai/core';
 import { RedisStateStore } from '../state/redis-store';
 import { StreamManager } from '../streaming/manager';
-import { initializeAgent } from './agent';
+import { createAgentRouter, type AgentDependencies } from './agent';
 
-// Mock API clients to avoid requiring real API keys in tests
-const mockGenerateToolCall = vi.fn().mockResolvedValue({ toolCall: null });
+// Mock for generateNextToolCall
+const mockGenerateNextToolCall = vi.fn().mockResolvedValue(null);
 
-vi.mock('@shochan_ai/client', () => ({
-	OpenAIClient: vi.fn().mockImplementation(() => ({
-		generateToolCall: mockGenerateToolCall,
-	})),
-	NotionClient: vi.fn().mockImplementation(() => ({})),
-}));
+// Mock executor
+const mockExecute = vi.fn();
 
 describe('Agent Routes', () => {
 	let app: Express;
@@ -32,7 +28,21 @@ describe('Agent Routes', () => {
 
 		await redisStore.connect();
 
-		const agentRouter = await initializeAgent(redisStore, streamManager);
+		// Create dependencies with mocks - enables easy testing
+		const deps: AgentDependencies = {
+			redisStore,
+			streamManager,
+			reducer: {
+				generateNextToolCall: mockGenerateNextToolCall,
+				reduce: (state: Thread, event: unknown) =>
+					new Thread([...state.events, event as any]),
+			} as unknown as AgentDependencies['reducer'],
+			executor: {
+				execute: mockExecute,
+			} as unknown as AgentDependencies['executor'],
+		};
+
+		const agentRouter = createAgentRouter(deps);
 		app.use('/api/agent', agentRouter);
 	});
 
@@ -98,8 +108,10 @@ describe('Agent Routes', () => {
 		 */
 		it('should persist awaiting_approval event when delete_task is generated', async () => {
 			// Configure mock to return delete_task
-			mockGenerateToolCall.mockResolvedValueOnce({
-				toolCall: {
+			mockGenerateNextToolCall.mockResolvedValueOnce({
+				type: 'tool_call',
+				timestamp: Date.now(),
+				data: {
 					intent: 'delete_task',
 					parameters: { task_id: 'TEST_TASK_123' },
 				},
@@ -200,6 +212,9 @@ describe('Agent Routes', () => {
 		});
 
 		it('should handle denial correctly', async () => {
+			// Reset mock for this test
+			mockGenerateNextToolCall.mockResolvedValue(null);
+
 			// Create a test conversation with awaiting_approval event
 			const conversationId = 'test-conversation-id-4';
 			const thread = new Thread([
@@ -227,6 +242,9 @@ describe('Agent Routes', () => {
 			expect(response.body).toHaveProperty('success');
 			expect(response.body.success).toBe(true);
 
+			// Wait for processAgent to complete
+			await new Promise((resolve) => setTimeout(resolve, 100));
+
 			// Verify denial event was added
 			const updatedThread = await redisStore.get(conversationId);
 			expect(updatedThread?.events).toHaveLength(3);
@@ -236,6 +254,5 @@ describe('Agent Routes', () => {
 			// Cleanup
 			await redisStore.delete(conversationId);
 		});
-
 	});
 });

@@ -3,8 +3,21 @@ import app from './app';
 import { registerFallbackHandlers } from './middleware/fallback-handlers';
 import { RedisStateStore } from './state/redis-store';
 import { StreamManager } from './streaming/manager';
-import { initializeAgent } from './routes/agent';
-import { initializeStream } from './routes/stream';
+import {
+	createAgentRouter,
+	type AgentDependencies,
+} from './routes/agent';
+import {
+	createStreamRouter,
+	type StreamDependencies,
+} from './routes/stream';
+import {
+	LLMAgentReducer,
+	NotionToolExecutor,
+	builPrompt,
+	taskAgentTools,
+} from '@shochan_ai/core';
+import { OpenAIClient, NotionClient } from '@shochan_ai/client';
 
 dotenv.config({ path: '../../.env' });
 
@@ -12,9 +25,10 @@ const PORT = process.env.PORT || 3001;
 
 /**
  * Initialize server dependencies and routes.
- * Connects to Redis, registers API routes, and sets up fallback handlers.
+ * Creates all required instances and registers API routes.
  */
 async function setupServer(): Promise<void> {
+	// Create shared instances
 	const redisStore = new RedisStateStore(
 		process.env.REDIS_URL || 'redis://localhost:6379',
 	);
@@ -23,8 +37,27 @@ async function setupServer(): Promise<void> {
 	await redisStore.connect();
 	console.log('✅ Connected to Redis');
 
-	const agentRouter = await initializeAgent(redisStore, streamManager);
-	const streamRouter = initializeStream(redisStore, streamManager);
+	// Create agent dependencies
+	const openaiClient = new OpenAIClient();
+	const notionClient = new NotionClient();
+	const reducer = new LLMAgentReducer(openaiClient, taskAgentTools, builPrompt);
+	const executor = new NotionToolExecutor(notionClient);
+
+	const agentDeps: AgentDependencies = {
+		redisStore,
+		streamManager,
+		reducer,
+		executor,
+	};
+
+	const streamDeps: StreamDependencies = {
+		redisStore,
+		streamManager,
+	};
+
+	// Create and register routers using factory functions
+	const agentRouter = createAgentRouter(agentDeps);
+	const streamRouter = createStreamRouter(streamDeps);
 
 	app.use('/api/agent', agentRouter);
 	app.use('/api/stream', streamRouter);
