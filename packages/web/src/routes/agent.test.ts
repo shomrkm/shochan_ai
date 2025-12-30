@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
 import express, { type Express } from 'express';
-import { Thread } from '@shochan_ai/core';
+import { Thread, ToolCallEvent } from '@shochan_ai/core';
 import { RedisStateStore } from '../state/redis-store';
 import { StreamManager } from '../streaming/manager';
 import { createAgentRouter, type AgentDependencies } from './agent';
@@ -136,12 +136,8 @@ describe('Agent Routes', () => {
 			// 1. user_input: "Delete TEST_TASK_123"
 			// 2. tool_call: delete_task
 			// 3. awaiting_approval: delete_task
-			const eventTypes = thread?.events.map((e) => e.type);
-
-			// Verify awaiting_approval event is present
-			expect(eventTypes).toContain('awaiting_approval');
-
-			// Verify the latest event is awaiting_approval
+      expect(thread?.events[0].type).toBe('user_input');
+      expect(thread?.events[1].type).toBe('tool_call');
 			expect(thread?.latestEvent?.type).toBe('awaiting_approval');
 
 			// Cleanup
