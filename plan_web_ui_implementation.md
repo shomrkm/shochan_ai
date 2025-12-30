@@ -951,15 +951,15 @@ packages/
 
 **タスク:**
 
-#### Phase 4.1: Docker Compose でローカルRedis環境をセットアップ
+#### Phase 4.1: Docker Compose でローカルRedis環境をセットアップ ✅
 
-- `docker-compose.yml` 作成
-- Redis コンテナ設定（ポート6379）
-- 起動確認
+- ✅ `docker-compose.yml` 作成
+- ✅ Redis コンテナ設定（ポート6379）
+- ✅ 起動確認
 
-#### Phase 4.2: packages/web パッケージの基本構成を作成
+#### Phase 4.2: packages/web パッケージの基本構成を作成 ✅
 
-- ディレクトリ構造作成
+- ✅ ディレクトリ構造作成
   ```
   packages/web/
   ├── src/
@@ -970,90 +970,104 @@ packages/
   ├── package.json
   └── tsconfig.json
   ```
-- `package.json` 設定
-- `tsconfig.json` 設定
-- 依存パッケージインストール
-  - express
-  - better-sse
-  - redis
-  - cors
-  - 型定義パッケージ
+- ✅ `package.json` 設定
+- ✅ `tsconfig.json` 設定
+- ✅ 依存パッケージインストール
+  - ✅ express
+  - ✅ better-sse
+  - ✅ redis
+  - ✅ cors
+  - ✅ supertest (テスト用)
+  - ✅ 型定義パッケージ
 
-#### Phase 4.3: RedisStateStore を実装
+#### Phase 4.3: RedisStateStore を実装 ✅
 
-- `packages/web/src/state/redis-store.ts` 作成
-- `StateStore<Thread>` インターフェース実装
-- Redis接続管理
-- 有効期限設定（1時間）
-- エラーハンドリング
-- テスト作成
+- ✅ `packages/web/src/state/redis-store.ts` 作成
+- ✅ Thread の保存/取得/削除/一覧機能実装
+- ✅ Redis接続管理 (connect/disconnect/isConnected)
+- ✅ 有効期限設定（1時間 TTL）
+- ✅ エラーハンドリング
+- ✅ テスト作成 (`redis-store.test.ts`)
 
-#### Phase 4.4: StreamManager を実装（better-sse）
+#### Phase 4.4: StreamManager を実装（better-sse） ✅
 
-- `packages/web/src/streaming/manager.ts` 作成
-- セッション管理
-- イベント送信
-- 接続/切断処理
-- テスト作成
+- ✅ `packages/web/src/streaming/manager.ts` 作成
+- ✅ セッション管理 (register/unregister)
+- ✅ イベント送信 (send)
+- ✅ 接続/切断処理 (closeAll)
+- ✅ ヘルパーメソッド (hasSession, getActiveSessionCount, getActiveConversationIds)
+- ✅ テスト作成 (`manager.test.ts`)
 
-#### Phase 4.5: Express サーバーとルーティングを実装
+#### Phase 4.5: Express サーバーとルーティングを実装 🔶 部分的完了
 
-- `packages/web/src/server.ts` 作成
-- Express アプリケーション設定
-- CORS middleware
-- JSON parser middleware
-- エラーハンドリング middleware
-- ヘルスチェックエンドポイント
+- ✅ `packages/web/src/server.ts` 作成
+- ✅ Express アプリケーション設定
+- ✅ CORS middleware
+- ✅ JSON parser middleware
+- ✅ エラーハンドリング middleware
+- ✅ ヘルスチェックエンドポイント (`/health`)
+- ❌ **routes の接続（コメントアウト状態）**
+  - ❌ `app.use('/api/agent', agentRouter);`
+  - ❌ `app.use('/api/stream', streamRouter);`
+- ❌ **initializeAgent() の呼び出し**
 
-#### Phase 4.6: エージェントAPIルート実装（query, approve）
+#### Phase 4.6: エージェントAPIルート実装（query, approve） 🔶 部分的完了
 
-- `packages/web/src/routes/agent.ts` 作成
-- `POST /api/agent/query` エンドポイント
-  - リクエスト検証
-  - AgentOrchestrator による処理開始
-  - conversationId 返却
-  - バックグラウンドでエージェント実行
-- `POST /api/agent/approve/:conversationId` エンドポイント
-  - 承認/拒否の処理
-  - エージェント再開
-- エラーハンドリング
-- テスト作成
+- ✅ `packages/web/src/routes/agent.ts` 作成
+- ✅ `initializeAgent()` 関数実装（RedisStore/StreamManager/Reducer/Executor初期化）
+- ✅ `POST /api/agent/query` エンドポイント
+  - ✅ リクエスト検証
+  - ✅ conversationId 生成 (UUID)
+  - ✅ Thread 初期化と Redis 保存
+  - ✅ バックグラウンドでエージェント実行 (`processAgent`)
+- ✅ `POST /api/agent/approve/:conversationId` エンドポイント
+  - ✅ 承認/拒否の処理
+  - ✅ Thread 更新と Redis 保存
+  - ✅ エージェント再開
+- ✅ `processAgent()` 関数実装
+  - ✅ LLM による tool call 生成
+  - ✅ 承認が必要なツールの一時停止 (delete_task)
+  - ✅ ツール実行と結果のストリーミング
+  - ✅ 終了条件の判定 (done_for_now, request_more_information)
+- ✅ エラーハンドリング
+- ❌ **テスト作成**（vitest設定の問題で実行できず）
 
-#### Phase 4.7: SSEストリーミングルート実装
+#### Phase 4.7: SSEストリーミングルート実装 ❌ 未実装
 
-- `packages/web/src/routes/stream.ts` 作成
-- `GET /api/stream/:conversationId` エンドポイント
-- SSE セッション作成
-- StreamManager との統合
-- 接続/切断イベント処理
-- テスト作成
+- ❌ `packages/web/src/routes/stream.ts` 作成
+- ❌ `GET /api/stream/:conversationId` エンドポイント
+- ❌ SSE セッション作成 (better-sse createSession)
+- ❌ StreamManager との統合
+- ❌ 接続/切断イベント処理
+- ❌ テスト作成
 
-#### Phase 4.8: 統合テストと動作確認
+#### Phase 4.8: 統合テストと動作確認 ❌ 未実装
 
-- 環境変数の設定（`.env`）
-  - `REDIS_URL=redis://localhost:6379`
-  - `NOTION_API_KEY`
-  - `OPENAI_API_KEY`
-  - `NOTION_TASKS_DATABASE_ID`
-  - `NOTION_PROJECTS_DATABASE_ID`
-- Docker Compose でRedis起動
-- Express サーバー起動（`pnpm web:dev`）
-- curl で API テスト
-  - POST /api/agent/query
-  - GET /api/stream/:conversationId
-  - POST /api/agent/approve/:conversationId
-- SSE 接続確認
-- Redis データ確認
-- エラーケースの確認
+- ❌ 環境変数の設定（`.env`）
+  - ❌ `REDIS_URL=redis://localhost:6379`
+  - ❌ `NOTION_API_KEY`
+  - ❌ `OPENAI_API_KEY`
+  - ❌ `NOTION_TASKS_DATABASE_ID`
+  - ❌ `NOTION_PROJECTS_DATABASE_ID`
+- ❌ Docker Compose でRedis起動確認
+- ❌ Express サーバー起動確認（`pnpm dev`）
+- ❌ curl で API テスト
+  - ❌ POST /api/agent/query
+  - ❌ GET /api/stream/:conversationId
+  - ❌ POST /api/agent/approve/:conversationId
+- ❌ SSE 接続確認
+- ❌ Redis データ確認
+- ❌ エラーケースの確認
+- ❌ vitest.config.ts の設定確認と修正
 
 **完了条件:**
-- ✅ Docker Compose でローカルRedisが起動
-- ✅ Express サーバーが起動
-- ✅ REST API が正常に動作
-- ✅ SSE でリアルタイムイベントを受信できる
-- ✅ Redis に状態が保存される
-- ✅ 全テストがパス
-- ✅ 型エラーがゼロ
+- ❌ Docker Compose でローカルRedisが起動
+- ❌ Express サーバーが起動
+- ❌ REST API が正常に動作
+- ❌ SSE でリアルタイムイベントを受信できる
+- ❌ Redis に状態が保存される
+- ❌ 全テストがパス
+- ✅ 型エラーがゼロ（現時点）
 
 **所要時間:** 3-4日
 
@@ -1288,5 +1302,5 @@ packages/
 ---
 
 **作成日:** 2025-01-23
-**最終更新:** 2025-12-20
-**ステータス:** Phase 4 実装中（Phase 1-3 完了）
+**最終更新:** 2025-12-27
+**ステータス:** Phase 4 実装中（Phase 1-3 完了、4.1-4.4 完了、4.5-4.6 部分的完了、4.7-4.8 未実装）
