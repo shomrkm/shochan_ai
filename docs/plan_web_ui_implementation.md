@@ -1074,92 +1074,284 @@ packages/
 - ✅ 全テストがパス（188 tests）
 - ✅ 型エラーがゼロ
 
-**所要時間:** 3-4日（予定）→ 実際: 約10日
-
 ---
 
 ### フェーズ5: Next.js フロントエンドの実装
 
-**目的:** チャット UI を実装し、Web API と統合
+**目的:** チャット UI を実装し、Web API と統合（段階的に動作確認しながら進める）
 
-**タスク:**
+**開始日:** 2025-12-31
+**完了日:** 未定
 
-1. **Next.js プロジェクトのセットアップ**
-   - `app/`, `components/` ディレクトリ作成
-   - `app/layout.tsx`, `app/page.tsx` 実装
-   - Tailwind CSS セットアップ
+**技術スタック:**
+- Next.js 15+ (App Router)
+- React 19+
+- TypeScript
+- Tailwind CSS
+- shadcn/ui
+- TanStack Query
+- ネイティブ EventSource API
 
-2. **チャットコンポーネントの実装**
-   - `components/Chat/ChatInterface.tsx` - メインインターフェース
-   - `components/Chat/MessageList.tsx` - メッセージ一覧
-   - `components/Chat/MessageInput.tsx` - 入力欄
-   - `components/Chat/ApprovalDialog.tsx` - 承認ダイアログ
+**アーキテクチャ方針:**
+- **プロジェクト構成**: ルート直下に Next.js プロジェクト配置（モノレポ外）
+- **デプロイ**: Next.js (Vercel) + Express API (Railway)
+- **API統合**: ハイブリッド方式（REST は API Routes 経由、SSE は直接接続）
+- **状態管理**: React標準（useState）+ TanStack Query
+- **UIライブラリ**: shadcn/ui を積極的に使用
 
-3. **SSE クライアントの実装**
-   - EventSource を使った SSE 接続
-   - リアルタイムでメッセージを受信・表示
-   - エラーハンドリング
+**実装戦略:**
+各フェーズで **必ず動作確認** を行い、段階的に機能を追加していきます。
 
-4. **API 統合**
-   - `POST /api/agent/query` でメッセージ送信
-   - `GET /api/stream/:conversationId` で SSE 接続
-   - `POST /api/agent/approve/:conversationId` で承認
-
-5. **UI/UX の実装**
-   - ローディング表示
-   - エラー表示
-   - タイピングインジケーター
-   - レスポンシブデザイン
-
-**完了条件:**
-- チャット画面が表示される
-- メッセージを送信できる
-- リアルタイムで応答が表示される
-- 承認フローが UI で完結する
-
-**所要時間:** 4-5日
+```
+Phase 5.1: 基盤セットアップ → ✅ Hello World 表示
+Phase 5.2: shadcn/ui セットアップ → ✅ ボタン表示
+Phase 5.3: 最小限のチャットUI → ✅ 入力・表示できる
+Phase 5.4: モック API 統合 → ✅ モックレスポンス受信
+Phase 5.5: Express API 統合 → ✅ E2E 動作
+Phase 5.6: SSE リアルタイム通信 → ✅ ストリーミング受信
+Phase 5.7: 承認ダイアログ実装 → ✅ 承認フロー動作
+Phase 5.8: Storybook & テスト → ✅ 品質担保
+```
 
 ---
 
-### フェーズ6: Vercel デプロイと最適化
+## 📖 詳細な実装手順
 
-**目的:** Vercel にデプロイし、本番環境で動作確認
+Phase 5 の詳細な実装手順は、別ドキュメントにまとめています:
+
+**👉 [Phase 5 詳細実装計画](./phase5_detailed_plan.md)**
+
+各サブフェーズごとに:
+- 具体的なタスク
+- コード例
+- 動作確認手順
+- 完了条件
+
+が記載されています。
+
+---
+
+## Phase 5 概要
+
+**👉 Phase 5 の詳細な実装手順は [Phase 5 詳細実装計画](./phase5_detailed_plan.md) を参照してください。**
+
+以下は各フェーズの概要です：
+
+#### Phase 5.1: Next.js プロジェクトのセットアップ
+- Next.js 15 + React 19 + TypeScript の基盤構築
+- ✅ 検証: Hello World 表示
+
+#### Phase 5.2: shadcn/ui セットアップ
+- UI コンポーネントライブラリの導入
+- ✅ 検証: ボタンコンポーネント表示
+
+#### Phase 5.3: 最小限のチャット UI
+- メッセージ入力・表示の基本機能実装
+- ✅ 検証: ローカル状態でチャット動作
+
+#### Phase 5.4: モック API 統合
+- API クライアントの基礎実装
+- ✅ 検証: モックレスポンス受信
+
+#### Phase 5.5: Express API 統合（REST）
+- 実際の Express API との接続
+- ✅ 検証: E2E でメッセージ送受信
+
+#### Phase 5.6: SSE リアルタイム通信
+- Server-Sent Events によるストリーミング実装
+- ✅ 検証: リアルタイムメッセージ表示
+
+#### Phase 5.7: 承認ダイアログ実装
+- ツール使用承認フローの完成
+- ✅ 検証: 承認・拒否フロー動作
+
+#### Phase 5.8: Storybook & テスト整備
+- コンポーネントカタログとテストの充実
+- ✅ 検証: 全テストパス、カバレッジ 80%+
+- TypeScript エラーがゼロ
+- ESLint エラーがゼロ
+
+---
+
+### フェーズ6: デプロイと最適化
+
+**目的:** Next.js（Vercel）と Express API（Railway）をデプロイし、本番環境で動作確認
+
+**デプロイ戦略:**
+- **Next.js**: Vercel にデプロイ
+- **Express API**: Railway にデプロイ
+- **Redis**: Railway の Redis アドオン
+
+---
+
+#### Phase 6.1: Railway で Express API をデプロイ
+
+**目的:** Express API を本番環境にデプロイ
+
+**タスク:**
+
+1. **Railway プロジェクトのセットアップ**
+   - Railway アカウント作成
+   - GitHub リポジトリと連携
+   - 新規プロジェクト作成
+
+2. **Redis アドオンの追加**
+   - Railway ダッシュボードで Redis を追加
+   - `REDIS_URL` が自動的に環境変数に設定される
+
+3. **環境変数の設定**
+   - Railway ダッシュボードで設定
+   ```
+   REDIS_URL=redis://... (自動設定)
+   NOTION_API_KEY=...
+   OPENAI_API_KEY=...
+   NOTION_TASKS_DATABASE_ID=...
+   NOTION_PROJECTS_DATABASE_ID=...
+   PORT=3001
+   ```
+
+4. **ビルド設定**
+   - `railway.json` または `nixpacks.toml` で設定（必要に応じて）
+   - ビルドコマンド: `pnpm install && pnpm --filter @shochan_ai/web build`
+   - 起動コマンド: `pnpm --filter @shochan_ai/web start`
+
+5. **デプロイとヘルスチェック**
+   - デプロイ実行
+   - `/health` エンドポイントで動作確認
+   - ログを確認
+
+**完了条件:**
+- Railway で Express API が起動する
+- Redis 接続が確立される
+- `/health` エンドポイントが 200 を返す
+- API エンドポイントが正常に動作する
+
+---
+
+#### Phase 6.2: Vercel で Next.js をデプロイ
+
+**目的:** Next.js を Vercel にデプロイ
 
 **タスク:**
 
 1. **Vercel プロジェクトのセットアップ**
-   - Vercel CLI インストール
-   - プロジェクト作成
-   - Environment Variables 設定
-     - `NOTION_API_KEY`
-     - `OPENAI_API_KEY`
-     - `REDIS_URL` (Vercel KV)
+   - Vercel アカウント作成
+   - GitHub リポジトリと連携
+   - 新規プロジェクト作成
 
-2. **Vercel KV のセットアップ**
-   - Vercel ダッシュボードで KV 作成
-   - `REDIS_URL` を環境変数に設定
+2. **環境変数の設定**
+   - Vercel ダッシュボードで設定
+   ```
+   BACKEND_URL=https://your-app.railway.app (Railway の URL)
+   NEXT_PUBLIC_STREAM_URL=https://your-app.railway.app
+   ```
 
 3. **ビルド設定**
-   - `vercel.json` 作成
-   - ビルドコマンド設定
-   - 出力ディレクトリ設定
+   - Framework Preset: Next.js
+   - Root Directory: `.`（ルート）
+   - Build Command: `npm run build`（デフォルト）
+   - Output Directory: `.next`（デフォルト）
 
-4. **デプロイ**
-   - `vercel deploy` 実行
-   - 本番環境で動作確認
+4. **CORS 設定の確認**
+   - Express API の CORS 設定で Vercel のドメインを許可
+   - `packages/web/src/app.ts` を更新
+   ```typescript
+   const allowedOrigins = [
+     'http://localhost:3000',
+     'https://your-app.vercel.app',
+   ]
+   app.use(cors({ origin: allowedOrigins }))
+   ```
 
-5. **パフォーマンス最適化**
-   - SSE 接続の安定化
-   - エラーログの確認
-   - レスポンスタイムの計測
+5. **デプロイ**
+   - Vercel にプッシュして自動デプロイ
+   - プレビューデプロイで動作確認
+   - 本番デプロイ
 
 **完了条件:**
-- Vercel にデプロイ成功
-- 本番環境で全機能が動作
-- SSE が安定して動作
-- パフォーマンスが許容範囲
+- Vercel で Next.js が起動する
+- チャット画面が表示される
+- Express API との通信が成功する
+- SSE 接続が確立される
 
-**所要時間:** 2-3日
+---
+
+#### Phase 6.3: 本番環境での動作確認
+
+**目的:** 本番環境で全機能が動作することを確認
+
+**タスク:**
+
+1. **機能テスト**
+   - ✅ メッセージ送信
+   - ✅ SSE リアルタイム通信
+   - ✅ ツールコール実行
+   - ✅ 承認フロー
+   - ✅ エラーハンドリング
+
+2. **パフォーマンス計測**
+   - Lighthouse スコア確認
+     - Performance: 90+
+     - Accessibility: 90+
+     - Best Practices: 90+
+     - SEO: 90+
+   - ページロード時間
+   - SSE 接続確立時間
+   - API レスポンスタイム
+
+3. **エラーログの確認**
+   - Railway のログ確認
+   - Vercel のログ確認
+   - エラーが発生していないか確認
+
+4. **セキュリティチェック**
+   - 環境変数が適切に隠蔽されているか
+   - CORS 設定が適切か
+   - HTTPS 通信が強制されているか
+
+**完了条件:**
+- ✅ 全機能が本番環境で動作する
+- ✅ パフォーマンスが許容範囲
+- ✅ エラーログにクリティカルなエラーがない
+- ✅ セキュリティチェックに合格
+
+---
+
+#### Phase 6.4: 最適化とモニタリング設定
+
+**目的:** パフォーマンス最適化とモニタリング設定
+
+**タスク:**
+
+1. **Next.js の最適化**
+   - 画像最適化（Next.js Image コンポーネント）
+   - フォント最適化（next/font）
+   - バンドルサイズの確認と最適化
+   - キャッシュ戦略の設定
+
+2. **Express API の最適化**
+   - Redis 接続プールの設定
+   - SSE 接続のタイムアウト処理
+   - レート制限の追加（将来的に）
+
+3. **モニタリング設定（オプション）**
+   - Vercel Analytics 有効化
+   - Railway メトリクス確認
+   - エラートラッキング（Sentry など）
+
+4. **ドキュメント更新**
+   - デプロイ手順を README に追加
+   - 環境変数の説明を追加
+   - トラブルシューティングガイド作成
+
+**完了条件:**
+- パフォーマンスが最適化される
+- モニタリングが設定される
+- ドキュメントが整備される
+
+---
+
+**所要時間:** 2-3日（予定）
 
 ---
 
@@ -1202,28 +1394,33 @@ packages/
 - **Node.js** + **TypeScript**
 - **Express** - Web API サーバー
 - **better-sse** - Server-Sent Events
-- **Vercel KV (Redis)** - セッション管理
+- **Redis** - セッション管理（Railway アドオン）
 - **OpenAI SDK** - LLM 統合
 - **Notion SDK** - タスク管理
 
 ### フロントエンド
-- **Next.js 14+** (App Router)
+- **Next.js 15+** (App Router)
 - **React 18+**
+- **TypeScript**
 - **Tailwind CSS** - スタイリング
-- **EventSource API** - SSE クライアント
-- **@modelcontextprotocol/ui** (オプション) - リッチな結果表示
+- **shadcn/ui** - UI コンポーネントライブラリ
+- **TanStack Query** - データフェッチング
+- **EventSource API** - SSE クライアント（ネイティブ）
+- **@modelcontextprotocol/ui** (Phase 7, オプション) - リッチな結果表示
 
 ### 開発ツール
 - **pnpm** - パッケージマネージャー（workspace 機能）
 - **TypeScript 5+** - 型システム
-- **Vitest** - テスティング
+- **Vitest** - テスティングフレームワーク
+- **Testing Library** - React コンポーネントテスト
+- **Storybook** - コンポーネントカタログ
 - **Biome** - Linter/Formatter
 - **tsx** - TypeScript 実行環境
 
 ### インフラ
-- **Vercel** - ホスティング
-- **Vercel KV** - Redis（無料枠: 月3万コマンド）
-- **GitHub** - ソース管理
+- **Vercel** - Next.js ホスティング
+- **Railway** - Express API + Redis ホスティング
+- **GitHub** - ソース管理・CI/CD
 
 ---
 
@@ -1307,5 +1504,5 @@ packages/
 ---
 
 **作成日:** 2025-01-23
-**最終更新:** 2025-12-30
-**ステータス:** Phase 4 完了（Phase 1-4 完了、Phase 5 未着手）
+**最終更新:** 2025-12-31
+**ステータス:** Phase 4 完了（Phase 1-4 完了、Phase 5 詳細計画完成）
