@@ -8,7 +8,8 @@ describe('RedisStateStore', () => {
 	const testConversationId = 'test_conv_123';
 
 	beforeAll(async () => {
-		store = new RedisStateStore('redis://localhost:6379');
+		// Use unique key prefix for this test file to enable parallel execution
+		store = new RedisStateStore('redis://localhost:6379', 'test:redis-store:');
 		await store.connect();
 	});
 
@@ -17,13 +18,7 @@ describe('RedisStateStore', () => {
 	});
 
 	beforeEach(async () => {
-		// Clean up test data before each test
-		const ids = await store.list();
-		for (const id of ids) {
-			if (id.startsWith('test_')) {
-				await store.delete(id);
-			}
-		}
+		await store.clear();
 	});
 
 	it('should connect to Redis successfully', () => {
@@ -64,6 +59,8 @@ describe('RedisStateStore', () => {
 		];
 		const initialThread = new Thread(initialEvents);
 		await store.set(testConversationId, initialThread);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
 		// Update with new event
 		const updatedEvents: Event[] = [
@@ -159,9 +156,17 @@ describe('RedisStateStore', () => {
 	});
 
 	it('should clear all Thread states', async () => {
-		['test_clear_1', 'test_clear_2', 'test_clear_3'].forEach(async (id) => {
-			await store.set(id, new Thread([{ type: 'user_input', timestamp: Date.now(), data: `Message for ${id}` }]));
-		});
+		const ids = ['test_clear_1', 'test_clear_2', 'test_clear_3'];
+		for (const id of ids) {
+			await store.set(
+				id,
+				new Thread([{ type: 'user_input', timestamp: Date.now(), data: `Message for ${id}` }]),
+			);
+		}
+
+		// Verify data exists before clear
+		const beforeClear = await store.list();
+		expect(beforeClear.length).toBeGreaterThanOrEqual(ids.length);
 
 		await store.clear();
 
@@ -169,11 +174,17 @@ describe('RedisStateStore', () => {
 	});
 
 	it('should handle clear on empty store', async () => {
-    (await store.list()).forEach(async (id) => {
-      await store.delete(id);
-    });
+		// Ensure store is empty by deleting all entries
+		const allIds = await store.list();
+		for (const id of allIds) {
+			await store.delete(id);
+		}
 
-    await store.clear();
+		// Verify store is empty
+		expect(await store.list()).toHaveLength(0);
+
+		// clear() should not throw on empty store
+		await store.clear();
 
 		expect(await store.list()).toHaveLength(0);
 	});

@@ -12,10 +12,6 @@ import type { OpenAIClient, NotionClient } from '@shochan_ai/client';
 import type { RedisStateStore } from '../state/redis-store';
 import type { StreamManager } from '../streaming/manager';
 
-/**
- * Dependencies required by the agent router.
- * Using explicit interface enables easy mocking in tests.
- */
 export interface AgentDependencies {
 	redisStore: RedisStateStore;
 	streamManager: StreamManager;
@@ -31,7 +27,7 @@ export interface AgentDependencies {
  * @returns Configured Express Router
  */
 export function createAgentRouter(deps: AgentDependencies): Router {
-	const { redisStore, streamManager, reducer, executor } = deps;
+	const { redisStore, streamManager, executor } = deps;
 	const router = Router();
 
 	/**
@@ -41,7 +37,6 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 	router.post('/query', async (req: Request, res: Response) => {
 		try {
 			const { message } = req.body;
-
 			if (!message || typeof message !== 'string') {
 				res
 					.status(400)
@@ -50,24 +45,14 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 			}
 
 			const conversationId = randomUUID();
-
 			const userInputEvent: Event = {
 				type: 'user_input',
 				timestamp: Date.now(),
 				data: message,
 			};
 			const initialThread = new Thread([userInputEvent]);
-
 			await redisStore.set(conversationId, initialThread);
-
-			processAgent(conversationId, deps).catch((error) => {
-				console.error(`Agent processing failed for ${conversationId}:`, error);
-				streamManager.send(conversationId, {
-					type: 'error',
-					timestamp: Date.now(),
-					data: { error: error.message },
-				});
-			});
+			processAgent(conversationId, deps);
 
 			res.json({ conversationId });
 		} catch (error) {
@@ -84,7 +69,6 @@ export function createAgentRouter(deps: AgentDependencies): Router {
     try {
       const { conversationId } = req.params;
       const { approved } = req.body;
-
       if (typeof approved !== 'boolean') {
         res.status(400).json({ error: 'approved must be a boolean' });
         return;
@@ -107,40 +91,7 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 
       const pendingToolCall = latestEvent.data;
 
-      if (approved) {
-        console.log(`✅ Approval granted for: ${conversationId}`);
-
-        const approvalEvent: Event = {
-          type: 'user_input',
-          timestamp: Date.now(),
-          data: 'approved',
-        };
-        let currentThread = new Thread([...thread.events, approvalEvent]);
-        await redisStore.set(conversationId, currentThread);
-
-        console.log(`⚙️  Executing approved tool: ${pendingToolCall.intent}`);
-        const result = await executor.execute(pendingToolCall);
-
-        streamManager.send(conversationId, result.event);
-        currentThread = new Thread([...currentThread.events, result.event]);
-        await redisStore.set(conversationId, currentThread);
-
-        console.log(
-          `✅ Tool executed successfully: ${pendingToolCall.intent}`,
-        );
-
-        processAgent(conversationId, deps).catch((error) => {
-          console.error(
-            `Agent processing failed for ${conversationId}:`,
-            error,
-          );
-          streamManager.send(conversationId, {
-            type: 'error',
-            timestamp: Date.now(),
-            data: { error: error.message },
-          });
-        });
-      } else {
+      if(!approved) {
         console.log(`❌ Approval denied for: ${conversationId}`);
 
         const denialEvent: Event = {
@@ -151,18 +102,34 @@ export function createAgentRouter(deps: AgentDependencies): Router {
         const updatedThread = new Thread([...thread.events, denialEvent]);
         await redisStore.set(conversationId, updatedThread);
 
-        processAgent(conversationId, deps).catch((error) => {
-          console.error(
-            `Agent processing failed for ${conversationId}:`,
-            error,
-          );
-          streamManager.send(conversationId, {
-            type: 'error',
-            timestamp: Date.now(),
-            data: { error: error.message },
-          });
-        });
+        await processAgent(conversationId, deps);
+
+        res.json({ success: true });
+        return;
       }
+
+      console.log(`✅ Approval granted for: ${conversationId}`);
+
+      const approvalEvent: Event = {
+        type: 'user_input',
+        timestamp: Date.now(),
+        data: 'approved',
+      };
+      let currentThread = new Thread([...thread.events, approvalEvent]);
+      await redisStore.set(conversationId, currentThread);
+
+      console.log(`⚙️  Executing approved tool: ${pendingToolCall.intent}`);
+      const result = await executor.execute(pendingToolCall);
+
+      streamManager.send(conversationId, result.event);
+      currentThread = new Thread([...currentThread.events, result.event]);
+      await redisStore.set(conversationId, currentThread);
+
+      await processAgent(conversationId, deps);
+
+      console.log(
+        `✅ Tool executed successfully: ${pendingToolCall.intent}`,
+      );
 
       res.json({ success: true });
     } catch (error) {
@@ -287,6 +254,5 @@ async function processAgent(
 				code: 'AGENT_PROCESSING_FAILED',
 			},
 		});
-		throw error;
 	}
 }

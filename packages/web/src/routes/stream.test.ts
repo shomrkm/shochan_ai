@@ -15,8 +15,10 @@ describe('Stream Route', () => {
 		app = express();
 		app.use(express.json());
 
+		// Use unique key prefix for this test file to enable parallel execution
 		redisStore = new RedisStateStore(
 			process.env.REDIS_URL || 'redis://localhost:6379',
+			'test:stream-routes:',
 		);
 		streamManager = new StreamManager();
 

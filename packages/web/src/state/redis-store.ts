@@ -7,13 +7,15 @@ import { Thread } from '@shochan_ai/core';
  */
 export class RedisStateStore {
 	private client: RedisClientType;
-	private readonly keyPrefix = 'shochan_ai:conversation:';
+	private readonly keyPrefix: string;
 	private readonly ttlSeconds = 3600; // 1 hour
 
-	constructor(redisUrl?: string) {
+	constructor(redisUrl?: string, keyPrefix?: string) {
 		this.client = createClient({
 			url: redisUrl || process.env.REDIS_URL || 'redis://localhost:6379',
 		});
+
+		this.keyPrefix = keyPrefix || 'shochan_ai:conversation:';
 
 		this.client.on('error', (err) => {
 			console.error('Redis Client Error:', err);

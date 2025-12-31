@@ -21,8 +21,10 @@ describe('Agent Routes', () => {
 		app = express();
 		app.use(express.json());
 
+		// Use unique key prefix for this test file to enable parallel execution
 		redisStore = new RedisStateStore(
 			process.env.REDIS_URL || 'redis://localhost:6379',
+			'test:agent-routes:',
 		);
 		streamManager = new StreamManager();
 
@@ -53,7 +55,6 @@ describe('Agent Routes', () => {
 	afterEach(async () => {
 		mockGenerateNextToolCall.mockReset();
 		mockExecute.mockReset();
-    await redisStore.clear();
 	});
 
 	describe('POST /api/agent/query', () => {
@@ -121,17 +122,21 @@ describe('Agent Routes', () => {
 				.post('/api/agent/query')
 				.send({ message: 'Delete TEST_TASK_123' })
 				.expect(200);
-			await new Promise((resolve) => setTimeout(resolve, 500));
 
 			const conversationId = response.body.conversationId;
+
+			// Wait for processAgent to complete
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
 			const thread = await redisStore.get(conversationId);
 			expect(thread).toBeDefined();
+			expect(thread?.events.length).toBe(3);
 			// Expected event sequence:
 			// 1. user_input: "Delete TEST_TASK_123"
 			// 2. tool_call: delete_task
 			// 3. awaiting_approval: delete_task
-      expect(thread?.events[0].type).toBe('user_input');
-      expect(thread?.events[1].type).toBe('tool_call');
+			expect(thread?.events[thread?.events.length - 3].type).toBe('user_input');
+			expect(thread?.events[thread?.events.length - 2].type).toBe('tool_call');
 			expect(thread?.latestEvent?.type).toBe('awaiting_approval');
 		});
 	});
