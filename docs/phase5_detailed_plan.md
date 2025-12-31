@@ -17,7 +17,7 @@
 - ネイティブ EventSource API
 
 **アーキテクチャ方針:**
-- **プロジェクト構成**: ルート直下に Next.js プロジェクト配置（モノレポ外）
+- **プロジェクト構成**: `packages/web-ui` に Next.js プロジェクト配置（モノレポ内）
 - **デプロイ**: Next.js (Vercel) + Express API (Railway)
 - **API統合**: ハイブリッド方式（REST は API Routes 経由、SSE は直接接続）
 - **状態管理**: React標準（useState）+ TanStack Query
@@ -54,17 +54,17 @@ Phase 5.8: 最終テスト・品質チェック → ✅ カバレッジ 80%+、�
    cd /Users/shomrkm/Repository/shochan_ai
    npx create-next-app@latest
    ```
-   - プロジェクト名: そのまま Enter（ルートに配置）
+   - プロジェクト名: `packages/web-ui`
    - TypeScript: Yes
    - ESLint: Yes
    - Tailwind CSS: Yes
-   - `src/` directory: Yes
+   - `src/` directory: No（デフォルトの app/ ディレクトリ構成を使用）
    - App Router: Yes
    - Turbopack: No
-   - カスタマイズ import alias: No
+   - カスタマイズ import alias: Yes（`@/*`）
 
 2. **環境変数の設定**
-   - `.env.local` 作成
+   - `packages/web-ui/.env.local` 作成
    ```env
    # Express API URL (サーバーサイド専用)
    BACKEND_URL=http://localhost:3001
@@ -72,26 +72,27 @@ Phase 5.8: 最終テスト・品質チェック → ✅ カバレッジ 80%+、�
    # SSE接続用（クライアント露出OK）
    NEXT_PUBLIC_STREAM_URL=http://localhost:3001
    ```
-   - `.env.example` 作成
+   - `packages/web-ui/.env.example` 作成
    ```env
    BACKEND_URL=
    NEXT_PUBLIC_STREAM_URL=
    ```
 
 3. **TypeScript パスエイリアス設定**
-   - `tsconfig.json` に追加（既に設定されている場合はスキップ）
+   - `packages/web-ui/tsconfig.json` で確認（create-next-app で既に設定済み）
    ```json
    {
      "compilerOptions": {
        "paths": {
-         "@/*": ["./src/*"]
+         "@/*": ["./*"]
        }
      }
    }
    ```
+   ※ `src/` ディレクトリを使用しないため、`@/*` は `./*` にマッピングされる
 
 4. **シンプルなホームページ作成**
-   - `app/page.tsx` を編集
+   - `packages/web-ui/app/page.tsx` を編集
    ```typescript
    export default function Home() {
      return (
@@ -111,8 +112,9 @@ Phase 5.8: 最終テスト・品質チェック → ✅ カバレッジ 80%+、�
 
 **動作確認:**
 ```bash
+cd packages/web-ui
 npm run dev
-# ブラウザで http://localhost:3000 を開く
+# ブラウザで http://localhost:3000（または表示されたポート）を開く
 # "Shochan AI Chat" が表示されることを確認
 ```
 
