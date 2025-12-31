@@ -191,7 +191,7 @@ async function processAgent(
 
 			console.log(`🔧 Tool call generated: ${toolCallEvent.data.intent}`);
 			streamManager.send(conversationId, toolCallEvent);
-			currentThread = new Thread([...currentThread.events, toolCallEvent]);
+			currentThread = reducer.reduce(currentThread, toolCallEvent);
 			await redisStore.set(conversationId, currentThread);
 
 			const toolCall = toolCallEvent.data;
@@ -205,12 +205,9 @@ async function processAgent(
 					data: toolCall,
 				};
 
-				currentThread = new Thread([
-					...currentThread.events,
-					awaitingApprovalEvent,
-				]);
-				await redisStore.set(conversationId, currentThread);
 				streamManager.send(conversationId, awaitingApprovalEvent);
+				currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
+				await redisStore.set(conversationId, currentThread);
 
 				break;
 			}
@@ -239,7 +236,7 @@ async function processAgent(
 			const result = await executor.execute(toolCall);
 
 			streamManager.send(conversationId, result.event);
-			currentThread = new Thread([...currentThread.events, result.event]);
+			currentThread = reducer.reduce(currentThread, result.event);
 			await redisStore.set(conversationId, currentThread);
 
 			console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
