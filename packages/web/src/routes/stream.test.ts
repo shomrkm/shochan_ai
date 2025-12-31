@@ -48,8 +48,5 @@ describe('Stream Route', () => {
 			expect(response.body).toHaveProperty('error');
 			expect(response.body.error).toBe('Conversation not found');
 		});
-
-		// Note: Full SSE connection testing is covered in Phase 4.8 integration tests
-		// SSE connections are long-lived and difficult to test with supertest
 	});
 });
