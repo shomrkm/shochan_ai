@@ -86,6 +86,17 @@ export class RedisStateStore {
 	}
 
 	/**
+	 * Clear all Thread states.
+	 */
+	async clear(): Promise<void> {
+		const pattern = `${this.keyPrefix}*`;
+		const keys = await this.client.keys(pattern);
+		if (keys.length > 0) {
+			await this.client.del(keys);
+		}
+	}
+
+	/**
 	 * List all conversation IDs.
 	 * Warning: This scans all keys with the prefix, which can be slow for large datasets.
 	 */

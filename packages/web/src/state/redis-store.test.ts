@@ -157,4 +157,24 @@ describe('RedisStateStore', () => {
 		expect(retrieved?.events[1].type).toBe('tool_call');
 		expect(retrieved?.events[2].type).toBe('tool_response');
 	});
+
+	it('should clear all Thread states', async () => {
+		['test_clear_1', 'test_clear_2', 'test_clear_3'].forEach(async (id) => {
+			await store.set(id, new Thread([{ type: 'user_input', timestamp: Date.now(), data: `Message for ${id}` }]));
+		});
+
+		await store.clear();
+
+		expect(await store.list()).toHaveLength(0);
+	});
+
+	it('should handle clear on empty store', async () => {
+    (await store.list()).forEach(async (id) => {
+      await store.delete(id);
+    });
+
+    await store.clear();
+
+		expect(await store.list()).toHaveLength(0);
+	});
 });

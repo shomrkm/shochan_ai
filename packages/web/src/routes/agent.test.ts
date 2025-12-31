@@ -50,10 +50,10 @@ describe('Agent Routes', () => {
 		await redisStore.disconnect();
 	});
 
-	afterEach(() => {
-		// Reset all mocks after each test to ensure test isolation
+	afterEach(async () => {
 		mockGenerateNextToolCall.mockReset();
 		mockExecute.mockReset();
+    await redisStore.clear();
 	});
 
 	describe('POST /api/agent/query', () => {
@@ -68,16 +68,11 @@ describe('Agent Routes', () => {
 			expect(response.body.conversationId).toMatch(
 				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 			);
-
-			// Verify thread was saved to Redis
 			const thread = await redisStore.get(response.body.conversationId);
 			expect(thread).toBeDefined();
 			expect(thread?.events).toHaveLength(1);
 			expect(thread?.events[0].type).toBe('user_input');
 			expect(thread?.events[0].data).toBe('Test message');
-
-			// Cleanup
-			await redisStore.delete(response.body.conversationId);
 		});
 
 		it('should return 400 when message is missing', async () => {
@@ -113,7 +108,6 @@ describe('Agent Routes', () => {
 		 * - approval endpoint must be able to find the awaiting_approval event
 		 */
 		it('should persist awaiting_approval event when delete_task is generated', async () => {
-			// Configure mock to return delete_task
 			mockGenerateNextToolCall.mockResolvedValueOnce({
 				type: 'tool_call',
 				timestamp: Date.now(),
@@ -123,21 +117,15 @@ describe('Agent Routes', () => {
 				},
 			});
 
-			// Create initial conversation with delete request
 			const response = await request(app)
 				.post('/api/agent/query')
 				.send({ message: 'Delete TEST_TASK_123' })
 				.expect(200);
-
-			const conversationId = response.body.conversationId;
-
-			// Wait for processAgent to run
 			await new Promise((resolve) => setTimeout(resolve, 500));
 
-			// Verify awaiting_approval event was saved to Redis
+			const conversationId = response.body.conversationId;
 			const thread = await redisStore.get(conversationId);
 			expect(thread).toBeDefined();
-
 			// Expected event sequence:
 			// 1. user_input: "Delete TEST_TASK_123"
 			// 2. tool_call: delete_task
@@ -145,9 +133,6 @@ describe('Agent Routes', () => {
       expect(thread?.events[0].type).toBe('user_input');
       expect(thread?.events[1].type).toBe('tool_call');
 			expect(thread?.latestEvent?.type).toBe('awaiting_approval');
-
-			// Cleanup
-			await redisStore.delete(conversationId);
 		});
 	});
 
@@ -163,7 +148,6 @@ describe('Agent Routes', () => {
 		});
 
 		it('should return 400 when approved is not a boolean', async () => {
-			// Create a test conversation
 			const conversationId = 'test-conversation-id';
 			const thread = new Thread([
 				{
@@ -181,13 +165,9 @@ describe('Agent Routes', () => {
 
 			expect(response.body).toHaveProperty('error');
 			expect(response.body.error).toBe('approved must be a boolean');
-
-			// Cleanup
-			await redisStore.delete(conversationId);
 		});
 
 		it('should return 400 when no pending approval', async () => {
-			// Create a test conversation without awaiting_approval event
 			const conversationId = 'test-conversation-id-2';
 			const thread = new Thread([
 				{
@@ -208,15 +188,10 @@ describe('Agent Routes', () => {
 			expect(response.body.message).toBe(
 				'This conversation is not waiting for approval',
 			);
-
-			// Cleanup
-			await redisStore.delete(conversationId);
 		});
 
     it('should handle approval correctly', async () => {
-      // Configure mock to return null when called after approval (processAgent should finish)
       mockGenerateNextToolCall.mockResolvedValue(null);
-
       mockExecute.mockResolvedValueOnce({
         event: {
           type: 'tool_response',
@@ -227,10 +202,6 @@ describe('Agent Routes', () => {
           },
         },
       });
-
-      // Create a test conversation with awaiting_approval event
-      // Note: In real flow, there would be a tool_call event before awaiting_approval,
-      // but for this test we only need awaiting_approval to test the approval flow
       const conversationId = 'test-conversation-id-3';
       const thread = new Thread([
         {
@@ -261,27 +232,18 @@ describe('Agent Routes', () => {
         .post(`/api/agent/approve/${conversationId}`)
         .send({ approved: true })
         .expect(200);
-
-      expect(response.body).toHaveProperty('success');
-      expect(response.body.success).toBe(true);
-
-      // Wait for processAgent to complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Verify approval event was added
       const updatedThread = await redisStore.get(conversationId);
-      if (!updatedThread) {
-        throw new Error('Thread not found in Redis after approval');
-      }
-
-      // Expected events: user_input, tool_call, awaiting_approval, user_input (approved), tool_response
-      expect(updatedThread.events.length).toBe(5);
-      expect(updatedThread.events[updatedThread.events.length -2]).toEqual({
+      expect(response.body).toHaveProperty('success');
+      expect(response.body.success).toBe(true);
+      expect(updatedThread?.events.length).toBe(5);
+      expect(updatedThread?.events[updatedThread?.events.length -2]).toEqual({
         type: 'user_input',
         timestamp: expect.any(Number),
         data: 'approved',
       });
-      expect(updatedThread.latestEvent).toEqual({
+      expect(updatedThread?.latestEvent).toEqual({
         type: 'tool_response',
         timestamp: expect.any(Number),
         data: {
@@ -289,15 +251,10 @@ describe('Agent Routes', () => {
           parameters: { task_id: 'XYZ' },
         },
       });
-
-      // Cleanup
-      await redisStore.delete(conversationId);
     });
 
 		it('should handle denial correctly', async () => {
 			mockGenerateNextToolCall.mockResolvedValue(null);
-
-			// Create a test conversation with awaiting_approval event
 			const conversationId = 'test-conversation-id-4';
 			const thread = new Thread([
 				{
@@ -320,21 +277,14 @@ describe('Agent Routes', () => {
 				.post(`/api/agent/approve/${conversationId}`)
 				.send({ approved: false })
 				.expect(200);
-
-			expect(response.body).toHaveProperty('success');
-			expect(response.body.success).toBe(true);
-
-			// Wait for processAgent to complete
 			await new Promise((resolve) => setTimeout(resolve, 100));
 
-			// Verify denial event was added
 			const updatedThread = await redisStore.get(conversationId);
+			expect(response.body).toHaveProperty('success');
+			expect(response.body.success).toBe(true);
 			expect(updatedThread?.events).toHaveLength(3);
 			expect(updatedThread?.events[2].type).toBe('user_input');
 			expect(updatedThread?.events[2].data).toBe('denied');
-
-			// Cleanup
-			await redisStore.delete(conversationId);
 		});
 	});
 });
