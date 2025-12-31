@@ -204,7 +204,7 @@ import '@testing-library/jest-dom'
 }
 ```
 
-### 4. サンプル実装：Button の Story とテスト
+### 4. サンプル実装：Button の Story
 
 **`components/ui/button.stories.tsx` 作成**
 ```typescript
@@ -241,33 +241,7 @@ export const Outline: Story = {
 }
 ```
 
-**`components/ui/button.test.tsx` 作成**
-```typescript
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { Button } from './button'
-
-describe('Button', () => {
-  it('renders button with text', () => {
-    render(<Button>Click me</Button>)
-    expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument()
-  })
-
-  it('calls onClick handler when clicked', async () => {
-    const handleClick = vi.fn()
-    render(<Button onClick={handleClick}>Click me</Button>)
-
-    await userEvent.click(screen.getByRole('button'))
-    expect(handleClick).toHaveBeenCalledOnce()
-  })
-
-  it('is disabled when disabled prop is true', () => {
-    render(<Button disabled>Disabled</Button>)
-    expect(screen.getByRole('button')).toBeDisabled()
-  })
-})
-```
+**Note:** 基本的なUIコンポーネント（Button等）のユニットテストは不要です。Storybookによるvisual testingで十分対応可能です。
 
 ### 5. ホームページにボタンを追加
 
@@ -302,16 +276,12 @@ npm run dev
 # Storybook 起動
 npm run storybook
 # → http://localhost:6006 で Button のストーリーが表示されることを確認
-
-# テスト実行
-npm test
-# → Button のテストが全てパスすることを確認
 ```
 
 **完了条件:**
 - ✅ shadcn/ui がインストールされ、ボタンが表示される
 - ✅ Storybook が起動し、Button のストーリーが表示される
-- ✅ Vitest でテストが実行でき、Button のテストがパスする
+- ✅ Vitest でテスト環境が構築されている（基本コンポーネントのテストは不要）
 - ✅ TypeScript エラーがゼロ
 
 ---
