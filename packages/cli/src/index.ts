@@ -8,11 +8,11 @@ import {
 	AgentOrchestrator,
 	InMemoryStateStore,
 	builPrompt,
+	taskAgentTools,
 	type Event,
 	type ToolCallEvent,
 } from '@shochan_ai/core';
 import { OpenAIClient, NotionClient } from '@shochan_ai/client';
-import { taskAgentTools } from './agent/task-agent-tools';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -20,13 +20,6 @@ dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
 
 export async function cli() {
 	const args = process.argv.slice(2);
-
-	if (args.length === 0) {
-		console.error('Error: Please provide a message as a command line argument');
-		process.exit(1);
-	}
-
-	const message = args.join(' ');
 
 	// Initialize clients
 	const openaiClient = new OpenAIClient();
@@ -40,17 +33,43 @@ export async function cli() {
 
 	const orchestrator = new AgentOrchestrator(reducer, executor, stateStore);
 
-	// Process initial user input
-	const userInputEvent: Event = {
-		type: 'user_input',
-		timestamp: Date.now(),
-		data: message,
-	};
+	// Process initial message if provided
+	if (args.length > 0) {
+		const message = args.join(' ');
+		const userInputEvent: Event = {
+			type: 'user_input',
+			timestamp: Date.now(),
+			data: message,
+		};
+		await agentLoop(orchestrator, reducer, userInputEvent);
+	}
 
-	await processUserInput(orchestrator, reducer, userInputEvent);
+	// Start interactive REPL mode
+	await startInteractiveMode(orchestrator, reducer);
 }
 
-async function processUserInput(
+/**
+ * Interactive REPL mode - continuously prompts user for input
+ */
+async function startInteractiveMode(
+	orchestrator: AgentOrchestrator,
+	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
+): Promise<void> {
+	console.log('\n💬 Interactive mode started. Type your message (Ctrl+C to exit)\n');
+
+	while (true) {
+		const userInputEvent = await askHuman('');
+
+		// Exit on empty input
+		if (typeof userInputEvent.data !== 'string' || userInputEvent.data.trim() === '') {
+			continue;
+		}
+
+		await agentLoop(orchestrator, reducer, userInputEvent);
+	}
+}
+
+async function agentLoop(
 	orchestrator: AgentOrchestrator,
 	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
 	userInputEvent: Event,
@@ -65,7 +84,6 @@ async function processUserInput(
 			toolCallEvent.event,
 			orchestrator,
 			reducer,
-			toolCallEvent.thread,
 		);
 
 		if (!shouldContinue.continue) break;
@@ -109,7 +127,6 @@ async function handleToolCall(
 	toolCallEvent: ToolCallEvent,
 	orchestrator: AgentOrchestrator,
 	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
-	currentThread: Thread,
 ): Promise<{ continue: boolean; newThread?: Thread }> {
 	const toolCall = toolCallEvent.data;
 
@@ -131,14 +148,18 @@ async function handleToolCall(
 	// Handle request for more information
 	if (toolCall.intent === 'request_more_information') {
 		console.log(`\n💬 ${toolCall.parameters.message}`);
-		const humanResponse = await askHuman('');
-		await processUserInput(orchestrator, reducer, humanResponse);
-		return { continue: false };
+		const humanResponseEvent = await askHuman('');
+		await orchestrator.processEvent(humanResponseEvent);
+		return { continue: true };
 	}
 
 	// Execute tool and handle result
 	const newThread = await orchestrator.executeToolCall(toolCallEvent);
-	const lastEvent = newThread.events[newThread.events.length - 1];
+	const lastEvent = newThread.latestEvent;
+  if (!lastEvent) {
+    console.error('❌ No event found in the thread');
+    return { continue: false };
+  }
 
 	if (lastEvent.type === 'tool_response') {
 		console.log('✅ Tool executed successfully');
