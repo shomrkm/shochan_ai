@@ -25,19 +25,20 @@
 
 ---
 
-## 🎯 実装戦略: "動くものを早く作る"
+## 🎯 実装戦略: "動くものを早く作る + テストも同時に書く"
 
 各フェーズで **必ず動作確認** を行い、段階的に機能を追加していきます。
+**Phase 5.2 以降は、コンポーネント実装と同時に Storybook とテストも作成します。**
 
 ```
-Phase 5.1: 基盤セットアップ → ✅ Hello World 表示
-Phase 5.2: shadcn/ui セットアップ → ✅ ボタン表示
-Phase 5.3: 最小限のチャットUI → ✅ 入力・表示できる
-Phase 5.4: モック API 統合 → ✅ モックレスポンス受信
-Phase 5.5: 実際の Express API 統合 → ✅ E2E 動作
-Phase 5.6: SSE でリアルタイム通信 → ✅ ストリーミング受信
-Phase 5.7: 承認ダイアログ実装 → ✅ 承認フロー動作
-Phase 5.8: Storybook & テスト → ✅ 品質担保
+Phase 5.1: Next.js 基盤セットアップ → ✅ Hello World 表示
+Phase 5.2: shadcn/ui + Storybook + テスト環境セットアップ → ✅ ボタン表示 + Story + Test
+Phase 5.3: 最小限のチャットUI → ✅ 入力・表示できる + Story + Test
+Phase 5.4: モック API 統合 → ✅ モックレスポンス受信 + Test
+Phase 5.5: Express API 統合（REST） → ✅ E2E 動作 + Test
+Phase 5.6: SSE リアルタイム通信 → ✅ ストリーミング受信 + Test
+Phase 5.7: 承認ダイアログ実装 → ✅ 承認フロー動作 + Story + Test
+Phase 5.8: 最終テスト・品質チェック → ✅ カバレッジ 80%+、型エラーゼロ
 ```
 
 ---
@@ -123,62 +124,193 @@ npm run dev
 
 ---
 
-## Phase 5.2: shadcn/ui のセットアップ
+## Phase 5.2: shadcn/ui + Storybook + テスト環境のセットアップ
 
-**目的:** UI コンポーネントライブラリを導入し、ボタンを表示
+**目的:** UI コンポーネントライブラリ、Storybook、テスト環境を導入し、ボタンコンポーネントの Story とテストを作成
 
 **タスク:**
 
-1. **shadcn/ui 初期化**
-   ```bash
-   npx shadcn@latest init
-   ```
-   - スタイル: Default
-   - ベースカラー: Slate
-   - CSS変数: Yes
+### 1. shadcn/ui セットアップ
 
-2. **基本コンポーネントをインストール**
-   ```bash
-   npx shadcn@latest add button
-   npx shadcn@latest add input
-   npx shadcn@latest add textarea
-   npx shadcn@latest add card
-   ```
+```bash
+npx shadcn@latest init
+```
+- スタイル: Default
+- ベースカラー: Slate
+- CSS変数: Yes
 
-3. **ホームページにボタンを追加**
-   - `app/page.tsx` を更新
-   ```typescript
-   import { Button } from '@/components/ui/button'
-   import { Card } from '@/components/ui/card'
+**基本コンポーネントをインストール**
+```bash
+npx shadcn@latest add button
+npx shadcn@latest add input
+npx shadcn@latest add textarea
+npx shadcn@latest add card
+```
 
-   export default function Home() {
-     return (
-       <main className="flex min-h-screen flex-col items-center justify-center p-4">
-         <Card className="w-full max-w-4xl p-8">
-           <h1 className="text-4xl font-bold text-center mb-8">
-             Shochan AI Chat
-           </h1>
-           <div className="flex justify-center">
-             <Button onClick={() => alert('動作確認OK!')}>
-               テストボタン
-             </Button>
-           </div>
-         </Card>
-       </main>
-     )
-   }
-   ```
+### 2. Storybook セットアップ
+
+```bash
+npx storybook@latest init
+```
+
+**Storybook の設定調整**
+- `.storybook/main.ts` で TypeScript パスエイリアス対応
+- Tailwind CSS がStorybookでも動作するように設定
+
+### 3. Vitest + Testing Library セットアップ
+
+```bash
+npm install -D vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event @vitejs/plugin-react jsdom
+```
+
+**`vitest.config.ts` 作成**
+```typescript
+import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './vitest.setup.ts',
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+})
+```
+
+**`vitest.setup.ts` 作成**
+```typescript
+import '@testing-library/jest-dom'
+```
+
+**`package.json` にスクリプト追加**
+```json
+{
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  }
+}
+```
+
+### 4. サンプル実装：Button の Story とテスト
+
+**`components/ui/button.stories.tsx` 作成**
+```typescript
+import type { Meta, StoryObj } from '@storybook/react'
+import { Button } from './button'
+
+const meta: Meta<typeof Button> = {
+  title: 'UI/Button',
+  component: Button,
+  tags: ['autodocs'],
+}
+
+export default meta
+type Story = StoryObj<typeof Button>
+
+export const Default: Story = {
+  args: {
+    children: 'Button',
+  },
+}
+
+export const Primary: Story = {
+  args: {
+    children: 'Primary Button',
+    variant: 'default',
+  },
+}
+
+export const Outline: Story = {
+  args: {
+    children: 'Outline Button',
+    variant: 'outline',
+  },
+}
+```
+
+**`components/ui/button.test.tsx` 作成**
+```typescript
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { Button } from './button'
+
+describe('Button', () => {
+  it('renders button with text', () => {
+    render(<Button>Click me</Button>)
+    expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument()
+  })
+
+  it('calls onClick handler when clicked', async () => {
+    const handleClick = vi.fn()
+    render(<Button onClick={handleClick}>Click me</Button>)
+
+    await userEvent.click(screen.getByRole('button'))
+    expect(handleClick).toHaveBeenCalledOnce()
+  })
+
+  it('is disabled when disabled prop is true', () => {
+    render(<Button disabled>Disabled</Button>)
+    expect(screen.getByRole('button')).toBeDisabled()
+  })
+})
+```
+
+### 5. ホームページにボタンを追加
+
+**`app/page.tsx` を更新**
+```typescript
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+
+export default function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+      <Card className="w-full max-w-4xl p-8">
+        <h1 className="text-4xl font-bold text-center mb-8">
+          Shochan AI Chat
+        </h1>
+        <div className="flex justify-center gap-4">
+          <Button>デフォルトボタン</Button>
+          <Button variant="outline">アウトラインボタン</Button>
+        </div>
+      </Card>
+    </main>
+  )
+}
+```
 
 **動作確認:**
 ```bash
+# 開発サーバー起動
 npm run dev
-# ボタンをクリックして "動作確認OK!" が表示されることを確認
+# → http://localhost:3000 でボタンが表示されることを確認
+
+# Storybook 起動
+npm run storybook
+# → http://localhost:6006 で Button のストーリーが表示されることを確認
+
+# テスト実行
+npm test
+# → Button のテストが全てパスすることを確認
 ```
 
 **完了条件:**
-- ✅ shadcn/ui がインストールされる
-- ✅ `components/ui/button.tsx` が生成される
-- ✅ ボタンが表示され、クリックできる
+- ✅ shadcn/ui がインストールされ、ボタンが表示される
+- ✅ Storybook が起動し、Button のストーリーが表示される
+- ✅ Vitest でテストが実行でき、Button のテストがパスする
+- ✅ TypeScript エラーがゼロ
 
 ---
 
@@ -350,12 +482,159 @@ npm run dev
    }
    ```
 
+6. **Storybook の追加**
+
+   **`components/chat/message-input.stories.tsx` 作成**
+   ```typescript
+   import type { Meta, StoryObj } from '@storybook/react'
+   import { MessageInput } from './message-input'
+
+   const meta: Meta<typeof MessageInput> = {
+     title: 'Chat/MessageInput',
+     component: MessageInput,
+     tags: ['autodocs'],
+   }
+
+   export default meta
+   type Story = StoryObj<typeof MessageInput>
+
+   export const Default: Story = {
+     args: {
+       onSend: (message) => console.log('Send:', message),
+     },
+   }
+
+   export const Disabled: Story = {
+     args: {
+       onSend: (message) => console.log('Send:', message),
+       disabled: true,
+     },
+   }
+   ```
+
+   **`components/chat/message-list.stories.tsx` 作成**
+   ```typescript
+   import type { Meta, StoryObj } from '@storybook/react'
+   import { MessageList } from './message-list'
+
+   const meta: Meta<typeof MessageList> = {
+     title: 'Chat/MessageList',
+     component: MessageList,
+     tags: ['autodocs'],
+   }
+
+   export default meta
+   type Story = StoryObj<typeof MessageList>
+
+   export const Empty: Story = {
+     args: {
+       messages: [],
+     },
+   }
+
+   export const WithMessages: Story = {
+     args: {
+       messages: [
+         {
+           id: '1',
+           type: 'user',
+           content: 'こんにちは',
+           timestamp: Date.now() - 60000,
+         },
+         {
+           id: '2',
+           type: 'agent',
+           content: 'こんにちは！何かお手伝いできることはありますか？',
+           timestamp: Date.now() - 30000,
+         },
+       ],
+     },
+   }
+   ```
+
+7. **テストの追加**
+
+   **`components/chat/message-input.test.tsx` 作成**
+   ```typescript
+   import { describe, it, expect, vi } from 'vitest'
+   import { render, screen } from '@testing-library/react'
+   import userEvent from '@testing-library/user-event'
+   import { MessageInput } from './message-input'
+
+   describe('MessageInput', () => {
+     it('renders textarea and send button', () => {
+       render(<MessageInput onSend={vi.fn()} />)
+       expect(screen.getByPlaceholderText('メッセージを入力...')).toBeInTheDocument()
+       expect(screen.getByRole('button', { name: '送信' })).toBeInTheDocument()
+     })
+
+     it('calls onSend with input value when send button is clicked', async () => {
+       const handleSend = vi.fn()
+       render(<MessageInput onSend={handleSend} />)
+
+       await userEvent.type(screen.getByRole('textbox'), 'Hello')
+       await userEvent.click(screen.getByRole('button', { name: '送信' }))
+
+       expect(handleSend).toHaveBeenCalledWith('Hello')
+     })
+
+     it('clears input after sending', async () => {
+       render(<MessageInput onSend={vi.fn()} />)
+
+       const textarea = screen.getByRole('textbox')
+       await userEvent.type(textarea, 'Hello')
+       await userEvent.click(screen.getByRole('button', { name: '送信' }))
+
+       expect(textarea).toHaveValue('')
+     })
+
+     it('disables send button when input is empty', () => {
+       render(<MessageInput onSend={vi.fn()} />)
+       expect(screen.getByRole('button', { name: '送信' })).toBeDisabled()
+     })
+   })
+   ```
+
+   **`components/chat/message-list.test.tsx` 作成**
+   ```typescript
+   import { describe, it, expect } from 'vitest'
+   import { render, screen } from '@testing-library/react'
+   import { MessageList } from './message-list'
+
+   describe('MessageList', () => {
+     it('shows empty state when no messages', () => {
+       render(<MessageList messages={[]} />)
+       expect(screen.getByText('メッセージがありません')).toBeInTheDocument()
+     })
+
+     it('renders messages correctly', () => {
+       const messages = [
+         { id: '1', type: 'user' as const, content: 'Hello', timestamp: Date.now() },
+         { id: '2', type: 'agent' as const, content: 'Hi!', timestamp: Date.now() },
+       ]
+       render(<MessageList messages={messages} />)
+
+       expect(screen.getByText('Hello')).toBeInTheDocument()
+       expect(screen.getByText('Hi!')).toBeInTheDocument()
+     })
+   })
+   ```
+
 **動作確認:**
 ```bash
+# 開発サーバー起動
 npm run dev
-# メッセージを入力して送信
-# ユーザーメッセージが表示される
-# 1秒後にモックの応答が表示される
+# → メッセージを入力して送信
+# → ユーザーメッセージが表示される
+# → 1秒後にモックの応答が表示される
+
+# Storybook 起動
+npm run storybook
+# → MessageInput と MessageList のストーリーが表示されることを確認
+
+# テスト実行
+npm test
+# → 全てのテストがパスすることを確認
 ```
 
 **完了条件:**
@@ -364,6 +643,8 @@ npm run dev
 - ✅ Enter キーで送信できる（Shift+Enter で改行）
 - ✅ メッセージが一覧表示される
 - ✅ モックの応答が1秒後に表示される
+- ✅ Storybook で MessageInput と MessageList が表示される
+- ✅ テストが全てパスする
 
 ---
 
@@ -1068,11 +1349,146 @@ curl http://localhost:3001/health
    }
    ```
 
+7. **Storybook の追加**
+
+   **`components/chat/approval-dialog.stories.tsx` 作成**
+   ```typescript
+   import type { Meta, StoryObj } from '@storybook/react'
+   import { ApprovalDialog } from './approval-dialog'
+
+   const meta: Meta<typeof ApprovalDialog> = {
+     title: 'Chat/ApprovalDialog',
+     component: ApprovalDialog,
+     tags: ['autodocs'],
+   }
+
+   export default meta
+   type Story = StoryObj<typeof ApprovalDialog>
+
+   export const DeleteTask: Story = {
+     args: {
+       toolCall: {
+         intent: 'delete_task',
+         parameters: {
+           taskId: 'task-123',
+           taskName: 'テストタスク',
+         },
+       },
+       onApprove: () => console.log('Approved'),
+       onReject: () => console.log('Rejected'),
+     },
+   }
+
+   export const CreateProject: Story = {
+     args: {
+       toolCall: {
+         intent: 'create_project',
+         parameters: {
+           name: '新規プロジェクト',
+           description: 'プロジェクトの説明',
+         },
+       },
+       onApprove: () => console.log('Approved'),
+       onReject: () => console.log('Rejected'),
+     },
+   }
+
+   export const NoToolCall: Story = {
+     args: {
+       toolCall: null,
+       onApprove: () => console.log('Approved'),
+       onReject: () => console.log('Rejected'),
+     },
+   }
+   ```
+
+8. **テストの追加**
+
+   **`components/chat/approval-dialog.test.tsx` 作成**
+   ```typescript
+   import { describe, it, expect, vi } from 'vitest'
+   import { render, screen } from '@testing-library/react'
+   import userEvent from '@testing-library/user-event'
+   import { ApprovalDialog } from './approval-dialog'
+
+   describe('ApprovalDialog', () => {
+     const mockToolCall = {
+       intent: 'delete_task',
+       parameters: {
+         taskId: 'task-123',
+         taskName: 'テストタスク',
+       },
+     }
+
+     it('does not render when toolCall is null', () => {
+       const { container } = render(
+         <ApprovalDialog
+           toolCall={null}
+           onApprove={vi.fn()}
+           onReject={vi.fn()}
+         />
+       )
+       expect(container).toBeEmptyDOMElement()
+     })
+
+     it('renders dialog when toolCall is provided', () => {
+       render(
+         <ApprovalDialog
+           toolCall={mockToolCall}
+           onApprove={vi.fn()}
+           onReject={vi.fn()}
+         />
+       )
+
+       expect(screen.getByText('承認が必要です')).toBeInTheDocument()
+       expect(screen.getByText(/delete_task/)).toBeInTheDocument()
+     })
+
+     it('calls onApprove when approve button is clicked', async () => {
+       const handleApprove = vi.fn()
+       render(
+         <ApprovalDialog
+           toolCall={mockToolCall}
+           onApprove={handleApprove}
+           onReject={vi.fn()}
+         />
+       )
+
+       await userEvent.click(screen.getByRole('button', { name: '承認' }))
+       expect(handleApprove).toHaveBeenCalledOnce()
+     })
+
+     it('calls onReject when cancel button is clicked', async () => {
+       const handleReject = vi.fn()
+       render(
+         <ApprovalDialog
+           toolCall={mockToolCall}
+           onApprove={vi.fn()}
+           onReject={handleReject}
+         />
+       )
+
+       await userEvent.click(screen.getByRole('button', { name: 'キャンセル' }))
+       expect(handleReject).toHaveBeenCalledOnce()
+     })
+   })
+   ```
+
 **動作確認:**
 ```bash
-# "タスクを削除して" などのメッセージを送信
-# 承認ダイアログが表示されることを確認
-# 承認/拒否ボタンが動作することを確認
+# 開発サーバー起動
+npm run dev
+# → "タスクを削除して" などのメッセージを送信
+# → 承認ダイアログが表示されることを確認
+# → 承認/拒否ボタンが動作することを確認
+
+# Storybook 起動
+npm run storybook
+# → ApprovalDialog のストーリーが表示されることを確認
+
+# テスト実行
+npm test
+# → ApprovalDialog のテストがパスすることを確認
 ```
 
 **完了条件:**
@@ -1080,58 +1496,75 @@ curl http://localhost:3001/health
 - ✅ 承認ボタンで処理が再開される
 - ✅ キャンセルボタンで処理が中断される
 - ✅ Toast 通知が表示される
+- ✅ Storybook で ApprovalDialog が表示される
+- ✅ テストが全てパスする
 
 ---
 
-## Phase 5.8: Storybook とテスト環境のセットアップ
+## Phase 5.8: 最終テスト・品質チェック
 
-**目的:** コンポーネントカタログとテスト環境を整備
+**目的:** 全体の品質を確認し、本番デプロイの準備を整える
 
 **タスク:**
 
-1. **Storybook インストール**
+1. **テストカバレッジの確認**
    ```bash
-   npx storybook@latest init
+   npm run test:coverage
    ```
+   - 目標: カバレッジ 80% 以上
+   - カバレッジが低い箇所があれば追加テストを作成
 
-2. **主要コンポーネントのストーリー作成**
-   - `components/chat/message-input.stories.tsx`
-   - `components/chat/message-list.stories.tsx`
-   - `components/chat/approval-dialog.stories.tsx`
-
-3. **Vitest セットアップ**
+2. **型チェック**
    ```bash
-   npm install -D vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event @vitejs/plugin-react jsdom
+   npx tsc --noEmit
    ```
+   - TypeScript エラーがゼロであることを確認
 
-4. **vitest.config.ts 作成**
-   ```typescript
-   import { defineConfig } from 'vitest/config'
-   import react from '@vitejs/plugin-react'
-   import path from 'path'
-
-   export default defineConfig({
-     plugins: [react()],
-     test: {
-       environment: 'jsdom',
-       globals: true,
-       setupFiles: './vitest.setup.ts',
-     },
-     resolve: {
-       alias: {
-         '@': path.resolve(__dirname, './'),
-       },
-     },
-   })
+3. **ESLint チェック**
+   ```bash
+   npm run lint
    ```
+   - ESLint エラー・警告がゼロであることを確認
 
-5. **基本的なテスト作成**
-   - `components/chat/message-input.test.tsx`
+4. **E2E シナリオテスト（手動）**
+   - ✅ メッセージ送信 → レスポンス受信
+   - ✅ SSE ストリーミング動作
+   - ✅ ツール承認フロー（承認・拒否）
+   - ✅ エラーハンドリング（ネットワークエラー、API エラー）
+   - ✅ レスポンシブデザイン確認
+
+5. **Storybook ビルドテスト**
+   ```bash
+   npm run build-storybook
+   ```
+   - Storybook がビルドエラーなく完成することを確認
+
+6. **本番ビルドテスト**
+   ```bash
+   npm run build
+   npm run start
+   ```
+   - 本番ビルドが成功することを確認
+   - 起動して動作確認
+
+7. **パフォーマンスチェック**
+   - Chrome DevTools の Lighthouse で計測
+   - Performance スコア 80+ を目標
+   - アクセシビリティスコア 90+ を目標
+
+8. **ドキュメント整備**
+   - README に開発・テスト・デプロイ手順を記載
+   - 環境変数の説明を `.env.example` に記載
 
 **完了条件:**
-- ✅ Storybook が起動する
-- ✅ ストーリーが表示される
-- ✅ テストが実行できる
+- ✅ テストカバレッジ 80% 以上
+- ✅ TypeScript エラーゼロ
+- ✅ ESLint エラー・警告ゼロ
+- ✅ 全ての E2E シナリオが動作
+- ✅ Storybook ビルド成功
+- ✅ 本番ビルド成功
+- ✅ Lighthouse スコア目標達成
+- ✅ ドキュメント整備完了
 
 ---
 
