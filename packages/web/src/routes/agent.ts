@@ -6,7 +6,7 @@ import {
 	NotionToolExecutor,
 	isAwaitingApprovalEvent,
 	type Event,
-  taskAgentTools,
+	taskAgentTools,
 } from '@shochan_ai/core';
 import type { OpenAIClient, NotionClient } from '@shochan_ai/client';
 import type { RedisStateStore } from '../state/redis-store';
@@ -27,7 +27,7 @@ export interface AgentDependencies {
  * @returns Configured Express Router
  */
 export function createAgentRouter(deps: AgentDependencies): Router {
-	const { redisStore, streamManager, executor } = deps;
+	const { redisStore, streamManager, reducer, executor } = deps;
 	const router = Router();
 
 	/**
@@ -52,7 +52,8 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 			};
 			const initialThread = new Thread([userInputEvent]);
 			await redisStore.set(conversationId, initialThread);
-			processAgent(conversationId, deps);
+      
+			await processAgent(conversationId, deps);
 
 			res.json({ conversationId });
 		} catch (error) {
@@ -99,7 +100,7 @@ export function createAgentRouter(deps: AgentDependencies): Router {
           timestamp: Date.now(),
           data: 'denied',
         };
-        const updatedThread = new Thread([...thread.events, denialEvent]);
+        const updatedThread = reducer.reduce(thread, denialEvent);
         await redisStore.set(conversationId, updatedThread);
 
         await processAgent(conversationId, deps);
@@ -122,7 +123,7 @@ export function createAgentRouter(deps: AgentDependencies): Router {
       const result = await executor.execute(pendingToolCall);
 
       streamManager.send(conversationId, result.event);
-      currentThread = new Thread([...currentThread.events, result.event]);
+      currentThread = reducer.reduce(currentThread, result.event);
       await redisStore.set(conversationId, currentThread);
 
       await processAgent(conversationId, deps);
@@ -178,14 +179,8 @@ async function processAgent(
 			iterations++;
 
 			const toolCallEvent = await reducer.generateNextToolCall(currentThread);
-
 			if (!toolCallEvent) {
-				console.log(`✅ Agent finished (no tool call) for: ${conversationId}`);
-				streamManager.send(conversationId, {
-					type: 'complete',
-					timestamp: Date.now(),
-					data: { message: 'Agent processing completed' },
-				});
+				console.error(`❌ No tool call generated for ${conversationId}`);
 				break;
 			}
 
@@ -196,39 +191,18 @@ async function processAgent(
 
 			const toolCall = toolCallEvent.data;
 
+      if ([ 'done_for_now', 'request_more_information', ].includes(toolCall.intent)) {
+        break;
+      }
+
 			if (toolCall.intent === 'delete_task') {
 				console.log(`⚠️  Approval required for: ${conversationId}`);
 
-				const awaitingApprovalEvent: Event = {
-					type: 'awaiting_approval',
-					timestamp: Date.now(),
-					data: toolCall,
-				};
-
+				const awaitingApprovalEvent: Event = { type: 'awaiting_approval', timestamp: Date.now(), data: toolCall };
 				streamManager.send(conversationId, awaitingApprovalEvent);
 				currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
-				await redisStore.set(conversationId, currentThread);
+        await redisStore.set(conversationId, currentThread);
 
-				break;
-			}
-
-			if (toolCall.intent === 'done_for_now') {
-				console.log(`✅ Agent finished (done_for_now) for: ${conversationId}`);
-				streamManager.send(conversationId, {
-					type: 'complete',
-					timestamp: Date.now(),
-					data: { message: toolCall.parameters.message },
-				});
-				break;
-			}
-
-			if (toolCall.intent === 'request_more_information') {
-				console.log(`❓ More information requested for: ${conversationId}`);
-				streamManager.send(conversationId, {
-					type: 'complete',
-					timestamp: Date.now(),
-					data: { message: toolCall.parameters.message },
-				});
 				break;
 			}
 
