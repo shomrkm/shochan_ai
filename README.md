@@ -191,11 +191,20 @@ packages/
 │   │   └── notionUtils.ts      # Notion utility functions
 │   └── package.json
 │
-└── cli/                         # CLI implementation (depends on core + client)
+├── cli/                         # CLI implementation (depends on core + client)
+│   ├── src/
+│   │   ├── index.ts            # CLI entry point with AgentOrchestrator
+│   │   └── agent/
+│   │       └── task-agent-tools.ts  # Tool definitions for OpenAI
+│   └── package.json
+│
+└── web/                         # Web API server (depends on core + client)
     ├── src/
-    │   ├── index.ts            # CLI entry point with AgentOrchestrator
-    │   └── agent/
-    │       └── task-agent-tools.ts  # Tool definitions for OpenAI
+    │   ├── server.ts           # Server initialization
+    │   ├── app.ts              # Express app configuration
+    │   ├── routes/             # API endpoints (agent, stream)
+    │   ├── state/              # Redis state persistence
+    │   └── streaming/          # SSE session management
     └── package.json
 ```
 
@@ -203,6 +212,11 @@ packages/
 - `packages/core` depends on zod only (for runtime type validation)
 - `packages/client` depends on `@shochan_ai/core`
 - `packages/cli` depends on `@shochan_ai/core` and `@shochan_ai/client`
+- `packages/web` depends on `@shochan_ai/core` and `@shochan_ai/client`
+
+**Package Documentation:**
+- [Core Package](packages/core/README.md) - Business logic and agent core
+- [Web API Package](packages/web/README.md) - RESTful API server with SSE streaming
 
 ## Available Tools
 
