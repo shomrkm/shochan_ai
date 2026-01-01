@@ -31,8 +31,8 @@
 **Phase 5.2 以降は、コンポーネント実装と同時に Storybook とテストも作成します。**
 
 ```
-Phase 5.1: Next.js 基盤セットアップ → ✅ Hello World 表示
-Phase 5.2: shadcn/ui + Storybook + テスト環境セットアップ → ✅ ボタン表示 + Story + Test
+Phase 5.1: Next.js 基盤セットアップ → ✅ 完了
+Phase 5.2: shadcn/ui + Storybook + テスト環境セットアップ → ✅ 完了
 Phase 5.3: 最小限のチャットUI → ✅ 入力・表示できる + Story + Test
 Phase 5.4: モック API 統合 → ✅ モックレスポンス受信 + Test
 Phase 5.5: Express API 統合（REST） → ✅ E2E 動作 + Test
@@ -243,6 +243,14 @@ export const Outline: Story = {
 
 **Note:** 基本的なUIコンポーネント（Button等）のユニットテストは不要です。Storybookによるvisual testingで十分対応可能です。
 
+**追加コンポーネントのStorybook作成**
+
+Phase 5.3以降で使用するコンポーネントのStorybookも作成しておきます：
+
+- `components/ui/input.stories.tsx` - Input コンポーネント（7つのストーリー）
+- `components/ui/textarea.stories.tsx` - Textarea コンポーネント（6つのストーリー）
+- `components/ui/card.stories.tsx` - Card コンポーネント（5つのストーリー）
+
 ### 5. ホームページにボタンを追加
 
 **`app/page.tsx` を更新**
@@ -280,9 +288,12 @@ npm run storybook
 
 **完了条件:**
 - ✅ shadcn/ui がインストールされ、ボタンが表示される
-- ✅ Storybook が起動し、Button のストーリーが表示される
+- ✅ Storybook が起動し、Button, Input, Textarea, Card のストーリーが表示される
 - ✅ Vitest でテスト環境が構築されている（基本コンポーネントのテストは不要）
 - ✅ TypeScript エラーがゼロ
+- ✅ 全コンポーネントのStorybookが整備されている
+
+**実装完了日:** 2025-12-31
 
 ---
 
