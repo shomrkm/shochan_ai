@@ -33,8 +33,8 @@
 ```
 Phase 5.1: Next.js 基盤セットアップ → ✅ 完了
 Phase 5.2: shadcn/ui + Storybook + テスト環境セットアップ → ✅ 完了
-Phase 5.3: 最小限のチャットUI → ✅ 入力・表示できる + Story + Test
-Phase 5.4: モック API 統合 → ✅ モックレスポンス受信 + Test
+Phase 5.3: 最小限のチャットUI → ✅ 完了
+Phase 5.4: モック API 統合 → ✅ 完了
 Phase 5.5: Express API 統合（REST） → ✅ E2E 動作 + Test
 Phase 5.6: SSE リアルタイム通信 → ✅ ストリーミング受信 + Test
 Phase 5.7: 承認ダイアログ実装 → ✅ 承認フロー動作 + Story + Test
@@ -633,9 +633,11 @@ npm test
 
 ---
 
-## Phase 5.4: TanStack Query とモック API 統合
+## Phase 5.4: TanStack Query とモック API 統合 ✅ 完了
 
 **目的:** データフェッチライブラリを導入し、モック API と統合
+
+**完了日:** 2026-01-01
 
 **タスク:**
 
