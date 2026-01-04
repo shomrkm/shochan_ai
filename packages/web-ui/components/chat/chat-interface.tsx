@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import type { Message } from '@/types/chat'
+import type { Message, SendMessageResponse } from '@/types/chat'
 import { MessageList } from './message-list'
 import { MessageInput } from './message-input'
 import { Card } from '@/components/ui/card'
 
-async function sendMessage(message: string) {
+async function sendMessage(message: string): Promise<SendMessageResponse> {
   const response = await fetch('/api/agent/query', {
     method: 'POST',
     headers: {
@@ -20,7 +20,8 @@ async function sendMessage(message: string) {
     throw new Error('Failed to send message')
   }
 
-  return response.json()
+  const data: SendMessageResponse = await response.json()
+  return data
 }
 
 export function ChatInterface() {

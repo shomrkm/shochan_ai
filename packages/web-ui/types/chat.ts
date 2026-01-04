@@ -4,3 +4,13 @@ export interface Message {
   content: string
   timestamp: number
 }
+
+// API Response Types
+export interface SendMessageResponse {
+  conversationId: string
+  response: string
+}
+
+export interface ApiError {
+  error: string
+}
