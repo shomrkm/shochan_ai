@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query'
 import type { SendMessageResponse } from '@/types/chat'
 
 async function sendMessage(message: string): Promise<SendMessageResponse> {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL
   const endpoint = `${apiUrl}/api/agent/query`
 
   const response = await fetch(endpoint, {
