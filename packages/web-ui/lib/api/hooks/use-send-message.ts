@@ -2,7 +2,10 @@ import { useMutation } from '@tanstack/react-query'
 import type { SendMessageResponse } from '@/types/chat'
 
 async function sendMessage(message: string): Promise<SendMessageResponse> {
-  const response = await fetch('/api/agent/query', {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+  const endpoint = `${apiUrl}/api/agent/query`
+
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -10,12 +13,20 @@ async function sendMessage(message: string): Promise<SendMessageResponse> {
     body: JSON.stringify({ message }),
   })
 
+  // TODO: Remove this after the API is implemented
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 500))
+
   if (!response.ok) {
     throw new Error('Failed to send message')
   }
 
-  const data: SendMessageResponse = await response.json()
-  return data
+  // TODO: Remove this mock and use the actual response from the API
+  // const data: SendMessageResponse = await response.json()
+  return {
+    conversationId: `mock-${Date.now()}`,
+    response: `You said: "${message}"\n\nThis is a mock response from the API.`,
+  }
 }
 
 type UseSendMessageOptions = Omit<

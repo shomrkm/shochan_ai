@@ -56,5 +56,7 @@ packages/web-ui/
 
 ## Environment Variables
 
-- `BACKEND_URL` - Express API URL (server-side only)
+- `NEXT_PUBLIC_API_URL` - Express API base URL (client-side exposed, defaults to `http://localhost:3001`)
 - `NEXT_PUBLIC_STREAM_URL` - SSE streaming endpoint URL (client-side exposed)
+
+Note: Since the backend API has CORS enabled, we call it directly from the client-side. No BFF (Backend for Frontend) pattern is needed.
