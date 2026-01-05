@@ -1,34 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
-import type { Message, SendMessageResponse } from '@/types/chat'
+import type { Message } from '@/types/chat'
+import { useSendMessage } from '@/lib/api'
 import { MessageList } from './message-list'
 import { MessageInput } from './message-input'
 import { Card } from '@/components/ui/card'
 
-async function sendMessage(message: string): Promise<SendMessageResponse> {
-  const response = await fetch('/api/agent/query', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message }),
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to send message')
-  }
-
-  const data: SendMessageResponse = await response.json()
-  return data
-}
-
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([])
 
-  const mutation = useMutation({
-    mutationFn: sendMessage,
+  const mutation = useSendMessage({
     onSuccess: (data) => {
       const agentMessage: Message = {
         id: crypto.randomUUID(),
@@ -38,8 +20,7 @@ export function ChatInterface() {
       }
       setMessages((prev) => [...prev, agentMessage])
     },
-    onError: (error) => {
-      console.error('Failed to send message:', error)
+    onError: () => {
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         type: 'system',
