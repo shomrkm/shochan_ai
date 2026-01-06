@@ -12,10 +12,14 @@ export function ChatInterface() {
 
   const mutation = useSendMessage({
     onSuccess: (data) => {
+      // Store conversationId for future SSE connection (Phase 5.6)
+      console.log('Conversation started:', data.conversationId)
+
+      // Temporary mock response until SSE is implemented
       const agentMessage: Message = {
         id: crypto.randomUUID(),
         type: 'agent',
-        content: data.response,
+        content: `Conversation started. ID: ${data.conversationId}`,
         timestamp: Date.now(),
       }
       setMessages((prev) => [...prev, agentMessage])

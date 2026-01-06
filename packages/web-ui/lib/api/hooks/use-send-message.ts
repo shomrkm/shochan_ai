@@ -17,12 +17,8 @@ async function sendMessage(message: string): Promise<SendMessageResponse> {
     throw new Error('Failed to send message')
   }
 
-  // TODO: Remove this mock and use the actual response from the API
-  // const data: SendMessageResponse = await response.json()
-  return {
-    conversationId: `mock-${Date.now()}`,
-    response: `You said: "${message}"\n\nThis is a mock response from the API.`,
-  }
+  const data: SendMessageResponse = await response.json()
+  return data
 }
 
 type UseSendMessageOptions = Omit<

@@ -8,7 +8,6 @@ export interface Message {
 // API Response Types
 export interface SendMessageResponse {
   conversationId: string
-  response: string
 }
 
 export interface ApiError {
