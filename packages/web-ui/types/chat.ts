@@ -1,3 +1,7 @@
+import type { Event } from '@shochan_ai/core'
+
+export type { Event }
+
 export interface Message {
   id: string
   type: 'user' | 'agent' | 'system'
