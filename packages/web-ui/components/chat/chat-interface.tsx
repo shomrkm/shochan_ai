@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import type { Message, Event } from '@/types/chat'
+import type { Message, Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent } from '@/types/chat'
 import { useSendMessage } from '@/lib/api'
 import { useSSE } from '@/hooks/use-sse'
 import { MessageList } from './message-list'
@@ -28,54 +28,25 @@ export function ChatInterface() {
   })
 
   const handleSSEEvent = useCallback((event: Event) => {
+    let message: Message | null = null
+
     switch (event.type) {
       case 'tool_call':
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `tool-call-${event.timestamp}`,
-            type: 'system',
-            content: `🔧 Tool call: ${event.data.intent}`,
-            timestamp: event.timestamp,
-          },
-        ])
+        message = createToolCallMessage(event)
         break
-
       case 'tool_response':
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `tool-response-${event.timestamp}`,
-            type: 'system',
-            content: JSON.stringify(event.data, null, 2),
-            timestamp: event.timestamp,
-          },
-        ])
+        message = createToolResponseMessage(event)
         break
-
       case 'complete':
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `complete-${event.timestamp}`,
-            type: 'system',
-            content: '✅ Processing complete',
-            timestamp: event.timestamp,
-          },
-        ])
+        message = createCompleteMessage(event)
         break
-
       case 'error':
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `error-${event.timestamp}`,
-            type: 'system',
-            content: `❌ Error: ${event.data.error}`,
-            timestamp: event.timestamp,
-          },
-        ])
+        message = createErrorMessage(event)
         break
+    }
+
+    if (message) {
+      setMessages((prev) => [...prev, message])
     }
   }, [])
 
@@ -113,4 +84,66 @@ export function ChatInterface() {
       </div>
     </div>
   )
+}
+
+/**
+ * Create a message from a tool call event.
+ * Handles agent's final response messages (done_for_now, request_more_information) specially.
+ */
+function createToolCallMessage(event: ToolCallEvent): Message {
+  const { data: toolCall, timestamp } = event
+
+  // Agent's final response messages
+  if (toolCall.intent === 'done_for_now' || toolCall.intent === 'request_more_information') {
+    return {
+      id: `agent-${timestamp}`,
+      type: 'agent',
+      content: toolCall.parameters.message,
+      timestamp,
+    }
+  }
+
+  // Other tool calls - show as system messages
+  return {
+    id: `tool-call-${timestamp}`,
+    type: 'system',
+    content: `🔧 Tool call: ${toolCall.intent}`,
+    timestamp,
+  }
+}
+
+/**
+ * Create a message from a tool response event.
+ */
+function createToolResponseMessage(event: ToolResponseEvent): Message {
+  return {
+    id: `tool-response-${event.timestamp}`,
+    type: 'system',
+    content: JSON.stringify(event.data, null, 2),
+    timestamp: event.timestamp,
+  }
+}
+
+/**
+ * Create a message from a complete event.
+ */
+function createCompleteMessage(event: CompleteEvent): Message {
+  return {
+    id: `complete-${event.timestamp}`,
+    type: 'system',
+    content: '✅ Processing complete',
+    timestamp: event.timestamp,
+  }
+}
+
+/**
+ * Create a message from an error event.
+ */
+function createErrorMessage(event: ErrorEvent): Message {
+  return {
+    id: `error-${event.timestamp}`,
+    type: 'system',
+    content: `❌ Error: ${event.data.error}`,
+    timestamp: event.timestamp,
+  }
 }

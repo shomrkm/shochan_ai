@@ -1,6 +1,12 @@
-import type { Event } from '@shochan_ai/core'
+import type {
+  Event,
+  ToolCallEvent,
+  ToolResponseEvent,
+  ErrorEvent,
+  CompleteEvent,
+} from '@shochan_ai/core'
 
-export type { Event }
+export type { Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent }
 
 export interface Message {
   id: string
