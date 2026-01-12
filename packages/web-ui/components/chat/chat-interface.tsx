@@ -6,7 +6,6 @@ import { useSendMessage } from '@/lib/api'
 import { useSSE } from '@/hooks/use-sse'
 import { MessageList } from './message-list'
 import { MessageInput } from './message-input'
-import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 
 export function ChatInterface() {
@@ -95,17 +94,23 @@ export function ChatInterface() {
   }
 
   return (
-    <Card className="flex flex-col h-[600px] w-full max-w-4xl mx-auto">
-      <div className="flex justify-between items-center p-4 border-b">
-        <h2 className="text-2xl font-bold">Chat</h2>
+    <div className="flex flex-col h-full w-full relative">
+      <div className="flex justify-between items-center p-4 border-b bg-background">
+        <h2 className="text-2xl font-bold">Shochan AI Chat</h2>
         {conversationId && <Badge variant="outline">Connected</Badge>}
       </div>
-      <div className="flex-1 overflow-hidden">
-        <MessageList messages={messages} />
+
+      <div className="flex-1 overflow-y-auto pb-32 px-4">
+        <div className="max-w-4xl mx-auto">
+          <MessageList messages={messages} />
+        </div>
       </div>
-      <div className="border-t p-4">
-        <MessageInput onSend={handleSendMessage} disabled={mutation.isPending} />
+
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 border-t p-4">
+        <div className="max-w-4xl mx-auto">
+          <MessageInput onSend={handleSendMessage} disabled={mutation.isPending} />
+        </div>
       </div>
-    </Card>
+    </div>
   )
 }
