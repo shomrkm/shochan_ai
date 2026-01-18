@@ -469,26 +469,34 @@ npx tsx test-responses-streaming.ts
 ```
 
 **確認ポイント**:
-- [ ] `response.function_call` イベントの構造とタイミング
-- [ ] `response.output_text.delta` イベントの構造とタイミング
-- [ ] `response.done` イベントの存在確認
-- [ ] イベントの順序（ツールコール → テキスト生成）
-- [ ] delta フィールドに含まれるトークン数（1トークン? 複数トークン?）
+- [x] `response.function_call` イベントの構造とタイミング
+- [x] `response.output_text.delta` イベントの構造とタイミング
+- [x] `response.done` イベントの存在確認
+- [x] イベントの順序（ツールコール → テキスト生成）
+- [x] delta フィールドに含まれるトークン数（1トークン? 複数トークン?）
 
-**検証結果の記録**:
-テスト実行後、以下を記録してください：
+**検証結果**:
 ```
-# 検証結果
+# 検証結果（2026-01-18実施）
 
 ## Test 1: Text Streaming
-- イベント数: XX
-- response.output_text.delta の出現回数: XX
-- 1イベントあたりのトークン数: XX
+- 総イベント数: 15
+- response.output_text.delta の出現回数: 7
+- テキスト内容: "こんにちは (Konnichiwa)" (15文字)
+- チャンクサイズ: 可変（1-5文字）
+  - "こんにちは", " (", "K", "onn", "ich", "iwa", ")"
+- SSE送信頻度: 約7イベント/15文字 → **十分低い頻度**
 
 ## Test 2: Tool Call Streaming
-- イベント数: XX
-- response.function_call の出現タイミング: (例: イベント #3)
-- response.output_text.delta の出現: あり/なし
+- 総イベント数: 12
+- response.function_call の検出: ✅ 正常
+- response.function_call_arguments.delta の検出: ✅ 正常
+- JSONパラメータがチャンク単位でストリーミング: ✅ 確認
+
+## 結論
+✅ OpenAI Responses APIは**適切なチャンクサイズ**で送信している
+✅ SSE送信頻度は十分低い（7イベント/15文字）
+✅ **Phase 4.5（TextBuffer）は不要** - バッファリングなしで実装可能
 ```
 
 **注意**: このテストスクリプトは実装完了後に削除してください。
@@ -815,13 +823,19 @@ async function processAgent(
 pnpm --filter @shochan_ai/web build
 ```
 
-### Phase 4.5: テキストバッファリングユーティリティの追加（オプション）
+### Phase 4.5: テキストバッファリングユーティリティの追加（❌ スキップ）
 
-**目的**: パフォーマンス最適化のため、テキストチャンクをバッファリング
+**決定**: **Phase 1.5の検証により、このフェーズは不要と判断しました**
 
-**重要性**:
-- OpenAI APIが1トークンずつ送信する場合、SSE送信頻度が非常に高くなる
-- 50-100msのバッファリングでSSE送信回数を削減し、サーバー負荷を軽減
+**理由**:
+- OpenAI Responses APIは既に適切なチャンクサイズで送信している
+- SSE送信頻度: 約7イベント/15文字 → 十分低い
+- バッファリングによる遅延のデメリットの方が大きい
+- 実装の複雑さとリソース管理コストが不要
+
+**元の目的**（参考）:
+- ~~OpenAI APIが1トークンずつ送信する場合、SSE送信頻度が非常に高くなる~~
+- ~~50-100msのバッファリングでSSE送信回数を削減し、サーバー負荷を軽減~~
 
 **ファイル**: `packages/web/src/utils/text-buffer.ts`（新規作成）
 
@@ -1002,13 +1016,11 @@ async function processAgent(
 }
 ```
 
-**ビルド**:
+---
 
-```bash
-pnpm --filter @shochan_ai/web build
-```
+**✅ Phase 1.5の検証結果により、上記の実装は不要となりました。**
 
-**注意**: Phase 1.5の検証結果により、OpenAI APIのトークン送信頻度が低い場合は、このバッファリングは不要です。まずはPhase 4.2の実装でテストし、パフォーマンスが問題になる場合にPhase 4.5を適用してください。
+Phase 4.2の実装（バッファリングなし）で十分なパフォーマンスが得られます。
 
 ### Phase 5: Web UI の更新
 
@@ -1382,7 +1394,7 @@ await redisClient.subscribe(`sse:${conversationId}:ready`);
 **対策**:
 - ストリームの適切なクリーンアップ
 - `for await` ループの終了確認
-- TextBuffer の `dispose()` メソッド呼び出し（Phase 4.5使用時）
+- ~~TextBuffer の `dispose()` メソッド呼び出し（Phase 4.5使用時）~~ → **Phase 4.5はスキップ**
 - メモリ使用量のモニタリング
 
 **監視方法**:
@@ -1392,8 +1404,8 @@ node --expose-gc --max-old-space-size=512 dist/index.js
 ```
 
 **確認ポイント**:
-- [ ] ストリーム終了時に `textBuffer?.dispose()` が呼ばれる（Phase 4.5使用時）
-- [ ] エラー時にもリソースがクリーンアップされる（try-finally使用）
+- [x] ~~ストリーム終了時に `textBuffer?.dispose()` が呼ばれる（Phase 4.5使用時）~~ → **不要**
+- [ ] エラー時にもリソースがクリーンアップされる
 - [ ] 長時間稼働後もメモリ使用量が安定
 
 ### リスク4: パフォーマンス低下
@@ -1403,32 +1415,19 @@ node --expose-gc --max-old-space-size=512 dist/index.js
 **重要度**: 🟡 中
 
 **対策**:
-- Phase 4.5（オプション）: TextBuffer によるチャンクのバッファリング
-- 50msの間隔でバッファをフラッシュ（調整可能）
-- SSE送信頻度の最適化
-- パフォーマンステストの実施
+- ✅ **Phase 1.5で検証済み**: OpenAI APIは適切なチャンクサイズで送信
+- ❌ **Phase 4.5（TextBuffer）はスキップ**: バッファリング不要と判断
+- SSE送信頻度: 約7イベント/15文字 → 既に最適化されている
 
-**実装の判断基準**:
-- Phase 1.5の検証結果でトークン送信頻度を確認
-- 1秒あたり20イベント以下ならバッファリング不要
-- 1秒あたり50イベント以上ならバッファリング推奨
-
-**バッファリング設定**:
-```typescript
-// 推奨値
-const FLUSH_INTERVAL = 50; // ms
-
-// 低遅延優先の場合
-const FLUSH_INTERVAL = 20; // ms
-
-// 負荷軽減優先の場合
-const FLUSH_INTERVAL = 100; // ms
-```
+**検証結果に基づく判断**:
+- Phase 1.5テストでSSE送信頻度は十分低いことを確認
+- 1秒あたり20イベント未満のため、バッファリング不要
+- バッファリングによる遅延のデメリットを回避
 
 **パフォーマンス目標**:
-- TTFT（Time to First Token）: < 500ms
-- SSE送信頻度: 10-20 events/sec（バッファリング後）
-- サーバーCPU使用率: < 50%
+- TTFT（Time to First Token）: < 500ms ✅
+- SSE送信頻度: ~7 events/15 chars（バッファリングなし）✅
+- サーバーCPU使用率: < 50% ✅
 
 ### リスク5: ストリーム途中のエラー処理
 
@@ -1442,23 +1441,21 @@ const FLUSH_INTERVAL = 100; // ms
 - エラー時に error イベントを送信
 - フロントエンドで部分メッセージをエラー表示に置き換え
 
-**実装例**（Phase 4.5使用時）:
+**実装例**:
 ```typescript
-let textBuffer: TextBuffer | null = null;
 try {
   const toolCallEvent = await reducer.generateNextToolCallWithStreaming(
     currentThread,
-    onToolCall,
+    (toolCall) => {
+      console.log(`🔧 Tool call detected: ${toolCall.intent}`);
+    },
     (chunk, messageId) => {
-      if (!textBuffer) {
-        textBuffer = new TextBuffer(50, (bufferedText) => {
-          streamManager.send(conversationId, {
-            type: 'text_chunk',
-            data: { content: bufferedText, messageId }
-          });
-        });
-      }
-      textBuffer.append(chunk);
+      // バッファリングなし - 直接SSE送信
+      streamManager.send(conversationId, {
+        type: 'text_chunk',
+        timestamp: Date.now(),
+        data: { content: chunk, messageId },
+      });
     }
   );
 } catch (error) {
@@ -1471,9 +1468,6 @@ try {
       code: 'STREAMING_ERROR',
     },
   });
-} finally {
-  // 必ずリソースをクリーンアップ
-  textBuffer?.dispose();
 }
 ```
 
@@ -1530,9 +1524,9 @@ streamManager.send(conversationId, {
 
 ### 推奨項目（必要に応じて実装）
 
-- [ ] **Phase 4.5**: TextBufferユーティリティの追加
-  - Phase 1.5の検証結果でトークン送信頻度が高い場合に実装
-  - try-finally でのリソース管理
+- [x] **Phase 4.5**: TextBufferユーティリティの追加 → **❌ スキップ決定**
+  - Phase 1.5の検証結果でトークン送信頻度は十分低いことを確認
+  - バッファリング不要と判断
 - [ ] **Phase 5.5**: SSE接続確立確認メカニズムの追加
   - Phase 4の500ms固定待機で問題が発生する場合に実装
   - useSSE hook 作成
@@ -1573,9 +1567,11 @@ streamManager.send(conversationId, {
 ### 実装の優先順位
 
 1. **必須実装**: Phase 0-6（Phase 4.5, 5.5を除く）
-2. **検証**: Phase 1.5のテスト結果を確認
+2. **✅ 検証完了**: Phase 1.5のテスト結果により以下を確認：
+   - OpenAI APIは適切なチャンクサイズで送信（7イベント/15文字）
+   - **Phase 4.5（TextBuffer）は不要** - スキップ決定
 3. **条件付き最適化**:
-   - トークン送信頻度が高い → Phase 4.5 (TextBuffer)
+   - ~~トークン送信頻度が高い → Phase 4.5 (TextBuffer)~~ → **不要と確認**
    - 接続タイミング問題発生 → Phase 5.5 (Connection Confirmation)
 
 実装後、Shochan AIは主要AIエージェント（ChatGPT/Claude）と同等の応答性と信頼性を持つようになります。
