@@ -14,6 +14,13 @@ export class LLMAgentReducer<
 			inputMessages: Array<unknown>;
 			tools?: Array<unknown>;
 		}): Promise<{ toolCall: ToolCall | null }>;
+		generateToolCallWithStreaming?(params: {
+			systemPrompt: string;
+			inputMessages: Array<unknown>;
+			tools?: Array<unknown>;
+			onToolCall?: (toolCall: ToolCall) => void;
+			onTextChunk?: (chunk: string, messageId: string) => void;
+		}): Promise<{ toolCall: ToolCall | null; fullText: string }>;
 	},
 	TTools extends Array<unknown>,
 > implements AgentReducer<Thread, Event>
@@ -42,6 +49,46 @@ export class LLMAgentReducer<
 			systemPrompt,
 			inputMessages: [{ role: 'user', content: systemPrompt }],
 			tools: this.tools,
+		});
+
+		if (!toolCall) {
+			return null;
+		}
+
+		return {
+			type: 'tool_call',
+			timestamp: Date.now(),
+			data: toolCall,
+		};
+	}
+
+	/**
+	 * Generates next tool call via LLM with streaming support.
+	 * Streams text tokens in real-time via callbacks.
+	 *
+	 * @param state - Current thread state
+	 * @param onToolCall - Callback when tool call is detected
+	 * @param onTextChunk - Callback for each text token
+	 * @returns Tool call event or null if no tool call
+	 */
+	async generateNextToolCallWithStreaming(
+		state: Thread,
+		onToolCall?: (toolCall: ToolCall) => void,
+		onTextChunk?: (chunk: string, messageId: string) => void,
+	): Promise<ToolCallEvent | null> {
+		if (!this.llmClient.generateToolCallWithStreaming) {
+			throw new Error('LLM client does not support streaming');
+		}
+
+		const threadContext = state.serializeForLLM();
+		const systemPrompt = this.systemPromptBuilder(threadContext);
+
+		const { toolCall } = await this.llmClient.generateToolCallWithStreaming({
+			systemPrompt,
+			inputMessages: [{ role: 'user', content: systemPrompt }],
+			tools: this.tools,
+			onToolCall,
+			onTextChunk,
 		});
 
 		if (!toolCall) {
