@@ -86,16 +86,12 @@ export const getTaskDetailsSchema = z.object({
 
 export const requestMoreInformationSchema = z.object({
 	intent: z.literal('request_more_information'),
-	parameters: z.object({
-		message: z.string(),
-	}),
+	parameters: z.object({}),
 });
 
 export const doneForNowSchema = z.object({
 	intent: z.literal('done_for_now'),
-	parameters: z.object({
-		message: z.string(),
-	}),
+	parameters: z.object({}),
 });
 
 /**

@@ -44,18 +44,22 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 				return;
 			}
 
-			const conversationId = randomUUID();
-			const userInputEvent: Event = {
-				type: 'user_input',
-				timestamp: Date.now(),
-				data: message,
-			};
-			const initialThread = new Thread([userInputEvent]);
-			await redisStore.set(conversationId, initialThread);
+		const conversationId = randomUUID();
+		const userInputEvent: Event = {
+			type: 'user_input',
+			timestamp: Date.now(),
+			data: message,
+		};
+		const initialThread = new Thread([userInputEvent]);
+		await redisStore.set(conversationId, initialThread);
       
-			await processAgent(conversationId, deps);
+		// Start agent processing in background (don't await)
+		processAgent(conversationId, deps).catch((error) => {
+			console.error(`Background processAgent error for ${conversationId}:`, error);
+		});
 
-			res.json({ conversationId });
+		// Return conversationId immediately so client can start SSE connection
+		res.json({ conversationId });
 		} catch (error) {
 			console.error('Query error:', error);
 			res.status(500).json({ error: 'Failed to process query' });
@@ -149,8 +153,12 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 const MAX_ITERATIONS = 50;
 
 /**
- * Process agent execution in background.
+ * Process agent execution in background using Multi-turn approach.
  * Receives dependencies explicitly instead of using globals.
+ *
+ * Multi-turn approach:
+ * - Turn 1: Tool call detection and execution (non-streaming)
+ * - Turn 2: Text generation with streaming (real-time display)
  *
  * @param conversationId - Unique conversation identifier
  * @param deps - Agent dependencies
@@ -189,14 +197,32 @@ async function processAgent(
 			}
 			iterations++;
 
-			// Use streaming method to generate next tool call with real-time text streaming
-			const toolCallEvent = await reducer.generateNextToolCallWithStreaming(
+			// ========================================
+			// Turn 1: Tool call detection and execution
+			// ========================================
+			const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+
+			if (!toolCallEvent) {
+				console.error(`❌ No tool call generated for ${conversationId}`);
+				break;
+			}
+
+			console.log(`🔧 Tool call generated: ${toolCallEvent.data.intent}`);
+			streamManager.send(conversationId, toolCallEvent);
+			currentThread = reducer.reduce(currentThread, toolCallEvent);
+			await redisStore.set(conversationId, currentThread);
+
+		const toolCall = toolCallEvent.data;
+
+		// ========================================
+		// Check if this is a completion tool
+		// ========================================
+		if (toolCall.intent === 'done_for_now' || toolCall.intent === 'request_more_information') {
+			console.log(`📝 Completion tool detected: ${toolCall.intent}`);
+			console.log(`📝 Generating explanation with streaming...`);
+
+			await reducer.generateExplanationWithStreaming(
 				currentThread,
-				// onToolCall: Callback when tool call is detected
-				(toolCall) => {
-					console.log(`🔧 Tool call detected: ${toolCall.intent}`);
-				},
-				// onTextChunk: Callback for each text token (real-time streaming)
 				(chunk, messageId) => {
 					const textChunkEvent: Event = {
 						type: 'text_chunk',
@@ -210,41 +236,36 @@ async function processAgent(
 				},
 			);
 
-			if (!toolCallEvent) {
-				console.error(`❌ No tool call generated for ${conversationId}`);
-				break;
-			}
+			console.log(`✅ Explanation generated for ${conversationId}`);
+			break; // Complete
+		}
 
-			console.log(`🔧 Tool call generated: ${toolCallEvent.data.intent}`);
-			streamManager.send(conversationId, toolCallEvent);
-			currentThread = reducer.reduce(currentThread, toolCallEvent);
+		// delete_task requires approval
+		if (toolCall.intent === 'delete_task') {
+			console.log(`⚠️  Approval required for: ${conversationId}`);
+
+			const awaitingApprovalEvent: Event = { 
+				type: 'awaiting_approval', 
+				timestamp: Date.now(), 
+				data: toolCall 
+			};
+			streamManager.send(conversationId, awaitingApprovalEvent);
+			currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
 			await redisStore.set(conversationId, currentThread);
 
-			const toolCall = toolCallEvent.data;
+			break;
+		}
 
-      if ([ 'done_for_now', 'request_more_information', ].includes(toolCall.intent)) {
-        break;
-      }
+		// Execute tool
+		console.log(`⚙️  Executing tool: ${toolCall.intent}`);
+		const result = await executor.execute(toolCall);
 
-			if (toolCall.intent === 'delete_task') {
-				console.log(`⚠️  Approval required for: ${conversationId}`);
+		streamManager.send(conversationId, result.event);
+		currentThread = reducer.reduce(currentThread, result.event);
+		await redisStore.set(conversationId, currentThread);
 
-				const awaitingApprovalEvent: Event = { type: 'awaiting_approval', timestamp: Date.now(), data: toolCall };
-				streamManager.send(conversationId, awaitingApprovalEvent);
-				currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
-        await redisStore.set(conversationId, currentThread);
-
-				break;
-			}
-
-			console.log(`⚙️  Executing tool: ${toolCall.intent}`);
-			const result = await executor.execute(toolCall);
-
-			streamManager.send(conversationId, result.event);
-			currentThread = reducer.reduce(currentThread, result.event);
-			await redisStore.set(conversationId, currentThread);
-
-			console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+		console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+		// Continue loop to generate next tool call
 		}
 	} catch (error) {
 		console.error(`❌ processAgent error for ${conversationId}:`, error);

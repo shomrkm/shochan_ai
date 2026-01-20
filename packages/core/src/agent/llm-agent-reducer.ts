@@ -13,7 +13,7 @@ export class LLMAgentReducer<
 			systemPrompt: string;
 			inputMessages: Array<unknown>;
 			tools?: Array<unknown>;
-		}): Promise<{ toolCall: ToolCall | null }>;
+		}): Promise<{ toolCall: ToolCall | null; fullOutput?: Array<unknown> }>;
 		generateToolCallWithStreaming?(params: {
 			systemPrompt: string;
 			inputMessages: Array<unknown>;
@@ -21,6 +21,11 @@ export class LLMAgentReducer<
 			onToolCall?: (toolCall: ToolCall) => void;
 			onTextChunk?: (chunk: string, messageId: string) => void;
 		}): Promise<{ toolCall: ToolCall | null; fullText: string }>;
+		generateTextWithStreaming?(params: {
+			systemPrompt: string;
+			inputMessages: Array<unknown>;
+			onTextChunk?: (chunk: string, messageId: string) => void;
+		}): Promise<string>;
 	},
 	TTools extends Array<unknown>,
 > implements AgentReducer<Thread, Event>
@@ -45,13 +50,19 @@ export class LLMAgentReducer<
 		const threadContext = state.serializeForLLM();
 		const systemPrompt = this.systemPromptBuilder(threadContext);
 
-		const { toolCall } = await this.llmClient.generateToolCall({
+		console.log('🔍 Generating tool call with prompt:', systemPrompt.substring(0, 200) + '...');
+		console.log('🔍 Available tools:', this.tools.map((t: any) => t.name).join(', '));
+
+		const { toolCall, fullOutput } = await this.llmClient.generateToolCall({
 			systemPrompt,
 			inputMessages: [{ role: 'user', content: systemPrompt }],
 			tools: this.tools,
 		});
 
+		console.log('🔍 LLM response output:', JSON.stringify(fullOutput, null, 2));
+
 		if (!toolCall) {
+			console.log('⚠️  No tool call in response');
 			return null;
 		}
 
@@ -100,5 +111,39 @@ export class LLMAgentReducer<
 			timestamp: Date.now(),
 			data: toolCall,
 		};
+	}
+
+	/**
+	 * Generate explanation text with streaming support.
+	 * Used after tool execution to explain results to the user.
+	 *
+	 * This method uses Multi-turn approach:
+	 * - Turn 1: Tool execution (already done)
+	 * - Turn 2: Text generation (this method)
+	 *
+	 * @param state - Current thread state (including tool results)
+	 * @param onTextChunk - Callback for each text token
+	 * @returns Generated text
+	 */
+	async generateExplanationWithStreaming(
+		state: Thread,
+		onTextChunk?: (chunk: string, messageId: string) => void,
+	): Promise<string> {
+		if (!this.llmClient.generateTextWithStreaming) {
+			throw new Error('LLM client does not support text streaming');
+		}
+
+		const threadContext = state.serializeForLLM();
+		const systemPrompt = `Based on the conversation history and tool results below, provide a natural language explanation to the user.
+
+${threadContext}
+
+Explain what you did and provide a helpful response. Be conversational and respond in the same language the user used.`;
+
+		return await this.llmClient.generateTextWithStreaming({
+			systemPrompt,
+			inputMessages: [{ role: 'user', content: systemPrompt }],
+			onTextChunk,
+		});
 	}
 }

@@ -182,6 +182,59 @@ export class OpenAIClient {
   }
 
   /**
+   * Generate text response with streaming support.
+   * Used for explaining tool results to the user.
+   * 
+   * This method does NOT use tools - it only generates text output.
+   * Use this after tool execution to provide a natural language explanation.
+   *
+   * @param systemPrompt - System instructions
+   * @param inputMessages - Input messages including tool results
+   * @param onTextChunk - Callback for each text token (real-time)
+   * @returns Full generated text
+   */
+  async generateTextWithStreaming({
+    systemPrompt,
+    inputMessages,
+    onTextChunk,
+  }: {
+    systemPrompt: string;
+    inputMessages: InputMessage[];
+    onTextChunk?: (chunk: string, messageId: string) => void;
+  }): Promise<string> {
+    const stream = await this.client.responses.create({
+      model: 'gpt-4o',
+      instructions: systemPrompt,
+      input: inputMessages as OpenAI.Responses.ResponseInput,
+      stream: true, // ストリーミング有効
+      // tools: undefined (ツールなし = テキスト生成のみ)
+    });
+
+    let fullText = '';
+    const messageId = randomUUID();
+
+    for await (const rawEvent of stream) {
+      const event = rawEvent as unknown;
+
+      // Handle text delta events - THIS IS WHERE REAL-TIME STREAMING HAPPENS
+      if (typeof event === 'object' && event !== null && 'type' in event) {
+        const eventType = (event as { type: string }).type;
+        
+        if (eventType === 'response.output_text.delta') {
+          const delta = (event as { delta?: string }).delta || '';
+          fullText += delta;
+          onTextChunk?.(delta, messageId);
+        }
+        else if (eventType === 'error') {
+          throw new Error(`OpenAI streaming error: ${JSON.stringify(event)}`);
+        }
+      }
+    }
+
+    return fullText;
+  }
+
+  /**
    * Parses a function call from OpenAI API response and validates with zod schema.
    * @throws ToolCallValidationError if the tool call doesn't match expected schema
    */

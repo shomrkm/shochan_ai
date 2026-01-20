@@ -58,11 +58,11 @@ export interface CompleteEvent extends BaseEvent<'complete'> {
 
 /**
  * Text chunk event - streams text tokens in real-time
- * Used for streaming agent responses (done_for_now, request_more_information)
+ * Used for streaming agent responses after tool execution (Multi-turn approach)
  */
 export interface TextChunkEvent extends BaseEvent<'text_chunk'> {
 	data: {
-		/** テキストチャンク（1トークン分または複数トークンのバッファ） */
+		/** テキストチャンク（1トークン分または複数トークン） */
 		content: string;
 		/** メッセージID（同一メッセージのチャンクを識別） */
 		messageId: string;

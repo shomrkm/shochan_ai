@@ -59,13 +59,6 @@ export function ChatInterface() {
         return
 
       case 'tool_call':
-        // Skip displaying done_for_now/request_more_information as they are streamed
-        if (
-          event.data.intent === 'done_for_now' ||
-          event.data.intent === 'request_more_information'
-        ) {
-          return
-        }
         message = createToolCallMessage(event)
         break
 
@@ -125,22 +118,11 @@ export function ChatInterface() {
 
 /**
  * Create a message from a tool call event.
- * Handles agent's final response messages (done_for_now, request_more_information) specially.
+ * Shows tool calls as system messages.
  */
 function createToolCallMessage(event: ToolCallEvent): Message {
   const { data: toolCall, timestamp } = event
 
-  // Agent's final response messages
-  if (toolCall.intent === 'done_for_now' || toolCall.intent === 'request_more_information') {
-    return {
-      id: `agent-${timestamp}`,
-      type: 'agent',
-      content: toolCall.parameters.message,
-      timestamp,
-    }
-  }
-
-  // Other tool calls - show as system messages
   return {
     id: `tool-call-${timestamp}`,
     type: 'system',

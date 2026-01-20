@@ -141,13 +141,13 @@ async function handleToolCall(
 
 	// Handle terminal tools
 	if (toolCall.intent === 'done_for_now') {
-		console.log(`\n💬 ${toolCall.parameters.message}`);
+		console.log(`\n💬 Done for now`);
 		return { continue: false };
 	}
 
 	// Handle request for more information
 	if (toolCall.intent === 'request_more_information') {
-		console.log(`\n💬 ${toolCall.parameters.message}`);
+		console.log(`\n💬 Need more information`);
 		const humanResponseEvent = await askHuman('');
 		await orchestrator.processEvent(humanResponseEvent);
 		return { continue: true };
