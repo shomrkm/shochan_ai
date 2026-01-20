@@ -171,6 +171,17 @@ async function processAgent(
 
 		console.log(`🤖 Starting agent processing for: ${conversationId}`);
 
+		// Send connected event to confirm SSE connection establishment
+		streamManager.send(conversationId, {
+			type: 'connected',
+			timestamp: Date.now(),
+			data: { status: 'ready', conversationId },
+		});
+
+		// Wait for SSE connection establishment (simple implementation with fixed delay)
+		// For production, consider using Redis Pub/Sub for more reliable connection confirmation
+		await new Promise((resolve) => setTimeout(resolve, 500));
+
 		while (true) {
 			if (iterations >= MAX_ITERATIONS) {
 				console.error( `🔁 Max iterations reached for ${conversationId} after ${iterations} iterations`);
@@ -178,7 +189,27 @@ async function processAgent(
 			}
 			iterations++;
 
-			const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+			// Use streaming method to generate next tool call with real-time text streaming
+			const toolCallEvent = await reducer.generateNextToolCallWithStreaming(
+				currentThread,
+				// onToolCall: Callback when tool call is detected
+				(toolCall) => {
+					console.log(`🔧 Tool call detected: ${toolCall.intent}`);
+				},
+				// onTextChunk: Callback for each text token (real-time streaming)
+				(chunk, messageId) => {
+					const textChunkEvent: Event = {
+						type: 'text_chunk',
+						timestamp: Date.now(),
+						data: {
+							content: chunk,
+							messageId,
+						},
+					};
+					streamManager.send(conversationId, textChunkEvent);
+				},
+			);
+
 			if (!toolCallEvent) {
 				console.error(`❌ No tool call generated for ${conversationId}`);
 				break;

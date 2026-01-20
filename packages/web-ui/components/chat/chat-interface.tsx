@@ -31,15 +31,52 @@ export function ChatInterface() {
     let message: Message | null = null
 
     switch (event.type) {
+      case 'text_chunk':
+        // Real-time text streaming: append chunks to existing message or create new one
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1]
+          const { messageId, content } = event.data
+
+          // Append to existing message if same messageId
+          if (lastMessage && lastMessage.id === messageId) {
+            return [
+              ...prev.slice(0, -1),
+              { ...lastMessage, content: lastMessage.content + content },
+            ]
+          }
+
+          // Create new message
+          return [
+            ...prev,
+            {
+              id: messageId,
+              type: 'agent' as const,
+              content,
+              timestamp: event.timestamp,
+            },
+          ]
+        })
+        return
+
       case 'tool_call':
+        // Skip displaying done_for_now/request_more_information as they are streamed
+        if (
+          event.data.intent === 'done_for_now' ||
+          event.data.intent === 'request_more_information'
+        ) {
+          return
+        }
         message = createToolCallMessage(event)
         break
+
       case 'tool_response':
         message = createToolResponseMessage(event)
         break
+
       case 'complete':
         message = createCompleteMessage(event)
         break
+
       case 'error':
         message = createErrorMessage(event)
         break

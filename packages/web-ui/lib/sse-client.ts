@@ -10,6 +10,7 @@ const SSE_EVENT_TYPES: ReadonlyArray<Event['type'] | 'connected'> = [
   'error',
   'awaiting_approval',
   'complete',
+  'text_chunk',
   'connected',
 ] as const
 

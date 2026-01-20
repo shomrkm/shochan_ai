@@ -4,9 +4,19 @@ import type {
   ToolResponseEvent,
   ErrorEvent,
   CompleteEvent,
+  TextChunkEvent,
+  ConnectedEvent,
 } from '@shochan_ai/core'
 
-export type { Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent }
+export type {
+  Event,
+  ToolCallEvent,
+  ToolResponseEvent,
+  ErrorEvent,
+  CompleteEvent,
+  TextChunkEvent,
+  ConnectedEvent,
+}
 
 export interface Message {
   id: string
