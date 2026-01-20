@@ -54,11 +54,15 @@ describe('Agent Routes', () => {
 
 	afterEach(async () => {
 		mockGenerateNextToolCall.mockReset();
+		mockGenerateNextToolCall.mockResolvedValue(null);
 		mockExecute.mockReset();
 	});
 
 	describe('POST /api/agent/query', () => {
 		it('should return conversationId when valid message is provided', async () => {
+			// Explicitly set mock to return null for this test
+			mockGenerateNextToolCall.mockResolvedValueOnce(null);
+			
 			const response = await request(app)
 				.post('/api/agent/query')
 				.send({ message: 'Test message' })
@@ -69,6 +73,10 @@ describe('Agent Routes', () => {
 			expect(response.body.conversationId).toMatch(
 				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 			);
+			
+			// Wait for background processAgent to complete before checking
+			await new Promise((resolve) => setTimeout(resolve, 600));
+			
 			const thread = await redisStore.get(response.body.conversationId);
 			expect(thread).toBeDefined();
 			expect(thread?.events).toHaveLength(1);
@@ -126,7 +134,8 @@ describe('Agent Routes', () => {
 			const conversationId = response.body.conversationId;
 
 			// Wait for processAgent to complete
-			await new Promise((resolve) => setTimeout(resolve, 500));
+			// processAgent has 500ms delay + processing time
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 
 			const thread = await redisStore.get(conversationId);
 			expect(thread).toBeDefined();
