@@ -1,16 +1,14 @@
-# AIエージェントレスポンスのリアルタイムストリーミング実装計画
+# AIエージェントレスポンスのリアルタイムストリーミング実装計画（改訂版）
 
 ## 目次
 
 1. [概要](#概要)
 2. [実現したいこと](#実現したいこと)
-3. [技術的背景](#技術的背景)
+3. [技術的背景と調査結果](#技術的背景と調査結果)
 4. [アーキテクチャ設計](#アーキテクチャ設計)
 5. [実装ステップ](#実装ステップ)
 6. [テスト計画](#テスト計画)
 7. [リスクと対策](#リスクと対策)
-8. [実装チェックリスト](#実装チェックリスト)
-9. [まとめ](#まとめ)
 
 ---
 
@@ -20,7 +18,7 @@
 
 **ChatGPTやClaudeのように、AIエージェントのレスポンスがリアルタイムで1文字ずつ表示される機能を実装します。**
 
-現在、Shochan AIエージェントはツールコール（タスク作成、取得など）を実行した後、最終的なユーザー向けメッセージを返します。この最終メッセージを、LLMがトークンを生成すると同時にブラウザに表示することで、応答性の高いUXを実現します。
+現在、Shochan AIエージェントはツールコール（タスク作成、取得など）を実行した後、最終的なユーザー向けメッセージを一度に表示します。この最終メッセージを、LLMがトークンを生成すると同時にブラウザに表示することで、応答性の高いUXを実現します。
 
 ### なぜ必要か
 
@@ -61,17 +59,13 @@
    - 最初のトークンが数百ミリ秒以内に表示開始
    - ユーザーは即座に「処理中」を認識
 
-3. **効率的なAPI使用**
-   - 1回のLLM呼び出しで完結
-   - ツールコールとテキスト生成を統合処理
-
-4. **既存機能との統合**
-   - ツールコール（create_task, get_tasksなど）は非ストリーミング
-   - 最終メッセージ（done_for_now, request_more_information）のみストリーミング
+3. **主要AIエージェントとの一致**
+   - ChatGPT/Claudeと同じ実装パターンを採用
+   - Multi-turn conversation方式
 
 ---
 
-## 技術的背景
+## 技術的背景と調査結果
 
 ### Shochan AI のアーキテクチャ
 
@@ -100,22 +94,59 @@
 - **better-sse**: Express用のSSEライブラリ
 - **Redis**: 会話状態の永続化
 
-### OpenAI Responses API のストリーミングモード
+### 調査結果：OpenAI Responses APIの仕様
 
-OpenAI Responses APIは`stream: true`オプションで以下のイベントを送信します：
+#### 重要な発見
 
-| イベントタイプ | 説明 | Shochan AI での用途 |
-|--------------|------|-------------------|
-| `response.function_call` | Function Call (ツールコール) 検出 | ツール実行判定 |
-| `response.output_text.delta` | テキストトークン（1トークンずつ） | UIへリアルタイム表示 |
-| `response.done` | ストリーム完了 | 処理終了判定 |
-| `error` | エラー | エラーハンドリング |
+**OpenAI Responses APIでは、Function Call後に自動的にテキスト出力は生成されない**
+
+実際のAPI動作：
+```
+Turn 1: Function Call
+- LLM: create_task({ title: "..." }) を呼び出し
+- response.function_call_arguments.delta: JSON断片
+  - "{"
+  - "title"
+  - ":"
+  - "Buy"
+  - ...
+- response.function_call_arguments.done: 完全なJSON
+
+Turn 2: Text Output (別のAPI呼び出しが必要)
+- LLM: テキスト生成
+- response.output_text.delta: テキストトークン
+  - "タ"
+  - "ス"
+  - "ク"
+  - ...
+```
+
+#### 主要AIエージェントの実装パターン
+
+| パターン | 説明 | 採用例 |
+|---------|------|--------|
+| **Multi-turn Conversation** | ツール実行後、結果を含めて再度LLMを呼び出し、テキスト生成をストリーミング | ChatGPT, Claude, OpenAI Agents SDK |
+| Single-turn with Message Parameter | Function Callのパラメータにメッセージを含める（JSON断片のパース必要） | ❌ 非推奨（実装が複雑で不安定） |
+
+#### ベストプラクティス（OpenAI公式ドキュメントより）
+
+1. **ツール実行とテキスト生成を分離**
+   - ツール実行: 非ストリーミング
+   - テキスト生成: ストリーミング
+
+2. **Multi-turn方式の採用**
+   - Turn 1: ツールコール検出・実行
+   - Turn 2: 結果を含めてテキスト生成（ストリーミング）
+
+3. **`response.output_text.delta`の使用**
+   - `response.function_call_arguments.delta`はJSON断片（使用不可）
+   - `response.output_text.delta`が真のテキストストリーミング
 
 ---
 
 ## アーキテクチャ設計
 
-### 全体フロー
+### 全体フロー（Multi-turn方式）
 
 ```
 ┌──────────┐
@@ -131,25 +162,28 @@ OpenAI Responses APIは`stream: true`オプションで以下のイベントを�
 ┌─────────────────┐
 │  processAgent   │
 └─────┬───────────┘
-      │ (3) connected イベント送信 → SSE接続確認
+      │ (3) SSE接続確認
       ↓
 ┌─────────────────────────────────┐
+│ Turn 1: ツールコール検出・実行      │
 │ OpenAI Responses API            │
-│ (stream: true)                  │
+│ (stream: false)                 │
 └─────┬───────────────────────────┘
       │
-      ├─→ event: response.function_call
-      │   → tool_call: create_task (ツールコールイベント送信)
-      │
-      │   [ツール実行: NotionToolExecutor]
+      ├─→ response: function_call (create_task)
+      │   → ツール実行: NotionToolExecutor
       │   → tool_response イベント送信
       │
-      ├─→ event: response.function_call
-      │   → tool_call: done_for_now
+      ↓
+┌─────────────────────────────────┐
+│ Turn 2: テキスト生成（ストリーミング）│
+│ OpenAI Responses API            │
+│ (stream: true, tools なし)       │
+└─────┬───────────────────────────┘
       │
-      └─→ event: response.output_text.delta (x N回)
+      └─→ response.output_text.delta (x N回)
           → text_chunk イベント送信 (リアルタイム)
-          「タ」「スク」「を」「作成」「しま」「した」「。」
+          「タ」「ス」「ク」「を」「作成」「しま」「した」「。」
             ↓ SSE
       ┌─────────────┐
       │   Web UI    │ リアルタイム表示更新
@@ -158,89 +192,62 @@ OpenAI Responses APIは`stream: true`オプションで以下のイベントを�
 
 ### イベントフロー詳細
 
-#### 1. ユーザー入力からSSE接続まで
+#### Turn 1: ツールコール検出・実行
 
 ```typescript
-// 1. フロントエンド: メッセージ送信
-POST /api/agent/query
-Body: { message: "タスクを作成して" }
-
-// 2. Express API: 即座にレスポンス
-Response: { conversationId: "uuid-xxx" }
-
-// 3. フロントエンド: SSE接続確立
-GET /api/stream/uuid-xxx
-Accept: text/event-stream
-
-// 4. Express API: バックグラウンドで processAgent 開始
-processAgent(conversationId)
-```
-
-#### 2. LLMストリーミング処理
-
-```typescript
-// OpenAI Responses API にストリーミングリクエスト
-const stream = await openai.responses.create({
+// 1. ツールコール生成（非ストリーミング）
+const response = await openai.responses.create({
   model: 'gpt-4o',
   instructions: systemPrompt,
   input: inputMessages,
   tools: [create_task, get_tasks, ...],
-  stream: true, // ストリーミングモード
+  stream: false, // 非ストリーミング
 });
 
-// イベントループでリアルタイム処理
-for await (const event of stream) {
-  if (event.type === 'response.function_call') {
-    // ツールコール検出
-    // → tool_call イベントを SSE 送信
-  }
+// 2. Function Callを検出
+const functionCall = response.output.find(item => item.type === 'function_call');
 
-  if (event.type === 'response.output_text.delta') {
-    // テキストトークン受信
-    // → text_chunk イベントを SSE 送信（リアルタイム）
-  }
-}
-```
+// 3. ツール実行
+const result = await executor.execute(functionCall);
 
-#### 3. SSE イベント送信
-
-```typescript
-// tool_call イベント
+// 4. SSEでイベント送信
 streamManager.send(conversationId, {
   type: 'tool_call',
-  data: { intent: 'create_task', parameters: {...} }
+  data: functionCall,
 });
 
-// text_chunk イベント（リアルタイム）
 streamManager.send(conversationId, {
-  type: 'text_chunk',
-  data: { content: 'タ', messageId: 'msg-123' }
+  type: 'tool_response',
+  data: result,
 });
-streamManager.send(conversationId, {
-  type: 'text_chunk',
-  data: { content: 'スク', messageId: 'msg-123' }
-});
-// ... 続く
 ```
 
-#### 4. フロントエンド表示更新
+#### Turn 2: テキスト生成（ストリーミング）
 
 ```typescript
-// SSE イベント受信
-handleSSEEvent(event) {
-  if (event.type === 'text_chunk') {
-    // メッセージを累積更新
-    setMessages(prev => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage.id === event.data.messageId) {
-        // 既存メッセージに追記
-        return [
-          ...prev.slice(0, -1),
-          { ...lastMessage, content: lastMessage.content + event.data.content }
-        ];
-      }
-      // 新規メッセージ作成
-      return [...prev, { id: event.data.messageId, content: event.data.content }];
+// 1. ツール結果を含めてテキスト生成（ストリーミング）
+const stream = await openai.responses.create({
+  model: 'gpt-4o',
+  instructions: 'Explain what you did based on the tool results',
+  input: [
+    ...previousMessages,
+    { type: 'function_call_output', call_id: '...', output: toolResult }
+  ],
+  stream: true, // ストリーミング有効
+  // tools: undefined (ツールなし = テキスト生成のみ)
+});
+
+// 2. リアルタイムでテキストトークンを受信
+for await (const event of stream) {
+  if (event.type === 'response.output_text.delta') {
+    // 3. SSEでフロントエンドに送信
+    streamManager.send(conversationId, {
+      type: 'text_chunk',
+      timestamp: Date.now(),
+      data: {
+        content: event.delta, // ← 真のテキストトークン
+        messageId: randomUUID(),
+      },
     });
   }
 }
@@ -248,11 +255,11 @@ handleSSEEvent(event) {
 
 ### イベントタイプマッピング
 
-| OpenAI Responses API | Shochan AI Event | データ構造 |
-|---------------------|------------------|----------|
-| `response.function_call` | `tool_call` | `{ type: 'tool_call', data: ToolCall }` |
-| `response.output_text.delta` | `text_chunk` | `{ type: 'text_chunk', data: { content: string, messageId: string } }` |
-| `error` | `error` | `{ type: 'error', data: { error: string, code: string } }` |
+| OpenAI Responses API | Shochan AI Event | データ構造 | 用途 |
+|---------------------|------------------|----------|------|
+| `response.output_text.delta` | `text_chunk` | `{ type: 'text_chunk', data: { content: string, messageId: string } }` | リアルタイムテキスト表示 |
+| `response.completed` | `complete` | `{ type: 'complete', data: { message: string } }` | ストリーミング完了通知 |
+| `error` | `error` | `{ type: 'error', data: { error: string, code: string } }` | エラー通知 |
 
 ---
 
@@ -271,30 +278,19 @@ git status
 
 **ファイル**: `packages/core/src/types/event.ts`
 
-**目的**: `text_chunk` および `connected` イベント型を定義
+**目的**: `text_chunk` イベント型を定義
 
 ```typescript
 /**
  * Text chunk event - streams text tokens in real-time
- * Used for streaming agent responses (done_for_now, request_more_information)
+ * Used for streaming agent responses after tool execution
  */
 export interface TextChunkEvent extends BaseEvent<'text_chunk'> {
   data: {
-    /** テキストチャンク（1トークン分または複数トークンのバッファ） */
+    /** テキストチャンク（1トークン分または複数トークン） */
     content: string;
     /** メッセージID（同一メッセージのチャンクを識別） */
     messageId: string;
-  };
-}
-
-/**
- * Connected event - indicates SSE connection is ready
- * Sent when processAgent starts to confirm SSE connection is established
- */
-export interface ConnectedEvent extends BaseEvent<'connected'> {
-  data: {
-    status: 'ready';
-    conversationId: string;
   };
 }
 
@@ -306,51 +302,25 @@ export type Event =
   | ErrorEvent
   | AwaitingApprovalEvent
   | CompleteEvent
-  | TextChunkEvent    // ← 追加
-  | ConnectedEvent;   // ← 追加
+  | TextChunkEvent; // ← 追加
 
-// Type guards 追加
-/**
- * Type guard to check if an event is a text chunk event
- */
+// Type guard 追加
 export function isTextChunkEvent(event: Event): event is TextChunkEvent {
   return event.type === 'text_chunk';
-}
-
-/**
- * Type guard to check if an event is a connected event
- */
-export function isConnectedEvent(event: Event): event is ConnectedEvent {
-  return event.type === 'connected';
 }
 ```
 
 **ファイル**: `packages/core/src/index.ts`
 
-**目的**: 型をエクスポート
-
 ```typescript
 export type {
-  Event,
-  UserInputEvent,
-  ToolCallEvent,
-  ToolResponseEvent,
-  ErrorEvent,
-  AwaitingApprovalEvent,
-  CompleteEvent,
-  TextChunkEvent,   // ← 追加
-  ConnectedEvent,   // ← 追加
+  // ... existing exports
+  TextChunkEvent, // ← 追加
 } from './types/event';
 
 export {
-  isUserInputEvent,
-  isToolCallEvent,
-  isToolResponseEvent,
-  isErrorEvent,
-  isAwaitingApprovalEvent,
-  isCompleteEvent,
-  isTextChunkEvent,   // ← 追加
-  isConnectedEvent,   // ← 追加
+  // ... existing exports
+  isTextChunkEvent, // ← 追加
 } from './types/event';
 ```
 
@@ -360,241 +330,64 @@ export {
 pnpm --filter @shochan_ai/core build
 ```
 
-### Phase 1.5: Responses API ストリーミング検証
-
-**目的**: 実装前にOpenAI Responses APIのストリーミング動作を確認する
-
-**重要性**:
-- API仕様の理解不足によるバグを防止
-- イベントタイプとデータ構造を事前に把握
-- ツールコールとテキストストリーミングの両方を検証
-
-**ファイル**: `test-responses-streaming.ts`（ルートディレクトリ）
-
-```typescript
-import OpenAI from 'openai';
-
-/**
- * Responses APIのストリーミング動作を検証するテストスクリプト
- *
- * 検証内容:
- * 1. テキストのみのストリーミング (response.output_text.delta)
- * 2. ツールコールのストリーミング (response.function_call)
- *
- * 実装前に必ず実行して、イベントタイプと構造を確認してください。
- */
-async function testResponsesStreaming() {
-  const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
-
-  console.log('🔍 Testing Responses API streaming...\n');
-
-  // Test 1: テキストストリーミング
-  console.log('=== Test 1: Text Streaming ===\n');
-  try {
-    const textStream = await client.responses.create({
-      model: 'gpt-4o',
-      instructions: 'You are a helpful assistant.',
-      input: [{ role: 'user', content: 'Say hello in Japanese' }],
-      stream: true,
-    });
-
-    console.log('📡 Text streaming events:\n');
-    let textEventCount = 0;
-
-    for await (const event of textStream) {
-      textEventCount++;
-      console.log(`Event #${textEventCount}:`);
-      console.log(`  Type: ${event.type}`);
-      console.log(`  Data: ${JSON.stringify(event, null, 2)}\n`);
-    }
-
-    console.log(`✅ Text test completed. Total events: ${textEventCount}\n`);
-  } catch (error) {
-    console.error('❌ Text test failed:', error);
-  }
-
-  // Test 2: ツールコールストリーミング
-  console.log('\n=== Test 2: Tool Call Streaming ===\n');
-  try {
-    const toolStream = await client.responses.create({
-      model: 'gpt-4o',
-      instructions: 'You are a helpful task management assistant.',
-      input: [{ role: 'user', content: 'Create a task titled "Test Task"' }],
-      tools: [
-        {
-          type: 'function',
-          name: 'create_task',
-          description: 'Create a new task',
-          parameters: {
-            type: 'object',
-            properties: {
-              title: { type: 'string', description: 'Task title' },
-            },
-            required: ['title'],
-          },
-        },
-      ],
-      stream: true,
-    });
-
-    console.log('📡 Tool call streaming events:\n');
-    let toolEventCount = 0;
-
-    for await (const event of toolStream) {
-      toolEventCount++;
-      console.log(`Event #${toolEventCount}:`);
-      console.log(`  Type: ${event.type}`);
-      console.log(`  Data: ${JSON.stringify(event, null, 2)}\n`);
-    }
-
-    console.log(`✅ Tool call test completed. Total events: ${toolEventCount}\n`);
-  } catch (error) {
-    console.error('❌ Tool call test failed:', error);
-  }
-}
-
-testResponsesStreaming();
-```
-
-**実行方法**:
-
-```bash
-# 環境変数を設定
-export OPENAI_API_KEY="your-api-key"
-
-# テスト実行
-npx tsx test-responses-streaming.ts
-```
-
-**確認ポイント**:
-- [x] `response.function_call` イベントの構造とタイミング
-- [x] `response.output_text.delta` イベントの構造とタイミング
-- [x] `response.done` イベントの存在確認
-- [x] イベントの順序（ツールコール → テキスト生成）
-- [x] delta フィールドに含まれるトークン数（1トークン? 複数トークン?）
-
-**検証結果**:
-```
-# 検証結果（2026-01-18実施）
-
-## Test 1: Text Streaming
-- 総イベント数: 15
-- response.output_text.delta の出現回数: 7
-- テキスト内容: "こんにちは (Konnichiwa)" (15文字)
-- チャンクサイズ: 可変（1-5文字）
-  - "こんにちは", " (", "K", "onn", "ich", "iwa", ")"
-- SSE送信頻度: 約7イベント/15文字 → **十分低い頻度**
-
-## Test 2: Tool Call Streaming
-- 総イベント数: 12
-- response.function_call の検出: ✅ 正常
-- response.function_call_arguments.delta の検出: ✅ 正常
-- JSONパラメータがチャンク単位でストリーミング: ✅ 確認
-
-## 結論
-✅ OpenAI Responses APIは**適切なチャンクサイズ**で送信している
-✅ SSE送信頻度は十分低い（7イベント/15文字）
-✅ **Phase 4.5（TextBuffer）は不要** - バッファリングなしで実装可能
-```
-
-**注意**: このテストスクリプトは実装完了後に削除してください。
-
 ### Phase 2: OpenAIClient の拡張
 
 **ファイル**: `packages/client/src/openai.ts`
 
-**目的**: ストリーミング対応のツールコール生成メソッド追加
-
-#### 2.1 型定義の追加
-
-```typescript
-// ファイル冒頭に追加
-import { randomUUID } from 'crypto';
-import type { ToolCall } from '@shochan_ai/core';
-
-/**
- * Streaming callbacks for real-time token processing
- */
-type StreamingCallbacks = {
-  /** Callback when tool call is detected */
-  onToolCall?: (toolCall: ToolCall) => void;
-  /** Callback for each text token (real-time) */
-  onTextChunk?: (chunk: string, messageId: string) => void;
-};
-
-/**
- * Parameters for generateToolCallWithStreaming
- */
-type GenerateToolCallWithStreamingParams = {
-  systemPrompt: string;
-  inputMessages: Array<unknown>;
-  tools?: Array<unknown>;
-} & StreamingCallbacks;
-```
-
-#### 2.2 メソッド実装
+**目的**: テキスト生成専用のストリーミングメソッド追加
 
 ```typescript
 /**
- * Generate tool call with streaming support.
- * Streams text tokens in real-time via callbacks.
- *
- * This method uses OpenAI Responses API with stream: true to receive
- * text tokens as they are generated by the LLM.
+ * Generate text response with streaming support.
+ * Used for explaining tool results to the user.
+ * 
+ * This method does NOT use tools - it only generates text output.
+ * Use this after tool execution to provide a natural language explanation.
  *
  * @param systemPrompt - System instructions
- * @param inputMessages - Input messages
- * @param tools - Available tools
- * @param onToolCall - Callback when tool call is detected
+ * @param inputMessages - Input messages including tool results
  * @param onTextChunk - Callback for each text token (real-time)
- * @returns Tool call result and full text
+ * @returns Full generated text
  */
-async generateToolCallWithStreaming({
+async generateTextWithStreaming({
   systemPrompt,
   inputMessages,
-  tools,
-  onToolCall,
   onTextChunk,
-}: GenerateToolCallWithStreamingParams): Promise<{
-  toolCall: ToolCall | null;
-  fullText: string;
-}> {
+}: {
+  systemPrompt: string;
+  inputMessages: Array<unknown>;
+  onTextChunk?: (chunk: string, messageId: string) => void;
+}): Promise<string> {
   const stream = await this.client.responses.create({
     model: 'gpt-4o',
     instructions: systemPrompt,
     input: inputMessages as OpenAI.Responses.ResponseInput,
-    tools: tools?.length ? tools : undefined,
-    stream: true, // ストリーミングモード有効化
+    stream: true, // ストリーミング有効
+    // tools: undefined (ツールなし = テキスト生成のみ)
   });
 
-  let toolCall: ToolCall | null = null;
   let fullText = '';
-  // UUID を使用してメッセージIDを生成（一意性を保証）
   const messageId = randomUUID();
 
-  for await (const event of stream) {
-    switch (event.type) {
-      case 'response.function_call':
-        // ツールコール検出
-        toolCall = this.parseToolCall(event);
-        onToolCall?.(toolCall);
-        break;
+  for await (const rawEvent of stream) {
+    const event = rawEvent as unknown;
 
-      case 'response.output_text.delta':
-        // テキストチャンク受信（リアルタイム）
-        const chunk = event.delta || '';
-        fullText += chunk;
-        onTextChunk?.(chunk, messageId);
-        break;
-
-      case 'error':
+    // Handle text delta events - THIS IS WHERE REAL-TIME STREAMING HAPPENS
+    if (typeof event === 'object' && event !== null && 'type' in event) {
+      const eventType = (event as { type: string }).type;
+      
+      if (eventType === 'response.output_text.delta') {
+        const delta = (event as { delta?: string }).delta || '';
+        fullText += delta;
+        onTextChunk?.(delta, messageId);
+      }
+      else if (eventType === 'error') {
         throw new Error(`OpenAI streaming error: ${JSON.stringify(event)}`);
+      }
     }
   }
 
-  return { toolCall, fullText };
+  return fullText;
 }
 ```
 
@@ -608,7 +401,7 @@ pnpm --filter @shochan_ai/client build
 
 **ファイル**: `packages/core/src/agent/llm-agent-reducer.ts`
 
-**目的**: ストリーミング対応メソッドの追加
+**目的**: テキスト生成メソッドの追加
 
 #### 3.1 型制約の更新
 
@@ -621,14 +414,12 @@ export class LLMAgentReducer<
       tools?: Array<unknown>;
     }): Promise<{ toolCall: ToolCall | null }>;
 
-    // ← 新規追加: ストリーミング対応メソッド
-    generateToolCallWithStreaming(params: {
+    // ← 新規追加: テキスト生成専用メソッド
+    generateTextWithStreaming?(params: {
       systemPrompt: string;
       inputMessages: Array<unknown>;
-      tools?: Array<unknown>;
-      onToolCall?: (toolCall: ToolCall) => void;
       onTextChunk?: (chunk: string, messageId: string) => void;
-    }): Promise<{ toolCall: ToolCall | null; fullText: string }>;
+    }): Promise<string>;
   },
   TTools extends Array<unknown>,
 > implements AgentReducer<Thread, Event>
@@ -638,44 +429,33 @@ export class LLMAgentReducer<
 
 ```typescript
 /**
- * Generate next tool call with streaming support.
- * Emits text chunks in real-time for done_for_now/request_more_information.
- *
- * This method is used when streaming the final agent response to the user.
- * Tool calls (create_task, get_tasks, etc.) are non-streaming, but the
- * final message (done_for_now, request_more_information) streams tokens
- * in real-time.
+ * Generate explanation text with streaming support.
+ * Used after tool execution to explain results to the user.
  *
  * @param state - Current thread state
- * @param onToolCall - Callback when tool call is detected
  * @param onTextChunk - Callback for each text token
- * @returns Tool call event or null
+ * @returns Generated text
  */
-async generateNextToolCallWithStreaming(
+async generateExplanationWithStreaming(
   state: Thread,
-  onToolCall?: (toolCall: ToolCall) => void,
   onTextChunk?: (chunk: string, messageId: string) => void,
-): Promise<ToolCallEvent | null> {
-  const threadContext = state.serializeForLLM();
-  const systemPrompt = this.systemPromptBuilder(threadContext);
-
-  const { toolCall } = await this.llmClient.generateToolCallWithStreaming({
-    systemPrompt,
-    inputMessages: [{ role: 'user', content: systemPrompt }],
-    tools: this.tools,
-    onToolCall,
-    onTextChunk,
-  });
-
-  if (!toolCall) {
-    return null;
+): Promise<string> {
+  if (!this.llmClient.generateTextWithStreaming) {
+    throw new Error('LLM client does not support text streaming');
   }
 
-  return {
-    type: 'tool_call',
-    timestamp: Date.now(),
-    data: toolCall,
-  };
+  const threadContext = state.serializeForLLM();
+  const systemPrompt = `Based on the conversation history and tool results below, provide a natural language explanation to the user.
+
+${threadContext}
+
+Explain what you did and provide a helpful response. Be conversational and respond in the same language the user used.`;
+
+  return await this.llmClient.generateTextWithStreaming({
+    systemPrompt,
+    inputMessages: [{ role: 'user', content: systemPrompt }],
+    onTextChunk,
+  });
 }
 ```
 
@@ -689,24 +469,7 @@ pnpm --filter @shochan_ai/core build
 
 **ファイル**: `packages/web/src/routes/agent.ts`
 
-**目的**: processAgent 関数でストリーミングメソッドを使用
-
-#### 4.1 インポート追加
-
-```typescript
-import {
-  Thread,
-  LLMAgentReducer,
-  NotionToolExecutor,
-  isAwaitingApprovalEvent,
-  isDoneForNowTool,
-  isRequestMoreInformationTool,
-  type Event,
-  taskAgentTools,
-} from '@shochan_ai/core';
-```
-
-#### 4.2 processAgent 関数の更新
+**目的**: Multi-turn方式の実装
 
 ```typescript
 async function processAgent(
@@ -724,16 +487,15 @@ async function processAgent(
 
     console.log(`🤖 Starting agent processing for: ${conversationId}`);
 
-    // SSE接続確認: connected イベントを送信
+    // Send connected event
     streamManager.send(conversationId, {
       type: 'connected',
       timestamp: Date.now(),
       data: { status: 'ready', conversationId },
     });
 
-    // SSE接続確立を待機（簡易実装）
-    // 実運用では Redis Pub/Sub などでより確実な接続確認を推奨
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Wait for SSE connection
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     while (true) {
       if (iterations >= MAX_ITERATIONS) {
@@ -741,14 +503,54 @@ async function processAgent(
       }
       iterations++;
 
-      // ★ ストリーミング対応メソッドに変更
-      const toolCallEvent = await reducer.generateNextToolCallWithStreaming(
+      // ========================================
+      // Turn 1: ツールコール検出・実行
+      // ========================================
+      const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+
+      if (!toolCallEvent) {
+        console.error(`❌ No tool call generated for ${conversationId}`);
+        break;
+      }
+
+      console.log(`🔧 Tool call generated: ${toolCallEvent.data.intent}`);
+      streamManager.send(conversationId, toolCallEvent);
+      currentThread = reducer.reduce(currentThread, toolCallEvent);
+      await redisStore.set(conversationId, currentThread);
+
+      const toolCall = toolCallEvent.data;
+
+      // delete_task の承認待ち
+      if (toolCall.intent === 'delete_task') {
+        console.log(`⚠️  Approval required for: ${conversationId}`);
+        const awaitingApprovalEvent: Event = {
+          type: 'awaiting_approval',
+          timestamp: Date.now(),
+          data: toolCall,
+        };
+        streamManager.send(conversationId, awaitingApprovalEvent);
+        currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
+        await redisStore.set(conversationId, currentThread);
+        break;
+      }
+
+      // ツール実行
+      console.log(`⚙️  Executing tool: ${toolCall.intent}`);
+      const result = await executor.execute(toolCall);
+
+      streamManager.send(conversationId, result.event);
+      currentThread = reducer.reduce(currentThread, result.event);
+      await redisStore.set(conversationId, currentThread);
+
+      console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+
+      // ========================================
+      // Turn 2: テキスト生成（ストリーミング）
+      // ========================================
+      console.log(`📝 Generating explanation with streaming...`);
+
+      await reducer.generateExplanationWithStreaming(
         currentThread,
-        // onToolCall: ツールコール検出時のコールバック
-        (toolCall) => {
-          console.log(`🔧 Tool call detected: ${toolCall.intent}`);
-        },
-        // onTextChunk: テキストチャンク受信時のコールバック（リアルタイム）
         (chunk, messageId) => {
           const textChunkEvent: Event = {
             type: 'text_chunk',
@@ -762,46 +564,8 @@ async function processAgent(
         },
       );
 
-      if (!toolCallEvent) {
-        console.error(`❌ No tool call generated for ${conversationId}`);
-        break;
-      }
-
-      // ツールコールイベント送信
-      streamManager.send(conversationId, toolCallEvent);
-      currentThread = reducer.reduce(currentThread, toolCallEvent);
-      await redisStore.set(conversationId, currentThread);
-
-      const toolCall = toolCallEvent.data;
-
-      // done_for_now / request_more_information の場合は終了
-      if (isDoneForNowTool(toolCall) || isRequestMoreInformationTool(toolCall)) {
-        console.log(`✅ Final response completed: ${toolCall.intent}`);
-        break;
-      }
-
-      // delete_task の承認待ち
-      if (toolCall.intent === 'delete_task') {
-        const awaitingApprovalEvent: Event = {
-          type: 'awaiting_approval',
-          timestamp: Date.now(),
-          data: toolCall,
-        };
-        streamManager.send(conversationId, awaitingApprovalEvent);
-        currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
-        await redisStore.set(conversationId, currentThread);
-        break;
-      }
-
-      // その他のツールを実行
-      console.log(`⚙️  Executing tool: ${toolCall.intent}`);
-      const result = await executor.execute(toolCall);
-
-      streamManager.send(conversationId, result.event);
-      currentThread = reducer.reduce(currentThread, result.event);
-      await redisStore.set(conversationId, currentThread);
-
-      console.log(`✅ Tool executed: ${toolCall.intent}`);
+      console.log(`✅ Explanation generated for ${conversationId}`);
+      break; // 1サイクルで完了
     }
   } catch (error) {
     console.error(`❌ processAgent error for ${conversationId}:`, error);
@@ -823,205 +587,6 @@ async function processAgent(
 pnpm --filter @shochan_ai/web build
 ```
 
-### Phase 4.5: テキストバッファリングユーティリティの追加（❌ スキップ）
-
-**決定**: **Phase 1.5の検証により、このフェーズは不要と判断しました**
-
-**理由**:
-- OpenAI Responses APIは既に適切なチャンクサイズで送信している
-- SSE送信頻度: 約7イベント/15文字 → 十分低い
-- バッファリングによる遅延のデメリットの方が大きい
-- 実装の複雑さとリソース管理コストが不要
-
-**元の目的**（参考）:
-- ~~OpenAI APIが1トークンずつ送信する場合、SSE送信頻度が非常に高くなる~~
-- ~~50-100msのバッファリングでSSE送信回数を削減し、サーバー負荷を軽減~~
-
-**ファイル**: `packages/web/src/utils/text-buffer.ts`（新規作成）
-
-```typescript
-/**
- * Text buffer for streaming optimization.
- *
- * Buffers text chunks and flushes them at regular intervals
- * to reduce SSE overhead. This is useful when OpenAI API sends
- * tokens very frequently (e.g., one token per event).
- *
- * Example:
- * Without buffering: 100 tokens → 100 SSE events
- * With buffering (50ms): 100 tokens → 10-20 SSE events
- *
- * @example
- * const buffer = new TextBuffer(50, (text) => {
- *   streamManager.send(conversationId, {
- *     type: 'text_chunk',
- *     data: { content: text, messageId }
- *   });
- * });
- *
- * buffer.append('Hello');
- * buffer.append(' ');
- * buffer.append('World');
- * // ... after 50ms, sends 'Hello World'
- *
- * buffer.dispose(); // Final flush
- */
-export class TextBuffer {
-  private buffer = '';
-  private timer: NodeJS.Timeout | null = null;
-  private readonly flushInterval: number;
-  private readonly onFlush: (text: string) => void;
-  private disposed = false;
-
-  /**
-   * @param flushInterval - Flush interval in milliseconds (recommended: 50-100ms)
-   * @param onFlush - Callback when buffer is flushed
-   */
-  constructor(flushInterval: number, onFlush: (text: string) => void) {
-    this.flushInterval = flushInterval;
-    this.onFlush = onFlush;
-  }
-
-  /**
-   * Append text chunk to buffer.
-   * Automatically starts timer if not already running.
-   */
-  append(chunk: string): void {
-    if (this.disposed) {
-      console.warn('TextBuffer: append() called after dispose()');
-      return;
-    }
-
-    this.buffer += chunk;
-
-    // Start timer if not already running
-    if (!this.timer) {
-      this.timer = setTimeout(() => {
-        this.flush();
-      }, this.flushInterval);
-    }
-  }
-
-  /**
-   * Flush buffer immediately.
-   * Sends buffered text via onFlush callback and clears buffer.
-   */
-  flush(): void {
-    if (this.disposed) return;
-
-    if (this.buffer) {
-      this.onFlush(this.buffer);
-      this.buffer = '';
-    }
-    if (this.timer) {
-      clearTimeout(this.timer);
-      this.timer = null;
-    }
-  }
-
-  /**
-   * Clean up resources.
-   * Flushes any remaining buffered text and prevents further operations.
-   * MUST be called when streaming is complete to avoid memory leaks.
-   */
-  dispose(): void {
-    this.flush();
-    this.disposed = true;
-  }
-}
-```
-
-**使用例**（Phase 4.2 の processAgent 関数を更新）:
-
-```typescript
-import { TextBuffer } from '../utils/text-buffer';
-
-async function processAgent(
-  conversationId: string,
-  deps: AgentDependencies,
-): Promise<void> {
-  const { redisStore, streamManager, reducer, executor } = deps;
-  let iterations = 0;
-
-  try {
-    let currentThread = await redisStore.get(conversationId);
-    if (!currentThread) {
-      throw new Error('Conversation not found');
-    }
-
-    console.log(`🤖 Starting agent processing for: ${conversationId}`);
-
-    // SSE接続確認
-    streamManager.send(conversationId, {
-      type: 'connected',
-      timestamp: Date.now(),
-      data: { status: 'ready', conversationId },
-    });
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    while (true) {
-      if (iterations >= MAX_ITERATIONS) {
-        throw new Error(`Maximum iterations (${MAX_ITERATIONS}) reached`);
-      }
-      iterations++;
-
-      // テキストバッファの初期化
-      let textBuffer: TextBuffer | null = null;
-      let currentMessageId: string | null = null;
-
-      try {
-        const toolCallEvent = await reducer.generateNextToolCallWithStreaming(
-          currentThread,
-          (toolCall) => {
-            console.log(`🔧 Tool call detected: ${toolCall.intent}`);
-          },
-          (chunk, messageId) => {
-            // 新しいメッセージの場合、バッファを初期化
-            if (!textBuffer || currentMessageId !== messageId) {
-              textBuffer?.dispose();
-              currentMessageId = messageId;
-              textBuffer = new TextBuffer(50, (bufferedText) => {
-                const textChunkEvent: Event = {
-                  type: 'text_chunk',
-                  timestamp: Date.now(),
-                  data: {
-                    content: bufferedText,
-                    messageId,
-                  },
-                };
-                streamManager.send(conversationId, textChunkEvent);
-              });
-            }
-            textBuffer.append(chunk);
-          },
-        );
-
-        // 最終フラッシュ（重要: バッファに残っているテキストを送信）
-        textBuffer?.dispose();
-
-        if (!toolCallEvent) {
-          console.error(`❌ No tool call generated for ${conversationId}`);
-          break;
-        }
-
-        // ... 残りの処理は同じ
-      } finally {
-        // エラー時でも必ずリソースをクリーンアップ
-        textBuffer?.dispose();
-      }
-    }
-  } catch (error) {
-    // ... エラーハンドリング
-  }
-}
-```
-
----
-
-**✅ Phase 1.5の検証結果により、上記の実装は不要となりました。**
-
-Phase 4.2の実装（バッファリングなし）で十分なパフォーマンスが得られます。
-
 ### Phase 5: Web UI の更新
 
 #### 5.1 型定義の追加
@@ -1035,8 +600,7 @@ import type {
   ToolResponseEvent,
   ErrorEvent,
   CompleteEvent,
-  TextChunkEvent,   // ← 追加
-  ConnectedEvent,   // ← 追加
+  TextChunkEvent, // ← 追加
 } from '@shochan_ai/core'
 
 export type {
@@ -1045,8 +609,7 @@ export type {
   ToolResponseEvent,
   ErrorEvent,
   CompleteEvent,
-  TextChunkEvent,   // ← 追加
-  ConnectedEvent,   // ← 追加
+  TextChunkEvent, // ← 追加
 }
 ```
 
@@ -1062,7 +625,7 @@ const SSE_EVENT_TYPES: ReadonlyArray<Event['type'] | 'connected'> = [
   'error',
   'awaiting_approval',
   'complete',
-  'text_chunk',   // ← 追加
+  'text_chunk', // ← 追加
   'connected',
 ] as const
 ```
@@ -1104,12 +667,6 @@ const handleSSEEvent = useCallback((event: Event) => {
       return
 
     case 'tool_call':
-      // done_for_now/request_more_information はストリーミングで表示されるため
-      // ツールコールメッセージは表示しない
-      if (event.data.intent === 'done_for_now' ||
-          event.data.intent === 'request_more_information') {
-        return
-      }
       message = createToolCallMessage(event)
       break
 
@@ -1137,124 +694,6 @@ const handleSSEEvent = useCallback((event: Event) => {
 ```bash
 pnpm --filter @shochan_ai/web-ui build
 ```
-
-### Phase 5.5: SSE接続確立確認メカニズムの追加（オプション）
-
-**目的**: 固定待機時間（500ms）ではなく、確実にSSE接続を確認する
-
-**現状の課題**: Phase 4.2では500ms固定待機を使用しているが、以下の問題がある：
-- ネットワークが遅い場合、500msでは不十分
-- ネットワークが速い場合、不要な待機時間
-
-**解決方法**: `connected` イベントによる接続確認
-
-#### 5.5.1 フロントエンド: 接続確認の実装
-
-**ファイル**: `packages/web-ui/hooks/use-sse.ts`（新規作成）
-
-```typescript
-import { useState, useEffect, useCallback } from 'react';
-import { SSEClient } from '@/lib/sse-client';
-import type { Event } from '@/types/chat';
-
-/**
- * Hook for managing SSE connection and receiving events.
- *
- * Features:
- * - Automatic connection establishment
- * - Connection status tracking via 'connected' event
- * - Event buffering
- * - Automatic cleanup on unmount
- *
- * @param conversationId - Conversation ID (null if not started)
- * @param onEvent - Callback for each SSE event
- */
-export function useSSE(
-  conversationId: string | null,
-  onEvent: (event: Event) => void
-) {
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    if (!conversationId) {
-      setIsConnected(false);
-      return;
-    }
-
-    const client = new SSEClient();
-
-    client.connect(
-      conversationId,
-      (event) => {
-        // connected イベントで接続確認
-        if (event.type === 'connected') {
-          console.log('✅ SSE connection established');
-          setIsConnected(true);
-          return; // connected イベントは表示しない
-        }
-
-        // その他のイベントを親コンポーネントに通知
-        onEvent(event);
-      },
-      (error) => {
-        console.error('❌ SSE error:', error);
-        setIsConnected(false);
-      }
-    );
-
-    return () => {
-      client.disconnect();
-      setIsConnected(false);
-    };
-  }, [conversationId, onEvent]);
-
-  return { isConnected };
-}
-```
-
-#### 5.5.2 チャットインターフェースの更新
-
-**ファイル**: `packages/web-ui/components/chat/chat-interface.tsx`
-
-```typescript
-import { useSSE } from '@/hooks/use-sse';
-
-export function ChatInterface() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [conversationId, setConversationId] = useState<string | null>(null)
-
-  const handleSSEEvent = useCallback((event: Event) => {
-    // ... (既存の handleSSEEvent 実装)
-  }, []);
-
-  const { isConnected } = useSSE(conversationId, handleSSEEvent);
-
-  // ... (既存の mutation、handleSendMessage 実装)
-
-  return (
-    <div className="flex flex-col h-full w-full relative">
-      <div className="flex justify-between items-center p-4 border-b bg-background">
-        <h2 className="text-2xl font-bold">Shochan AI Chat</h2>
-        {conversationId && (
-          <Badge variant={isConnected ? "default" : "outline"}>
-            {isConnected ? '接続済み' : '接続中...'}
-          </Badge>
-        )}
-      </div>
-
-      {/* ... 残りのUI */}
-    </div>
-  )
-}
-```
-
-**ビルド**:
-
-```bash
-pnpm --filter @shochan_ai/web-ui build
-```
-
-**注意**: この実装はオプションです。まずはPhase 4.2の500ms固定待機でテストし、接続タイミング問題が発生する場合にPhase 5.5を適用してください。
 
 ### Phase 6: 統合ビルドとテスト
 
@@ -1290,7 +729,7 @@ pnpm --filter @shochan_ai/web-ui dev  # port 3002
 
 **期待される動作**:
 - [ ] `🔧 Tool call: get_tasks` が即座に表示
-- [ ] エージェントメッセージが**少しずつ**表示される（1トークンずつまたはバッファ単位）
+- [ ] エージェントメッセージが**少しずつ**表示される
 - [ ] メッセージが完成するまで数秒かかる
 - [ ] 最終的に完全なメッセージが表示される
 
@@ -1307,7 +746,7 @@ pnpm --filter @shochan_ai/web-ui dev  # port 3002
 **期待される動作**:
 - [ ] `🔧 Tool call: create_task`
 - [ ] `✅ Tool executed`
-- [ ] エージェントメッセージがストリーミング表示（tool_callイベントは表示されない）
+- [ ] エージェントメッセージがストリーミング表示
 
 #### 3. エラーハンドリング
 
@@ -1329,39 +768,44 @@ Network タブ → stream → Event Stream
 **期待されるイベント**:
 ```
 event: connected
-data: {"type":"connected","timestamp":1234567890,"data":{"status":"ready","conversationId":"..."}}
+data: {"type":"connected","timestamp":...}
 
 event: tool_call
 data: {"type":"tool_call", ...}
 
-event: text_chunk
-data: {"type":"text_chunk","data":{"content":"タ","messageId":"..."}}
+event: tool_response
+data: {"type":"tool_response", ...}
 
 event: text_chunk
-data: {"type":"text_chunk","data":{"content":"スク","messageId":"..."}}
+data: {"type":"text_chunk","data":{"content":"タ",...}}
+
+event: text_chunk
+data: {"type":"text_chunk","data":{"content":"ス",...}}
 ```
 
 ---
 
 ## リスクと対策
 
-### リスク1: OpenAI Responses API の挙動が不明瞭
+### リスク1: API呼び出し回数の増加
 
-**影響**: ストリーミングイベントが期待通り送信されない
+**影響**: Multi-turn方式により、1リクエストあたり2回のAPI呼び出しが必要
 
-**重要度**: 🔴 高
+**重要度**: 🟡 中
 
 **対策**:
-- ✅ **Phase 1.5で実装**: 小規模なテストスクリプトで事前検証
-- OpenAI SDK のドキュメント精査
-- エラーログの詳細出力
-- 実装前に必ず `test-responses-streaming.ts` を実行し、結果を記録
+- コスト監視の実装
+- 必要に応じてキャッシュ戦略の検討
+- トークン使用量の最適化
 
-**検証項目**:
-- [ ] `response.function_call` イベントの存在確認
-- [ ] `response.output_text.delta` イベントの存在確認
-- [ ] イベントデータの構造確認
-- [ ] ストリーム完了イベントの確認
+**コスト試算**:
+```
+従来: 1リクエスト = 1 API呼び出し
+新方式: 1リクエスト = 2 API呼び出し（ツール検出 + テキスト生成）
+増加率: 約2倍
+
+ただし、ストリーミングによるUX向上のメリットは大きい
+```
 
 ### リスク2: SSE接続のタイミング問題
 
@@ -1370,108 +814,22 @@ data: {"type":"text_chunk","data":{"content":"スク","messageId":"..."}}
 **重要度**: 🟡 中
 
 **対策**:
-- Phase 4.2: 500ms固定待機（簡易実装）
-- Phase 5.5（オプション）: `connected` イベントによる接続確認
-- タイムアウト処理の実装（2秒）
+- `connected` イベントによる接続確認
+- タイムアウト処理の実装（500ms待機）
 - 接続状態のUI表示
-
-**実装の優先順位**:
-1. まずPhase 4.2の500ms固定待機でテスト
-2. 問題が発生する場合のみPhase 5.5を適用
-
-**将来的な改善案**:
-```typescript
-// Redis Pub/Sub を使用した確実な接続確認
-await redisClient.subscribe(`sse:${conversationId}:ready`);
-```
 
 ### リスク3: メモリリーク
 
 **影響**: 長時間のストリーミングでメモリ使用量が増加
 
-**重要度**: 🟡 中
+**重要度**: 🟢 低
 
 **対策**:
 - ストリームの適切なクリーンアップ
 - `for await` ループの終了確認
-- ~~TextBuffer の `dispose()` メソッド呼び出し（Phase 4.5使用時）~~ → **Phase 4.5はスキップ**
 - メモリ使用量のモニタリング
 
-**監視方法**:
-```bash
-# Node.js メモリ使用量の監視
-node --expose-gc --max-old-space-size=512 dist/index.js
-```
-
-**確認ポイント**:
-- [x] ~~ストリーム終了時に `textBuffer?.dispose()` が呼ばれる（Phase 4.5使用時）~~ → **不要**
-- [ ] エラー時にもリソースがクリーンアップされる
-- [ ] 長時間稼働後もメモリ使用量が安定
-
-### リスク4: パフォーマンス低下
-
-**影響**: 頻繁なSSE送信でサーバー負荷増加、ネットワーク帯域の浪費
-
-**重要度**: 🟡 中
-
-**対策**:
-- ✅ **Phase 1.5で検証済み**: OpenAI APIは適切なチャンクサイズで送信
-- ❌ **Phase 4.5（TextBuffer）はスキップ**: バッファリング不要と判断
-- SSE送信頻度: 約7イベント/15文字 → 既に最適化されている
-
-**検証結果に基づく判断**:
-- Phase 1.5テストでSSE送信頻度は十分低いことを確認
-- 1秒あたり20イベント未満のため、バッファリング不要
-- バッファリングによる遅延のデメリットを回避
-
-**パフォーマンス目標**:
-- TTFT（Time to First Token）: < 500ms ✅
-- SSE送信頻度: ~7 events/15 chars（バッファリングなし）✅
-- サーバーCPU使用率: < 50% ✅
-
-### リスク5: ストリーム途中のエラー処理
-
-**影響**: ストリーム途中でエラーが発生した場合、部分的なメッセージが残る
-
-**重要度**: 🟡 中
-
-**対策**:
-- try-catch でストリーム全体をラップ
-- try-finally でリソースのクリーンアップを保証（Phase 4.5使用時）
-- エラー時に error イベントを送信
-- フロントエンドで部分メッセージをエラー表示に置き換え
-
-**実装例**:
-```typescript
-try {
-  const toolCallEvent = await reducer.generateNextToolCallWithStreaming(
-    currentThread,
-    (toolCall) => {
-      console.log(`🔧 Tool call detected: ${toolCall.intent}`);
-    },
-    (chunk, messageId) => {
-      // バッファリングなし - 直接SSE送信
-      streamManager.send(conversationId, {
-        type: 'text_chunk',
-        timestamp: Date.now(),
-        data: { content: chunk, messageId },
-      });
-    }
-  );
-} catch (error) {
-  // エラーイベント送信
-  streamManager.send(conversationId, {
-    type: 'error',
-    timestamp: Date.now(),
-    data: {
-      error: error instanceof Error ? error.message : String(error),
-      code: 'STREAMING_ERROR',
-    },
-  });
-}
-```
-
-### リスク6: ネットワーク切断時の再接続
+### リスク4: ネットワーク切断時の再接続
 
 **影響**: SSE接続が切断された場合、ユーザーが気づかない
 
@@ -1479,17 +837,8 @@ try {
 
 **対策**:
 - EventSource の自動再接続機能を活用
-- 接続状態のUI表示（Phase 5.5で実装）
+- 接続状態のUI表示
 - 再接続時の状態復元
-
-**EventSource の再接続**:
-```typescript
-// EventSource は自動的に再接続を試みる
-// retry フィールドで再接続間隔を制御可能
-streamManager.send(conversationId, {
-  retry: 3000, // 3秒後に再接続
-});
-```
 
 ---
 
@@ -1498,39 +847,12 @@ streamManager.send(conversationId, {
 ### 必須項目
 
 - [ ] **Phase 0**: Git状態の確認
-- [ ] **Phase 1**: Core型定義の追加（TextChunkEvent, ConnectedEvent）
-- [ ] **Phase 1.5**: Responses APIストリーミング検証スクリプトの実行 ⭐
-  - [ ] テスト実行
-  - [ ] 検証結果の記録
-  - [ ] イベント構造の確認
-- [ ] **Phase 2**: OpenAIClientの拡張（generateToolCallWithStreaming）
-  - [ ] 型定義追加（StreamingCallbacks）
-  - [ ] メソッド実装
-  - [ ] ビルド確認
-- [ ] **Phase 3**: LLMAgentReducerの更新
-  - [ ] 型制約の更新
-  - [ ] generateNextToolCallWithStreaming実装
-  - [ ] ビルド確認
-- [ ] **Phase 4**: Express APIの更新（processAgent）
-  - [ ] connected イベント送信
-  - [ ] ストリーミングメソッド使用
-  - [ ] ビルド確認
-- [ ] **Phase 5**: Web UIの更新
-  - [ ] 型定義追加
-  - [ ] SSEイベントタイプ追加
-  - [ ] text_chunkハンドリング実装
-  - [ ] ビルド確認
+- [ ] **Phase 1**: Core型定義の追加（TextChunkEvent）
+- [ ] **Phase 2**: OpenAIClientの拡張（generateTextWithStreaming）
+- [ ] **Phase 3**: LLMAgentReducerの更新（generateExplanationWithStreaming）
+- [ ] **Phase 4**: Express APIの更新（Multi-turn実装）
+- [ ] **Phase 5**: Web UIの更新（text_chunkハンドリング）
 - [ ] **Phase 6**: 統合ビルドとテスト
-
-### 推奨項目（必要に応じて実装）
-
-- [x] **Phase 4.5**: TextBufferユーティリティの追加 → **❌ スキップ決定**
-  - Phase 1.5の検証結果でトークン送信頻度は十分低いことを確認
-  - バッファリング不要と判断
-- [ ] **Phase 5.5**: SSE接続確立確認メカニズムの追加
-  - Phase 4の500ms固定待機で問題が発生する場合に実装
-  - useSSE hook 作成
-  - 接続状態のUI表示
 
 ### テスト項目
 
@@ -1539,16 +861,16 @@ streamManager.send(conversationId, {
 - [ ] エラーハンドリング
 - [ ] SSE接続の確認（開発者ツール）
 - [ ] 長時間稼働でのメモリリークチェック（オプション）
-- [ ] 複数同時接続でのパフォーマンス（オプション）
 
 ---
 
 ## 参考資料
 
 - [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses)
+- [OpenAI Streaming Guide](https://platform.openai.com/docs/guides/streaming)
+- [OpenAI Agents SDK - Streaming](https://openai.github.io/openai-agents-python/streaming/)
 - [Server-Sent Events (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events)
 - [better-sse](https://github.com/MatthewWid/better-sse)
-- [EventSource API (MDN)](https://developer.mozilla.org/en-US/docs/Web/API/EventSource)
 
 ---
 
@@ -1558,20 +880,22 @@ streamManager.send(conversationId, {
 
 ✅ **リアルタイムストリーミング**: LLMのトークン生成と同時にブラウザへ表示
 ✅ **TTFT最小化**: 数百ミリ秒で最初のトークンを表示
-✅ **効率的なAPI使用**: 1回のLLM呼び出しで完結
-✅ **既存機能との統合**: ツールコールは従来通り、最終メッセージのみストリーミング
-✅ **ベストプラクティス準拠**: ChatGPT/Claude と同等のUX
-✅ **段階的な最適化**: 必須実装→テスト→必要に応じてバッファリング/接続確認を追加
-✅ **型安全性の向上**: UUID による messageId 生成、StreamingCallbacks 型、ConnectedEvent 型
+✅ **主要AIエージェントとの一致**: ChatGPT/Claudeと同じMulti-turn方式
+✅ **安定性**: 標準的なAPI使用パターンで実装が安定
+✅ **型安全性**: TypeScriptの型システムを活用
 
-### 実装の優先順位
+### 実装方式の選択理由
 
-1. **必須実装**: Phase 0-6（Phase 4.5, 5.5を除く）
-2. **✅ 検証完了**: Phase 1.5のテスト結果により以下を確認：
-   - OpenAI APIは適切なチャンクサイズで送信（7イベント/15文字）
-   - **Phase 4.5（TextBuffer）は不要** - スキップ決定
-3. **条件付き最適化**:
-   - ~~トークン送信頻度が高い → Phase 4.5 (TextBuffer)~~ → **不要と確認**
-   - 接続タイミング問題発生 → Phase 5.5 (Connection Confirmation)
+**Multi-turn Conversation方式を採用**
+
+| 項目 | 評価 | 説明 |
+|------|------|------|
+| **リアルタイム性** | ✅ 完全 | LLM生成と同時に表示 |
+| **実装の複雑さ** | ✅ シンプル | 標準的なAPI使用 |
+| **安定性** | ✅ 高い | JSONパース不要 |
+| **主要AIとの一致** | ✅ 完全一致 | ChatGPT/Claudeと同じ |
+| **コスト** | ⚠️ 2倍 | API呼び出しが2回 |
+
+**結論**: コストは増加するが、UX向上とコードの安定性のメリットが大きいため、Multi-turn方式を採用します。
 
 実装後、Shochan AIは主要AIエージェント（ChatGPT/Claude）と同等の応答性と信頼性を持つようになります。
