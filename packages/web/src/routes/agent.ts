@@ -265,7 +265,29 @@ async function processAgent(
 		await redisStore.set(conversationId, currentThread);
 
 		console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
-		// Continue loop to generate next tool call
+
+		// ========================================
+		// Turn 2: Generate explanation with streaming
+		// ========================================
+		console.log(`📝 Generating explanation with streaming...`);
+
+		await reducer.generateExplanationWithStreaming(
+			currentThread,
+			(chunk, messageId) => {
+				const textChunkEvent: Event = {
+					type: 'text_chunk',
+					timestamp: Date.now(),
+					data: {
+						content: chunk,
+						messageId,
+					},
+				};
+				streamManager.send(conversationId, textChunkEvent);
+			},
+		);
+
+		console.log(`✅ Explanation generated for ${conversationId}`);
+		break; // Complete after explanation
 		}
 	} catch (error) {
 		console.error(`❌ processAgent error for ${conversationId}:`, error);
