@@ -846,21 +846,137 @@ data: {"type":"text_chunk","data":{"content":"ス",...}}
 
 ### 必須項目
 
-- [ ] **Phase 0**: Git状態の確認
-- [ ] **Phase 1**: Core型定義の追加（TextChunkEvent）
-- [ ] **Phase 2**: OpenAIClientの拡張（generateTextWithStreaming）
-- [ ] **Phase 3**: LLMAgentReducerの更新（generateExplanationWithStreaming）
-- [ ] **Phase 4**: Express APIの更新（Multi-turn実装）
-- [ ] **Phase 5**: Web UIの更新（text_chunkハンドリング）
-- [ ] **Phase 6**: 統合ビルドとテスト
+- [x] **Phase 0**: Git状態の確認
+- [x] **Phase 1**: Core型定義の追加（TextChunkEvent）
+  - `packages/core/src/types/event.ts`: TextChunkEvent型定義 ✅
+  - `packages/core/src/index.ts`: エクスポート追加 ✅
+- [x] **Phase 2**: OpenAIClientの拡張（generateTextWithStreaming）
+  - `packages/client/src/openai.ts`: generateTextWithStreamingメソッド実装 ✅
+  - エラーハンドリング強化 ✅
+  - ユニットテスト追加（8テスト） ✅
+- [x] **Phase 3**: LLMAgentReducerの更新（generateExplanationWithStreaming）
+  - `packages/core/src/agent/llm-agent-reducer.ts`: generateExplanationWithStreamingメソッド実装 ✅
+  - エラーハンドリング強化 ✅
+  - ユニットテスト追加（13テスト） ✅
+- [x] **Phase 4**: Express APIの更新（Multi-turn実装）
+  - `packages/web/src/routes/agent.ts`: processAgent関数のMulti-turn実装 ✅
+  - ツール実行後のストリーミング処理追加 ✅
+  - done_for_now/request_more_informationのストリーミング対応 ✅
+- [x] **Phase 5**: Web UIの更新（text_chunkハンドリング）
+  - `packages/web-ui/types/chat.ts`: TextChunkEvent型インポート ✅
+  - `packages/web-ui/lib/sse-client.ts`: text_chunkイベントタイプ追加 ✅
+  - `packages/web-ui/components/chat/chat-interface.tsx`: text_chunkハンドリング実装 ✅
+- [x] **Phase 6**: 統合ビルドとテスト
+  - 全パッケージビルド成功 ✅
+  - 全テスト成功（212テスト） ✅
 
 ### テスト項目
 
-- [ ] 基本的なストリーミング動作（TTFT < 1秒）
-- [ ] ツールコール連鎖
-- [ ] エラーハンドリング
-- [ ] SSE接続の確認（開発者ツール）
+- [x] エラーハンドリングのユニットテスト（21テスト追加）
+  - LLMAgentReducer: 13テスト ✅
+  - OpenAIClient: 8テスト ✅
+- [ ] 基本的なストリーミング動作（TTFT < 1秒）- 実機テスト必要
+- [ ] ツールコール連鎖 - 実機テスト必要
+- [ ] SSE接続の確認（開発者ツール）- 実機テスト必要
 - [ ] 長時間稼働でのメモリリークチェック（オプション）
+
+---
+
+## 実装完了の詳細
+
+### 実装日
+2026年1月21日
+
+### 実装内容のサマリー
+
+#### 1. コア機能の実装
+- **TextChunkEvent型**: リアルタイムテキストストリーミング用の型定義
+- **Multi-turn方式**: ツール実行とテキスト生成を分離
+- **エラーハンドリング**: 全LLM呼び出しでtry-catch実装
+
+#### 2. テストカバレッジ
+- **総テスト数**: 212テスト（191 → 212、+21テスト）
+- **新規テストファイル**: 2ファイル追加
+  - `packages/core/src/agent/llm-agent-reducer.test.ts`
+  - `packages/client/src/openai.test.ts`
+
+#### 3. エラーハンドリングの強化
+すべてのLLM呼び出しメソッドにエラーハンドリングを追加：
+- `LLMAgentReducer.generateNextToolCall()`
+- `LLMAgentReducer.generateNextToolCallWithStreaming()`
+- `LLMAgentReducer.generateExplanationWithStreaming()`
+- `OpenAIClient.generateTextWithStreaming()`
+
+#### 4. 実装されたフロー
+
+```
+ユーザー入力
+  ↓
+Turn 1: ツールコール検出・実行（非ストリーミング）
+  ├─ create_task, get_tasks などを実行
+  └─ tool_response イベント送信
+  ↓
+Turn 2: 説明テキスト生成（ストリーミング）
+  ├─ LLMがツール結果を基に説明を生成
+  ├─ text_chunk イベントをリアルタイムで送信
+  └─ フロントエンドで1文字ずつ表示
+  ↓
+完了
+```
+
+### 既知の制限事項と今後の改善
+
+#### 1. SSE接続待機（中優先度）
+**現状**: 500msの固定待機
+```typescript
+await new Promise((resolve) => setTimeout(resolve, 500));
+```
+
+**改善案**: 動的な接続確認
+```typescript
+const waitForSSEConnection = async (
+  conversationId: string,
+  streamManager: StreamManager,
+  timeout: number = 2000,
+): Promise<boolean> => {
+  // StreamManager.hasSession()で接続を確認
+};
+```
+
+#### 2. 重複コードの削減（低優先度）
+**現状**: ストリーミング処理が2箇所に重複
+- `done_for_now`/`request_more_information`の処理
+- 通常のツール実行後の処理
+
+**改善案**: ヘルパー関数として抽出
+
+#### 3. パフォーマンス監視（オプション）
+- Time to First Token (TTFT) の計測
+- ストリーミング遅延の監視
+- メモリ使用量のモニタリング
+
+### 次のステップ
+
+1. **実機テスト**（最優先）
+   ```bash
+   # サーバー起動
+   pnpm --filter @shochan_ai/web dev  # port 3001
+   
+   # UI起動（別ターミナル）
+   pnpm --filter @shochan_ai/web-ui dev  # port 3002
+   ```
+
+2. **動作確認項目**
+   - [ ] テキストが1文字ずつ表示される
+   - [ ] TTFT（最初のトークンまでの時間）が1秒以内
+   - [ ] エラーが適切に表示される
+   - [ ] SSE接続が安定している
+
+3. **本番デプロイ前の確認**
+   - [ ] 環境変数の設定
+   - [ ] Redis接続の確認
+   - [ ] OpenAI APIキーの設定
+   - [ ] CORS設定の確認
 
 ---
 
