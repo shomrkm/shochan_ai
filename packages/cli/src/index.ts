@@ -83,7 +83,6 @@ async function agentLoop(
 		const shouldContinue = await handleToolCall(
 			toolCallEvent.event,
 			orchestrator,
-			reducer,
 		);
 
 		if (!shouldContinue.continue) break;
@@ -126,7 +125,6 @@ async function generateToolCall(
 async function handleToolCall(
 	toolCallEvent: ToolCallEvent,
 	orchestrator: AgentOrchestrator,
-	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>,
 ): Promise<{ continue: boolean; newThread?: Thread }> {
 	const toolCall = toolCallEvent.data;
 

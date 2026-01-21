@@ -7,7 +7,6 @@
 
 import type {
   PageObjectResponse,
-  CreatePageResponse,
   QueryDatabaseResponse,
   BlockObjectResponse,
   PartialBlockObjectResponse,
