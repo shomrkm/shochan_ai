@@ -192,6 +192,7 @@ export class OpenAIClient {
    * @param inputMessages - Input messages including tool results
    * @param onTextChunk - Callback for each text token (real-time)
    * @returns Full generated text
+   * @throws {Error} When streaming fails or API returns an error
    */
   async generateTextWithStreaming({
     systemPrompt,
@@ -202,36 +203,48 @@ export class OpenAIClient {
     inputMessages: InputMessage[];
     onTextChunk?: (chunk: string, messageId: string) => void;
   }): Promise<string> {
-    const stream = await this.client.responses.create({
-      model: 'gpt-4o',
-      instructions: systemPrompt,
-      input: inputMessages as OpenAI.Responses.ResponseInput,
-      stream: true, // ストリーミング有効
-      // tools: undefined (ツールなし = テキスト生成のみ)
-    });
+    try {
+      const stream = await this.client.responses.create({
+        model: 'gpt-4o',
+        instructions: systemPrompt,
+        input: inputMessages as OpenAI.Responses.ResponseInput,
+        stream: true, // ストリーミング有効
+        // tools: undefined (ツールなし = テキスト生成のみ)
+      });
 
-    let fullText = '';
-    const messageId = randomUUID();
+      let fullText = '';
+      const messageId = randomUUID();
 
-    for await (const rawEvent of stream) {
-      const event = rawEvent as unknown;
+      for await (const rawEvent of stream) {
+        const event = rawEvent as unknown;
 
-      // Handle text delta events - THIS IS WHERE REAL-TIME STREAMING HAPPENS
-      if (typeof event === 'object' && event !== null && 'type' in event) {
-        const eventType = (event as { type: string }).type;
-        
-        if (eventType === 'response.output_text.delta') {
-          const delta = (event as { delta?: string }).delta || '';
-          fullText += delta;
-          onTextChunk?.(delta, messageId);
-        }
-        else if (eventType === 'error') {
-          throw new Error(`OpenAI streaming error: ${JSON.stringify(event)}`);
+        // Handle text delta events - THIS IS WHERE REAL-TIME STREAMING HAPPENS
+        if (typeof event === 'object' && event !== null && 'type' in event) {
+          const eventType = (event as { type: string }).type;
+          
+          if (eventType === 'response.output_text.delta') {
+            const delta = (event as { delta?: string }).delta || '';
+            fullText += delta;
+            onTextChunk?.(delta, messageId);
+          }
+          else if (eventType === 'error') {
+            const errorData = (event as { error?: unknown }).error;
+            throw new Error(`OpenAI streaming error: ${JSON.stringify(errorData || event)}`);
+          }
         }
       }
-    }
 
-    return fullText;
+      if (fullText.length === 0) {
+        console.warn('⚠️  OpenAI streaming completed but no text was generated');
+      }
+
+      return fullText;
+    } catch (error) {
+      console.error('OpenAI text streaming failed:', error);
+      throw new Error(
+        `Failed to generate text with streaming: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   /**
