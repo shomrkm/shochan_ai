@@ -188,6 +188,41 @@ async function waitForSSEConnection(
 }
 
 /**
+ * Generate explanation text with streaming and send chunks via SSE.
+ * This is a helper function to avoid code duplication for streaming logic.
+ *
+ * @param conversationId - Unique conversation identifier
+ * @param currentThread - Current thread state
+ * @param deps - Agent dependencies (reducer and streamManager)
+ */
+async function generateAndStreamExplanation(
+	conversationId: string,
+	currentThread: Thread,
+	deps: Pick<AgentDependencies, 'reducer' | 'streamManager'>,
+): Promise<void> {
+	const { reducer, streamManager } = deps;
+
+	console.log(`📝 Generating explanation with streaming...`);
+
+	await reducer.generateExplanationWithStreaming(
+		currentThread,
+		(chunk, messageId) => {
+			const textChunkEvent: Event = {
+				type: 'text_chunk',
+				timestamp: Date.now(),
+				data: {
+					content: chunk,
+					messageId,
+				},
+			};
+			streamManager.send(conversationId, textChunkEvent);
+		},
+	);
+
+	console.log(`✅ Explanation generated for ${conversationId}`);
+}
+
+/**
  * Process agent execution in background using Multi-turn approach.
  * Receives dependencies explicitly instead of using globals.
  *
@@ -256,24 +291,7 @@ async function processAgent(
 		// ========================================
 		if (toolCall.intent === 'done_for_now' || toolCall.intent === 'request_more_information') {
 			console.log(`📝 Completion tool detected: ${toolCall.intent}`);
-			console.log(`📝 Generating explanation with streaming...`);
-
-			await reducer.generateExplanationWithStreaming(
-				currentThread,
-				(chunk, messageId) => {
-					const textChunkEvent: Event = {
-						type: 'text_chunk',
-						timestamp: Date.now(),
-						data: {
-							content: chunk,
-							messageId,
-						},
-					};
-					streamManager.send(conversationId, textChunkEvent);
-				},
-			);
-
-			console.log(`✅ Explanation generated for ${conversationId}`);
+			await generateAndStreamExplanation(conversationId, currentThread, { reducer, streamManager });
 			break; // Complete
 		}
 
@@ -306,24 +324,7 @@ async function processAgent(
 		// ========================================
 		// Turn 2: Generate explanation with streaming
 		// ========================================
-		console.log(`📝 Generating explanation with streaming...`);
-
-		await reducer.generateExplanationWithStreaming(
-			currentThread,
-			(chunk, messageId) => {
-				const textChunkEvent: Event = {
-					type: 'text_chunk',
-					timestamp: Date.now(),
-					data: {
-						content: chunk,
-						messageId,
-					},
-				};
-				streamManager.send(conversationId, textChunkEvent);
-			},
-		);
-
-		console.log(`✅ Explanation generated for ${conversationId}`);
+		await generateAndStreamExplanation(conversationId, currentThread, { reducer, streamManager });
 		break; // Complete after explanation
 		}
 	} catch (error) {
