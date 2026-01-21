@@ -9,6 +9,10 @@ This directory contains Claude Code configurations customized for the shochan_ai
 ├── README.md           # This file
 ├── settings.json       # Hooks configuration
 ├── agents/            # Specialized subagents
+│   ├── planner.md
+│   ├── tdd-guide.md
+│   ├── architect.md
+│   ├── build-error-resolver.md
 │   ├── monorepo-planner.md
 │   ├── api-integration-reviewer.md
 │   ├── react-component-architect.md
@@ -48,7 +52,11 @@ Always-enforced guidelines that Claude follows automatically:
 
 Specialized subagents for complex tasks:
 
-- **monorepo-planner.md**: Plans features across multiple packages
+- **planner.md**: General-purpose feature planning and implementation strategy
+- **tdd-guide.md**: Test-Driven Development workflow enforcer
+- **architect.md**: Software architecture design and system planning
+- **build-error-resolver.md**: TypeScript compilation and build error resolution
+- **monorepo-planner.md**: Monorepo-specific feature planning across packages
 - **api-integration-reviewer.md**: Reviews API integration security and reliability
 - **react-component-architect.md**: Designs React/Next.js components
 - **code-reviewer.md**: Comprehensive code review across all dimensions
@@ -136,22 +144,33 @@ The configurations are automatically active when using Claude Code in this proje
 
 **Common Workflows**:
 
-1. **Adding a New Feature**:
-   - Claude will use monorepo-planner to create implementation plan
-   - Follows dependency order (core → client → cli/web)
-   - Runs tests and type checks after each step
+1. **Planning a New Feature**:
+   - planner agent creates detailed implementation plan
+   - architect agent provides system design guidance
+   - monorepo-planner ensures cross-package coordination
 
-2. **Modifying API Integrations**:
+2. **Test-Driven Development**:
+   - tdd-guide enforces RED-GREEN-REFACTOR cycle
+   - Ensures tests written before implementation
+   - Validates 80%+ coverage requirement
+
+3. **Fixing Build Errors**:
+   - build-error-resolver systematically fixes TypeScript errors
+   - Makes minimal changes without refactoring
+   - Verifies each fix incrementally
+
+4. **Modifying API Integrations**:
    - api-integration-reviewer automatically reviews changes
    - Ensures security standards are met
    - Validates error handling and rate limiting
 
-3. **Creating React Components**:
+5. **Creating React Components**:
    - react-component-architect provides design guidance
    - Suggests Server vs Client Component usage
    - Includes testing and Storybook story templates
 
-4. **Before Committing**:
+6. **Before Committing**:
+   - code-reviewer performs comprehensive review
    - Hooks automatically run Biome checks
    - Type checking with TypeScript
    - Git status review
