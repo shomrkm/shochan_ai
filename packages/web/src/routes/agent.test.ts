@@ -75,7 +75,8 @@ describe('Agent Routes', () => {
 			);
 			
 			// Wait for background processAgent to complete before checking
-			await new Promise((resolve) => setTimeout(resolve, 600));
+			// processAgent has 2000ms SSE connection timeout + processing time
+			await new Promise((resolve) => setTimeout(resolve, 2500));
 			
 			const thread = await redisStore.get(response.body.conversationId);
 			expect(thread).toBeDefined();
@@ -134,8 +135,8 @@ describe('Agent Routes', () => {
 			const conversationId = response.body.conversationId;
 
 			// Wait for processAgent to complete
-			// processAgent has 500ms delay + processing time
-			await new Promise((resolve) => setTimeout(resolve, 1000));
+			// processAgent has 2000ms SSE connection timeout + processing time
+			await new Promise((resolve) => setTimeout(resolve, 2500));
 
 			const thread = await redisStore.get(conversationId);
 			expect(thread).toBeDefined();

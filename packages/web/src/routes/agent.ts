@@ -153,6 +153,41 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 const MAX_ITERATIONS = 50;
 
 /**
+ * SSE connection timeout configuration
+ */
+const SSE_CONNECTION_TIMEOUT = 2000; // 2 seconds
+const SSE_CONNECTION_CHECK_INTERVAL = 100; // 100ms
+
+/**
+ * Wait for SSE connection to be established with timeout.
+ * Polls the StreamManager to check if the session exists.
+ *
+ * @param conversationId - Unique conversation identifier
+ * @param streamManager - StreamManager instance
+ * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+ * @returns Promise<boolean> - true if connection established, false if timeout
+ */
+async function waitForSSEConnection(
+	conversationId: string,
+	streamManager: StreamManager,
+	timeout: number = SSE_CONNECTION_TIMEOUT,
+): Promise<boolean> {
+	const startTime = Date.now();
+
+	while (Date.now() - startTime < timeout) {
+		if (streamManager.hasSession(conversationId)) {
+			const elapsed = Date.now() - startTime;
+			console.log(`✅ SSE connection confirmed for ${conversationId} (${elapsed}ms)`);
+			return true;
+		}
+		await new Promise((resolve) => setTimeout(resolve, SSE_CONNECTION_CHECK_INTERVAL));
+	}
+
+	console.warn(`⚠️  SSE connection timeout for ${conversationId} after ${timeout}ms`);
+	return false;
+}
+
+/**
  * Process agent execution in background using Multi-turn approach.
  * Receives dependencies explicitly instead of using globals.
  *
@@ -186,9 +221,11 @@ async function processAgent(
 			data: { status: 'ready', conversationId },
 		});
 
-		// Wait for SSE connection establishment (simple implementation with fixed delay)
-		// For production, consider using Redis Pub/Sub for more reliable connection confirmation
-		await new Promise((resolve) => setTimeout(resolve, 500));
+		// Wait for SSE connection establishment with dynamic polling
+		const isConnected = await waitForSSEConnection(conversationId, streamManager);
+		if (!isConnected) {
+			console.warn(`⚠️  Proceeding without confirmed SSE connection for ${conversationId}`);
+		}
 
 		while (true) {
 			if (iterations >= MAX_ITERATIONS) {
