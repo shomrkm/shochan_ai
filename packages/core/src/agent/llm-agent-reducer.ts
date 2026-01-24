@@ -3,6 +3,10 @@ import type { Event, ToolCallEvent } from '../types/event';
 import type { ToolCall } from '../types/tools';
 import type { AgentReducer } from './agent-reducer';
 
+interface NamedTool {
+	name: string;
+}
+
 /**
  * AgentReducer implementation that uses an LLM to determine next tool calls.
  * Generic LLM client interface supports OpenAI, Anthropic, etc.
@@ -27,7 +31,7 @@ export class LLMAgentReducer<
 			onTextChunk?: (chunk: string, messageId: string) => void;
 		}): Promise<string>;
 	},
-	TTools extends Array<unknown>,
+	TTools extends Array<NamedTool>,
 > implements AgentReducer<Thread, Event>
 {
 	constructor(
@@ -56,7 +60,7 @@ export class LLMAgentReducer<
 			const systemPrompt = this.systemPromptBuilder(threadContext);
 
 			console.log('🔍 Generating tool call with prompt:', systemPrompt.substring(0, 200) + '...');
-			console.log('🔍 Available tools:', this.tools.map((t: any) => t.name).join(', '));
+			console.log('🔍 Available tools:', this.tools.map((t) => t.name).join(', '));
 
 			const { toolCall, fullOutput } = await this.llmClient.generateToolCall({
 				systemPrompt,

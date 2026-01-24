@@ -1,3 +1,8 @@
+import type {
+  CreatePageParameters,
+  UpdatePageParameters,
+} from '@notionhq/client/build/src/api-endpoints';
+
 export interface BuildTaskPageParamsArgs {
   databaseId: string;
   title: string;
@@ -24,27 +29,20 @@ export interface BuildTaskUpdatePageParamsArgs {
   is_archived?: boolean;
 }
 
-export interface NotionCreatePageParams {
-  parent: {
-    database_id: string;
-  };
-  properties: Record<string, any>;
-  children: Array<{
-    object: 'block';
-    type: 'paragraph';
-    paragraph: {
-      rich_text: Array<{
-        type: 'text';
-        text: {
-          content: string;
-        };
-      }>;
-    };
-  }>;
-}
+/**
+ * Parameters for creating a Notion page.
+ * Uses official Notion SDK types for type safety.
+ */
+export type NotionCreatePageParams = CreatePageParameters;
+
+/**
+ * Type for individual Notion property values.
+ * Extracted from official SDK UpdatePageParameters.
+ */
+type NotionPropertyValue = NonNullable<UpdatePageParameters['properties']>[string];
 
 export interface NotionUpdatePageParams {
   page_id: string;
-  properties: Record<string, any>;
+  properties: Record<string, NotionPropertyValue | null>;
   archived?: boolean;
 }
