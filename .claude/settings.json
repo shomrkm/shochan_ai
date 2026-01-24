@@ -2,75 +2,42 @@
   "hooks": {
     "PreToolUse": [
       {
-        "name": "prevent-unnecessary-markdown",
-        "description": "Prevent creation of unnecessary markdown files",
-        "pattern": "Write.*\\.md$",
-        "action": "block",
-        "message": "⚠️ Creating markdown files should be avoided unless explicitly required.\n\nThis project already has:\n- CLAUDE.md for development guidelines\n- README.md for project documentation\n- Package-specific READMEs\n\nOnly create markdown files if:\n1. User explicitly requests documentation\n2. Adding critical project documentation\n3. Creating specification documents\n\nFor other documentation, consider:\n- Adding comments in code\n- Updating existing markdown files\n- Using JSDoc comments\n\nContinue anyway? (y/n)"
-      },
-      {
-        "name": "biome-check-before-commit",
-        "description": "Run Biome checks before git operations",
-        "pattern": "Bash.*git (commit|push)",
-        "action": "pause",
-        "message": "🔍 Running Biome checks before git operation...\n\nExecuting:\n1. pnpm check (format + lint)\n2. npx tsc --noEmit (type check)\n\nThis ensures code quality standards are met.\nPress Enter to continue..."
-      },
-      {
-        "name": "build-before-test",
-        "description": "Remind to build before running tests",
-        "pattern": "Bash.*pnpm test(?! )",
-        "action": "pause",
-        "message": "💡 Reminder: Tests may require built packages.\n\nConsider running:\n  pnpm build\n\nBefore running tests to ensure all dependencies are up-to-date.\nPress Enter to continue with tests..."
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/git-push-reminder.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
-        "name": "auto-format-typescript",
-        "description": "Auto-format TypeScript files after edit",
-        "pattern": "Edit.*\\.(ts|tsx)$",
-        "action": "run",
-        "command": "pnpm format --write {file}"
-      },
-      {
-        "name": "type-check-after-edit",
-        "description": "Run TypeScript type check after editing TypeScript files",
-        "pattern": "Edit.*\\.(ts|tsx)$",
-        "action": "run",
-        "command": "npx tsc --noEmit"
-      },
-      {
-        "name": "warn-console-log",
-        "description": "Warn about console.log in production code",
-        "pattern": "Edit.*\\.(ts|tsx)$",
-        "action": "run",
-        "command": "if grep -n 'console\\.log' {file}; then echo '\n⚠️  Warning: console.log found in {file}. Consider removing for production.'; fi"
-      },
-      {
-        "name": "test-after-core-changes",
-        "description": "Suggest running tests after core package changes",
-        "pattern": "Edit.*packages/core/",
-        "action": "log",
-        "message": "✅ Core package modified. Consider running:\n  pnpm --filter @shochan_ai/core test"
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/biome-format.sh",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/console-log-check.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
       {
-        "name": "git-status-check",
-        "description": "Check git status before ending session",
-        "action": "run",
-        "command": "git status --short"
-      },
-      {
-        "name": "final-lint-check",
-        "description": "Run final code quality check",
-        "action": "run",
-        "command": "echo '\n🔍 Final Code Quality Check:' && pnpm check"
-      },
-      {
-        "name": "uncommitted-changes-warning",
-        "description": "Warn about uncommitted changes",
-        "action": "run",
-        "command": "if [ -n \"$(git status --porcelain)\" ]; then echo '\n⚠️  You have uncommitted changes. Remember to commit your work!'; fi"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/final-check.sh",
+            "timeout": 30
+          }
+        ]
       }
     ]
   }
