@@ -1,3 +1,9 @@
+---
+name: notion-integration
+description: Best practices for Notion API integration patterns. Use when implementing database queries, creating/updating pages, or handling Notion-specific error scenarios.
+allowed-tools: Read, Grep, Glob, Bash
+---
+
 # Notion Integration Patterns
 
 **Context**: Best practices for integrating with Notion API in the shochan_ai project.

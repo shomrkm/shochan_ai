@@ -1,3 +1,9 @@
+---
+name: openai-patterns
+description: Best practices for OpenAI API integration in agent systems. Use when implementing function calling, managing tokens, handling rate limits, or designing system prompts.
+allowed-tools: Read, Grep, Glob, Bash
+---
+
 # OpenAI Integration Patterns
 
 **Context**: Best practices for OpenAI API integration in the shochan_ai agent system.

@@ -1,3 +1,9 @@
+---
+name: monorepo-workflow
+description: Best practices for working with pnpm workspace monorepo. Use when implementing features across packages, managing dependencies, or troubleshooting build issues.
+allowed-tools: Read, Grep, Glob, Bash
+---
+
 # Monorepo Workflow
 
 **Context**: Best practices for working with pnpm workspace monorepo in shochan_ai project.

@@ -1,3 +1,9 @@
+---
+name: nextjs-development
+description: Next.js 16 development workflow with App Router, React 19, and modern tooling. Use when creating pages, components, API routes, or working with data fetching patterns.
+allowed-tools: Read, Grep, Glob, Bash
+---
+
 # Next.js Development Workflow
 
 **Context**: Next.js 16 with App Router, React 19, and modern tooling for the web-ui package.
