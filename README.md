@@ -21,7 +21,12 @@ Shochan AI is a TypeScript-based intelligent agent built as a personal project f
 - **Intelligent Task Management**: Create, retrieve, update, delete, and get detailed information about tasks with AI assistance
 - **Task Detail Retrieval**: Get comprehensive task information including page content from Notion
 - **Project Management**: Create and manage projects with importance levels and action plans
-- **CLI Interface**: Simple command-line interface for quick interactions
+- **Multiple Interfaces**:
+  - **CLI**: Simple command-line interface for quick interactions
+  - **Web UI**: Modern chat interface with real-time streaming
+- **Real-time Streaming**: See AI responses as they're generated via Server-Sent Events
+- **Multi-turn Conversations**: Separate tool execution and explanation generation for optimal UX
+- **Approval Flow**: Human-in-the-loop approval for destructive operations
 
 ## Prerequisites
 
@@ -64,13 +69,42 @@ pnpm cli "Create a new project for learning TypeScript"
 pnpm cli "Add a task to review the quarterly report"
 ```
 
-### Build and Run
+### Web UI Mode
 
-Build the project and run:
+Start the backend API server and web UI:
 
 ```bash
+# Terminal 1: Start Redis (required for web mode)
+docker compose up -d redis
+
+# Terminal 2: Start backend API server
+pnpm --filter @shochan_ai/web dev
+
+# Terminal 3: Start web UI
+pnpm --filter @shochan_ai/web-ui dev
+```
+
+Then open http://localhost:3000 in your browser.
+
+**Web UI Features:**
+- Real-time chat interface with streaming responses
+- Visual indicators for tool execution
+- Message history
+- Responsive design
+
+### Build and Run
+
+Build the project:
+
+```bash
+# Build all packages
 pnpm build
+
+# Run CLI
 pnpm cli "your message here"
+
+# Or run web server
+pnpm --filter @shochan_ai/web start
 ```
 
 ## Example Interactions
@@ -132,21 +166,43 @@ pnpm cli "新しいWebサイト開発プロジェクトを作成して"
 
 ### Environment Variables
 
+**Required for all modes:**
 - `OPENAI_API_KEY`: Your OpenAI API key for AI access
 - `NOTION_API_KEY`: Your Notion integration token
 - `NOTION_TASKS_DATABASE_ID`: The ID of your tasks Notion database
 - `NOTION_PROJECTS_DATABASE_ID`: The ID of your projects Notion database
 
+**Additional for Web mode:**
+- `REDIS_URL`: Redis connection URL (default: `redis://localhost:6379`)
+- `PORT`: Backend API server port (default: `3001`)
+- `NEXT_PUBLIC_API_URL`: Backend API URL for web-ui (default: `http://localhost:3001`)
+- `NEXT_PUBLIC_STREAM_URL`: SSE streaming endpoint URL (default: `http://localhost:3001`)
+
 ## Commands
 
+### General Commands
+
 - `pnpm build`: Build all packages in the monorepo
-- `pnpm cli`: Run CLI with arguments
-- `pnpm test`: Run test suite
+- `pnpm test`: Run test suite (212 tests)
 - `pnpm test:watch`: Run tests in watch mode
 - `pnpm format`: Format code with Biome
 - `pnpm lint`: Lint code with Biome
 - `pnpm check`: Run all checks (format + lint)
 - `pnpm check:fix`: Auto-fix formatting and linting issues
+
+### CLI Commands
+
+- `pnpm cli`: Run CLI with arguments
+- `pnpm cli "your message"`: Execute single command
+
+### Web Commands
+
+- `pnpm --filter @shochan_ai/web dev`: Start backend API server (development)
+- `pnpm --filter @shochan_ai/web build`: Build backend for production
+- `pnpm --filter @shochan_ai/web start`: Start backend (production)
+- `pnpm --filter @shochan_ai/web-ui dev`: Start web UI (development)
+- `pnpm --filter @shochan_ai/web-ui build`: Build web UI for production
+- `pnpm --filter @shochan_ai/web-ui start`: Start web UI (production)
 
 ## Testing
 
@@ -176,7 +232,7 @@ packages/
 │   │   ├── types/              # TypeScript type definitions with zod schemas
 │   │   │   ├── tools.ts        # Tool call schemas and inferred types
 │   │   │   ├── toolGuards.ts   # Type guard functions
-│   │   │   └── event.ts        # Event type definitions
+│   │   │   └── event.ts        # Event type definitions (includes streaming events)
 │   │   ├── utils/              # Utility functions
 │   │   │   ├── notion-query-builder.ts  # Notion query construction
 │   │   │   └── notion-task-parser.ts    # Notion response parsing
@@ -186,7 +242,8 @@ packages/
 │
 ├── client/                      # API clients (depends on core)
 │   ├── src/
-│   │   ├── openai.ts           # OpenAI client with runtime validation
+│   │   ├── openai.ts           # OpenAI client with streaming support
+│   │   ├── openai-streaming.ts # OpenAI streaming type definitions
 │   │   ├── notion.ts           # Notion API client with full CRUD operations
 │   │   └── notionUtils.ts      # Notion utility functions
 │   └── package.json
@@ -198,13 +255,38 @@ packages/
 │   │       └── task-agent-tools.ts  # Tool definitions for OpenAI
 │   └── package.json
 │
-└── web/                         # Web API server (depends on core + client)
-    ├── src/
-    │   ├── server.ts           # Server initialization
-    │   ├── app.ts              # Express app configuration
-    │   ├── routes/             # API endpoints (agent, stream)
-    │   ├── state/              # Redis state persistence
-    │   └── streaming/          # SSE session management
+├── web/                         # Web API server (depends on core + client)
+│   ├── src/
+│   │   ├── server.ts           # Server initialization
+│   │   ├── app.ts              # Express app configuration
+│   │   ├── routes/             # API endpoints (agent, stream)
+│   │   │   ├── agent.ts        # Query submission and approval
+│   │   │   └── stream.ts       # SSE streaming endpoint
+│   │   ├── state/              # Redis state persistence
+│   │   │   └── redis-store.ts  # Thread persistence with TTL
+│   │   ├── streaming/          # SSE session management
+│   │   │   └── manager.ts      # StreamManager for SSE sessions
+│   │   └── middleware/         # Error and fallback handlers
+│   └── package.json
+│
+└── web-ui/                      # Next.js frontend (depends on core for types)
+    ├── app/                    # Next.js App Router
+    │   ├── layout.tsx          # Root layout
+    │   ├── page.tsx            # Home page with ChatInterface
+    │   └── globals.css         # Global styles
+    ├── components/             # React components
+    │   ├── chat/
+    │   │   └── chat-interface.tsx  # Main chat UI with SSE
+    │   └── ui/
+    │       └── badge.tsx       # Event type badges
+    ├── hooks/                  # Custom React hooks
+    │   └── use-sse.ts         # SSE connection management
+    ├── lib/                    # Utilities and API clients
+    │   ├── api/hooks/
+    │   │   └── use-send-message.ts  # Message sending hook
+    │   └── sse-client.ts      # SSE client implementation
+    ├── types/                  # Frontend-specific types
+    │   └── chat.ts            # Chat message types
     └── package.json
 ```
 
@@ -213,10 +295,13 @@ packages/
 - `packages/client` depends on `@shochan_ai/core`
 - `packages/cli` depends on `@shochan_ai/core` and `@shochan_ai/client`
 - `packages/web` depends on `@shochan_ai/core` and `@shochan_ai/client`
+- `packages/web-ui` depends on `@shochan_ai/core` (types only)
 
 **Package Documentation:**
-- [Core Package](packages/core/README.md) - Business logic and agent core
+- [Architecture Documentation](docs/ARCHITECTURE.md) - Comprehensive architecture overview
 - [Web API Package](packages/web/README.md) - RESTful API server with SSE streaming
+- [Web UI Package](packages/web-ui/README.md) - Next.js frontend with real-time chat
+- [Streaming Implementation Plan](docs/streaming-implementation-plan.md) - Detailed streaming feature documentation
 
 ## Available Tools
 

@@ -44,18 +44,22 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 				return;
 			}
 
-			const conversationId = randomUUID();
-			const userInputEvent: Event = {
-				type: 'user_input',
-				timestamp: Date.now(),
-				data: message,
-			};
-			const initialThread = new Thread([userInputEvent]);
-			await redisStore.set(conversationId, initialThread);
+		const conversationId = randomUUID();
+		const userInputEvent: Event = {
+			type: 'user_input',
+			timestamp: Date.now(),
+			data: message,
+		};
+		const initialThread = new Thread([userInputEvent]);
+		await redisStore.set(conversationId, initialThread);
       
-			await processAgent(conversationId, deps);
+		// Start agent processing in background (don't await)
+		processAgent(conversationId, deps).catch((error) => {
+			console.error(`Background processAgent error for ${conversationId}:`, error);
+		});
 
-			res.json({ conversationId });
+		// Return conversationId immediately so client can start SSE connection
+		res.json({ conversationId });
 		} catch (error) {
 			console.error('Query error:', error);
 			res.status(500).json({ error: 'Failed to process query' });
@@ -149,8 +153,18 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 const MAX_ITERATIONS = 50;
 
 /**
- * Process agent execution in background.
+ * SSE connection timeout configuration
+ */
+const SSE_CONNECTION_TIMEOUT = 2000; // 2 seconds
+const SSE_CONNECTION_CHECK_INTERVAL = 100; // 100ms
+
+/**
+ * Process agent execution in background using Multi-turn approach.
  * Receives dependencies explicitly instead of using globals.
+ *
+ * Multi-turn approach:
+ * - Turn 1: Tool call detection and execution (non-streaming)
+ * - Turn 2: Text generation with streaming (real-time display)
  *
  * @param conversationId - Unique conversation identifier
  * @param deps - Agent dependencies
@@ -171,6 +185,19 @@ async function processAgent(
 
 		console.log(`🤖 Starting agent processing for: ${conversationId}`);
 
+		// Send connected event to confirm SSE connection establishment
+		streamManager.send(conversationId, {
+			type: 'connected',
+			timestamp: Date.now(),
+			data: { status: 'ready', conversationId },
+		});
+
+		// Wait for SSE connection establishment with dynamic polling
+		const isConnected = await waitForSSEConnection(conversationId, streamManager);
+		if (!isConnected) {
+			console.warn(`⚠️  Proceeding without confirmed SSE connection for ${conversationId}`);
+		}
+
 		while (true) {
 			if (iterations >= MAX_ITERATIONS) {
 				console.error( `🔁 Max iterations reached for ${conversationId} after ${iterations} iterations`);
@@ -178,7 +205,11 @@ async function processAgent(
 			}
 			iterations++;
 
+			// ========================================
+			// Turn 1: Tool call detection and execution
+			// ========================================
 			const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+
 			if (!toolCallEvent) {
 				console.error(`❌ No tool call generated for ${conversationId}`);
 				break;
@@ -189,31 +220,48 @@ async function processAgent(
 			currentThread = reducer.reduce(currentThread, toolCallEvent);
 			await redisStore.set(conversationId, currentThread);
 
-			const toolCall = toolCallEvent.data;
+		const toolCall = toolCallEvent.data;
 
-      if ([ 'done_for_now', 'request_more_information', ].includes(toolCall.intent)) {
-        break;
-      }
+		// ========================================
+		// Check if this is a completion tool
+		// ========================================
+		if (toolCall.intent === 'done_for_now' || toolCall.intent === 'request_more_information') {
+			console.log(`📝 Completion tool detected: ${toolCall.intent}`);
+			await generateAndStreamExplanation(conversationId, currentThread, { reducer, streamManager });
+			break; // Complete
+		}
 
-			if (toolCall.intent === 'delete_task') {
-				console.log(`⚠️  Approval required for: ${conversationId}`);
+		// delete_task requires approval
+		if (toolCall.intent === 'delete_task') {
+			console.log(`⚠️  Approval required for: ${conversationId}`);
 
-				const awaitingApprovalEvent: Event = { type: 'awaiting_approval', timestamp: Date.now(), data: toolCall };
-				streamManager.send(conversationId, awaitingApprovalEvent);
-				currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
-        await redisStore.set(conversationId, currentThread);
-
-				break;
-			}
-
-			console.log(`⚙️  Executing tool: ${toolCall.intent}`);
-			const result = await executor.execute(toolCall);
-
-			streamManager.send(conversationId, result.event);
-			currentThread = reducer.reduce(currentThread, result.event);
+			const awaitingApprovalEvent: Event = { 
+				type: 'awaiting_approval', 
+				timestamp: Date.now(), 
+				data: toolCall 
+			};
+			streamManager.send(conversationId, awaitingApprovalEvent);
+			currentThread = reducer.reduce(currentThread, awaitingApprovalEvent);
 			await redisStore.set(conversationId, currentThread);
 
-			console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+			break;
+		}
+
+		// Execute tool
+		console.log(`⚙️  Executing tool: ${toolCall.intent}`);
+		const result = await executor.execute(toolCall);
+
+		streamManager.send(conversationId, result.event);
+		currentThread = reducer.reduce(currentThread, result.event);
+		await redisStore.set(conversationId, currentThread);
+
+		console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+
+		// ========================================
+		// Turn 2: Generate explanation with streaming
+		// ========================================
+		await generateAndStreamExplanation(conversationId, currentThread, { reducer, streamManager });
+		break; // Complete after explanation
 		}
 	} catch (error) {
 		console.error(`❌ processAgent error for ${conversationId}:`, error);
@@ -226,4 +274,68 @@ async function processAgent(
 			},
 		});
 	}
+}
+
+/**
+ * Wait for SSE connection to be established with timeout.
+ * Polls the StreamManager to check if the session exists.
+ *
+ * @param conversationId - Unique conversation identifier
+ * @param streamManager - StreamManager instance
+ * @param timeout - Maximum time to wait in milliseconds (default: 2000ms)
+ * @returns Promise<boolean> - true if connection established, false if timeout
+ */
+async function waitForSSEConnection(
+	conversationId: string,
+	streamManager: StreamManager,
+	timeout: number = SSE_CONNECTION_TIMEOUT,
+): Promise<boolean> {
+	const startTime = Date.now();
+
+	while (Date.now() - startTime < timeout) {
+		if (streamManager.hasSession(conversationId)) {
+			const elapsed = Date.now() - startTime;
+			console.log(`✅ SSE connection confirmed for ${conversationId} (${elapsed}ms)`);
+			return true;
+		}
+		await new Promise((resolve) => setTimeout(resolve, SSE_CONNECTION_CHECK_INTERVAL));
+	}
+
+	console.warn(`⚠️  SSE connection timeout for ${conversationId} after ${timeout}ms`);
+	return false;
+}
+
+/**
+ * Generate explanation text with streaming and send chunks via SSE.
+ * This is a helper function to avoid code duplication for streaming logic.
+ *
+ * @param conversationId - Unique conversation identifier
+ * @param currentThread - Current thread state
+ * @param deps - Agent dependencies (reducer and streamManager)
+ */
+async function generateAndStreamExplanation(
+	conversationId: string,
+	currentThread: Thread,
+	deps: Pick<AgentDependencies, 'reducer' | 'streamManager'>,
+): Promise<void> {
+	const { reducer, streamManager } = deps;
+
+	console.log(`📝 Generating explanation with streaming...`);
+
+	await reducer.generateExplanationWithStreaming(
+		currentThread,
+		(chunk, messageId) => {
+			const textChunkEvent: Event = {
+				type: 'text_chunk',
+				timestamp: Date.now(),
+				data: {
+					content: chunk,
+					messageId,
+				},
+			};
+			streamManager.send(conversationId, textChunkEvent);
+		},
+	);
+
+	console.log(`✅ Explanation generated for ${conversationId}`);
 }

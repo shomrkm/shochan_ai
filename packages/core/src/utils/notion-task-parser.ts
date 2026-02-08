@@ -7,7 +7,6 @@
 
 import type {
   PageObjectResponse,
-  CreatePageResponse,
   QueryDatabaseResponse,
   BlockObjectResponse,
   PartialBlockObjectResponse,
@@ -80,7 +79,7 @@ export class NotionTaskParser {
   /**
    * Parse content from Notion blocks array
    */
-  parseContentFromBlocks(blocks: any[]): string {
+  parseContentFromBlocks(blocks: (BlockObjectResponse | PartialBlockObjectResponse)[]): string {
     const content: string[] = [];
 
     for (const block of blocks) {
@@ -113,7 +112,10 @@ export class NotionTaskParser {
 
   // ===== Private Property Extraction Methods =====
 
-  private extractTextFromProperty(properties: any, propertyName: string): string | undefined {
+  private extractTextFromProperty(
+    properties: PageObjectResponse['properties'],
+    propertyName: string,
+  ): string | undefined {
     const prop = properties[propertyName];
     if (!prop) return undefined;
 
@@ -127,14 +129,20 @@ export class NotionTaskParser {
     return undefined;
   }
 
-  private extractSelectFromProperty(properties: any, propertyName: string): string | undefined {
+  private extractSelectFromProperty(
+    properties: PageObjectResponse['properties'],
+    propertyName: string,
+  ): string | undefined {
     const prop = properties[propertyName];
     if (!prop || prop.type !== 'select') return undefined;
 
     return prop.select?.name;
   }
 
-  private extractDateFromProperty(properties: any, propertyName: string): string | undefined {
+  private extractDateFromProperty(
+    properties: PageObjectResponse['properties'],
+    propertyName: string,
+  ): string | undefined {
     const prop = properties[propertyName];
     if (!prop || prop.type !== 'date') return undefined;
 
@@ -151,11 +159,18 @@ export class NotionTaskParser {
     return prop.relation.length > 0 ? prop.relation[0].id : undefined;
   }
 
-  private extractFormulaFromProperty(properties: any, propertyName: string): boolean {
+  private extractFormulaFromProperty(
+    properties: PageObjectResponse['properties'],
+    propertyName: string,
+  ): boolean {
     const prop = properties[propertyName];
     if (!prop || prop.type !== 'formula') return false;
 
-    return prop.formula?.boolean || false;
+    // Formula properties are discriminated unions - check for boolean type
+    if (prop.formula.type === 'boolean') {
+      return prop.formula.boolean ?? false;
+    }
+    return false;
   }
 
   private extractTextFromBlock(

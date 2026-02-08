@@ -9,8 +9,10 @@ Web API server for Shochan AI with real-time Server-Sent Events (SSE) streaming 
 ## Features
 
 - **RESTful API**: Submit queries and manage agent conversations via HTTP endpoints
-- **Real-time SSE Streaming**: Monitor agent execution progress with Server-Sent Events
+- **Real-time Text Streaming**: Stream LLM-generated text tokens in real-time using Server-Sent Events
+- **Multi-turn Conversation**: Separate turns for tool execution and text generation with streaming
 - **Redis State Persistence**: Conversation state stored in Redis with automatic TTL (1 hour)
+- **Approval Flow**: Human-in-the-loop approval for destructive operations (e.g., delete_task)
 - **Dependency Injection**: Clean architecture with testable router factory functions
 - **CORS Support**: Cross-Origin Resource Sharing enabled for client applications
 - **Health Monitoring**: Built-in health check endpoint for service monitoring
@@ -108,7 +110,7 @@ GET /api/stream/f217bba2-68ea-4a75-9355-a686f4bc064b
 **Response (SSE Stream):**
 ```
 event: connected
-data: {"type":"connected","timestamp":1735646400000,"data":{"conversationId":"f217bba2-68ea-4a75-9355-a686f4bc064b"}}
+data: {"type":"connected","timestamp":1735646400000,"data":{"status":"ready","conversationId":"f217bba2-68ea-4a75-9355-a686f4bc064b"}}
 
 event: tool_call
 data: {"type":"tool_call","timestamp":1735646401000,"data":{"intent":"get_tasks","parameters":{...}}}
@@ -116,14 +118,24 @@ data: {"type":"tool_call","timestamp":1735646401000,"data":{"intent":"get_tasks"
 event: tool_result
 data: {"type":"tool_result","timestamp":1735646402000,"data":{"intent":"get_tasks","result":{...}}}
 
+event: text_chunk
+data: {"type":"text_chunk","timestamp":1735646403000,"data":{"content":"今日の","messageId":"msg-123"}}
+
+event: text_chunk
+data: {"type":"text_chunk","timestamp":1735646403100,"data":{"content":"タスクを","messageId":"msg-123"}}
+
+event: text_chunk
+data: {"type":"text_chunk","timestamp":1735646403200,"data":{"content":"お知らせします","messageId":"msg-123"}}
+
 event: tool_call
-data: {"type":"tool_call","timestamp":1735646403000,"data":{"intent":"done_for_now","parameters":{...}}}
+data: {"type":"tool_call","timestamp":1735646404000,"data":{"intent":"done_for_now","parameters":{...}}}
 ```
 
 **Event Types:**
-- `connected`: SSE connection established
+- `connected`: SSE connection established and ready
 - `tool_call`: Agent generated a tool call
 - `tool_result`: Tool execution completed
+- `text_chunk`: Real-time text token from LLM streaming
 - `awaiting_approval`: Approval required (for `delete_task`)
 - `error`: Error occurred during processing
 
@@ -285,6 +297,12 @@ eventSource.addEventListener('tool_result', (event) => {
   console.log('Tool Result:', JSON.parse(event.data));
 });
 
+eventSource.addEventListener('text_chunk', (event) => {
+  const { content, messageId } = JSON.parse(event.data).data;
+  console.log('Text Chunk:', content);
+  // Append to UI message with messageId
+});
+
 eventSource.addEventListener('awaiting_approval', async (event) => {
   console.log('Approval Required:', JSON.parse(event.data));
 
@@ -339,18 +357,39 @@ The `StreamManager` class manages active SSE sessions:
 
 ## Agent Processing
 
-The `processAgent` function in [agent.ts](src/routes/agent.ts) orchestrates the agent execution loop:
+The `processAgent` function in [agent.ts](src/routes/agent.ts) orchestrates the multi-turn conversation flow:
 
-1. **Load Thread**: Retrieve current Thread state from Redis
-2. **Generate Tool Call**: Use LLMAgentReducer to generate next tool call
-3. **Stream Event**: Send `tool_call` event via SSE
-4. **Check Terminal Conditions**:
-   - Break if `done_for_now` or `request_more_information`
-   - Break if `delete_task` (awaiting approval)
-5. **Execute Tool**: Use NotionToolExecutor to execute tool
-6. **Stream Result**: Send `tool_result` event via SSE
-7. **Update State**: Apply reducer and save to Redis
-8. **Repeat**: Continue loop until terminal condition or max iterations (50)
+### Multi-turn Conversation Flow
+
+The agent uses a **two-turn approach** for optimal user experience:
+
+**Turn 1: Tool Call Detection and Execution (Non-streaming)**
+1. Load Thread state from Redis
+2. Generate next tool call using `LLMAgentReducer.generateNextToolCall()`
+3. Send `tool_call` event via SSE
+4. Check terminal conditions:
+   - If `done_for_now` or `request_more_information`: Generate streaming explanation and complete
+   - If `delete_task`: Send `awaiting_approval` event and wait for user response
+   - Otherwise: Execute tool via `NotionToolExecutor`
+5. Send `tool_result` event via SSE
+6. Update Thread state in Redis
+
+**Turn 2: Explanation Generation (Streaming)**
+7. Generate natural language explanation using `LLMAgentReducer.generateExplanationWithStreaming()`
+8. Stream text tokens in real-time via `text_chunk` events
+9. Complete conversation
+
+### SSE Connection Management
+
+- **Dynamic Polling**: Wait for SSE connection with 2-second timeout and 100ms polling interval
+- **Connection Confirmation**: Send `connected` event when SSE session is ready
+- **Graceful Degradation**: Continue processing even if SSE connection times out (with warning)
+
+### Iteration Control
+
+- **Max Iterations**: 50 iterations to prevent infinite loops
+- **Error Handling**: Comprehensive try-catch blocks with detailed error logging
+- **State Persistence**: Thread state saved to Redis after each event
 
 ## Error Handling
 

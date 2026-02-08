@@ -17,8 +17,8 @@ import type OpenAI from 'openai';
  * - update_task: Update an existing task
  * - delete_task: Delete a task (requires human approval)
  * - get_task_details: Get detailed information about a specific task
- * - request_more_information: Request additional information from the user
- * - done_for_now: Complete conversation with natural response
+ * - done_for_now: Complete conversation with streaming response
+ * - request_more_information: Request additional information with streaming response
  */
 export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
   {
@@ -109,19 +109,6 @@ export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
   },
   {
     type: 'function',
-    name: 'request_more_information',
-    description: 'Request more information from the user',
-    strict: null,
-    parameters: {
-      type: 'object',
-      properties: {
-        message: { type: 'string', description: 'Message to request more information' },
-      },
-      required: ['message'],
-    },
-  },
-  {
-    type: 'function',
     name: 'delete_task',
     description: 'Delete a task from the GTD system',
     strict: null,
@@ -183,19 +170,24 @@ export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
   },
   {
     type: 'function',
-    name: 'done_for_now',
-    description:
-      'Complete conversation with natural response for now, return the result of the tool you used',
+    name: 'request_more_information',
+    description: 'Use ONLY when you need additional information from the user to complete their request. Do not use for simple greetings or acknowledgments.',
     strict: null,
     parameters: {
       type: 'object',
-      properties: {
-        message: {
-          type: 'string',
-          description: 'Natural language response to user',
-        },
-      },
-      required: ['message'],
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'done_for_now',
+    description: 'Use when you have completed the user\'s request or when responding to simple queries, greetings, or acknowledgments that do not require tool execution.',
+    strict: null,
+    parameters: {
+      type: 'object',
+      properties: {},
+      required: [],
     },
   },
 ];

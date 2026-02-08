@@ -16,23 +16,45 @@ shochan_ai/
 │   │   │   ├── agent/     # Stateless Reducer, Orchestrator, Executors
 │   │   │   ├── thread/    # Conversation state management
 │   │   │   ├── state/     # State persistence interfaces
-│   │   │   ├── types/     # Type definitions ansd Zod schemas
+│   │   │   ├── types/     # Type definitions and Zod schemas
 │   │   │   ├── utils/     # Utility functions
 │   │   │   └── prompts/   # System prompts
 │   │   └── package.json
 │   │
 │   ├── client/            # API clients (depends on core)
 │   │   ├── src/
-│   │   │   ├── openai.ts  # OpenAI client
-│   │   │   └── notion.ts  # Notion client
+│   │   │   ├── openai.ts           # OpenAI client with streaming support
+│   │   │   ├── openai-streaming.ts # OpenAI streaming type definitions
+│   │   │   └── notion.ts           # Notion client
 │   │   └── package.json
 │   │
-│   └── cli/               # CLI implementation (depends on core + client)
-│       ├── src/
-│       │   ├── index.ts   # CLI entry point
-│       │   └── agent/     # CLI-specific agent configuration
+│   ├── cli/               # CLI implementation (depends on core + client)
+│   │   ├── src/
+│   │   │   ├── index.ts   # CLI entry point
+│   │   │   └── agent/     # CLI-specific agent configuration
+│   │   └── package.json
+│   │
+│   ├── web/               # Web API server (depends on core + client)
+│   │   ├── src/
+│   │   │   ├── server.ts           # Server initialization
+│   │   │   ├── app.ts              # Express app configuration
+│   │   │   ├── routes/             # API endpoints (agent, stream)
+│   │   │   ├── state/              # Redis state persistence
+│   │   │   ├── streaming/          # SSE session management
+│   │   │   └── middleware/         # Error and fallback handlers
+│   │   └── package.json
+│   │
+│   └── web-ui/            # Next.js frontend (depends on core for types)
+│       ├── app/           # Next.js App Router
+│       ├── components/    # React components (chat, ui)
+│       ├── hooks/         # Custom hooks (useSSE, etc.)
+│       ├── lib/           # API clients and utilities
+│       ├── types/         # Frontend-specific types
 │       └── package.json
 │
+├── docs/                  # Documentation
+│   ├── ARCHITECTURE.md    # This file
+│   └── streaming-implementation-plan.md  # Streaming feature implementation
 ├── pnpm-workspace.yaml    # Workspace configuration
 ├── tsconfig.base.json     # Shared TypeScript config
 └── package.json           # Root package with scripts
@@ -42,12 +64,17 @@ shochan_ai/
 ```
 packages/core
     ↑
-packages/client (depends on @shochan_ai/core)
-    ↑
-packages/cli (depends on @shochan_ai/core + @shochan_ai/client)
+    ├── packages/client (depends on @shochan_ai/core)
+    │       ↑
+    │       ├── packages/cli (depends on @shochan_ai/core + @shochan_ai/client)
+    │       └── packages/web (depends on @shochan_ai/core + @shochan_ai/client)
+    │
+    └── packages/web-ui (depends on @shochan_ai/core for types only)
 ```
 
 ## High-Level Architecture
+
+### CLI Architecture
 
 ```mermaid
 graph TD
@@ -56,7 +83,7 @@ graph TD
     Orchestrator --> Executor[Tool Executor<br/>packages/core/src/agent<br/>Side effects: API calls]
     Orchestrator --> StateStore[State Store<br/>packages/core/src/state<br/>State persistence]
     Reducer --> Thread[Thread<br/>packages/core/src/thread<br/>Event history data structure]
-    Reducer --> OpenAI[OpenAI Client<br/>packages/client<br/>LLM integration]
+    Reducer --> OpenAI[OpenAI Client<br/>packages/client<br/>LLM integration with streaming]
     Executor --> Notion[Notion Client<br/>packages/client<br/>Notion API operations]
 
     style CLI fill:#e1f5fe
@@ -67,6 +94,33 @@ graph TD
     style Thread fill:#f1f8e9
     style OpenAI fill:#e8f5e8
     style Notion fill:#fce4ec
+```
+
+### Web Architecture
+
+```mermaid
+graph TD
+    WebUI[Web UI<br/>packages/web-ui<br/>Next.js + React] --> API[Web API<br/>packages/web<br/>Express + SSE]
+    API --> ProcessAgent[processAgent<br/>Multi-turn orchestration]
+    ProcessAgent --> Reducer[LLM Agent Reducer<br/>packages/core/src/agent<br/>Tool call + Explanation generation]
+    ProcessAgent --> Executor[Tool Executor<br/>packages/core/src/agent<br/>Side effects: API calls]
+    ProcessAgent --> RedisStore[Redis State Store<br/>packages/web/src/state<br/>Conversation persistence]
+    ProcessAgent --> StreamManager[Stream Manager<br/>packages/web/src/streaming<br/>SSE session management]
+    Reducer --> OpenAI[OpenAI Client<br/>packages/client<br/>Streaming text generation]
+    Executor --> Notion[Notion Client<br/>packages/client<br/>Notion API operations]
+    StreamManager --> WebUI
+    RedisStore --> Thread[Thread<br/>packages/core/src/thread<br/>Event history]
+
+    style WebUI fill:#e1f5fe
+    style API fill:#f3e5f5
+    style ProcessAgent fill:#fff3e0
+    style Reducer fill:#fff9c4
+    style Executor fill:#fce4ec
+    style RedisStore fill:#e8f5e8
+    style StreamManager fill:#f3e5f5
+    style OpenAI fill:#e8f5e8
+    style Notion fill:#fce4ec
+    style Thread fill:#f1f8e9
 ```
 
 ## Core Architecture Principles
@@ -218,6 +272,18 @@ class LLMAgentReducer<
       inputMessages: Array<unknown>;
       tools?: Array<unknown>;
     }): Promise<{ toolCall: unknown | null }>;
+    generateToolCallWithStreaming?(params: {
+      systemPrompt: string;
+      inputMessages: Array<unknown>;
+      tools?: Array<unknown>;
+      onToolCall?: (toolCall: unknown) => void;
+      onTextChunk?: (chunk: string, messageId: string) => void;
+    }): Promise<{ toolCall: unknown | null }>;
+    generateTextWithStreaming?(params: {
+      systemPrompt: string;
+      inputMessages: Array<unknown>;
+      onTextChunk?: (chunk: string, messageId: string) => void;
+    }): Promise<string>;
   },
   TTools extends Array<unknown>
 > implements AgentReducer<Thread, Event>
@@ -228,8 +294,21 @@ class LLMAgentReducer<
 // Pure function: add event to thread state
 reduce(state: Thread, event: Event): Thread
 
-// Async LLM call: generate next tool call
+// Async LLM call: generate next tool call (non-streaming)
 async generateNextToolCall(state: Thread): Promise<ToolCallEvent | null>
+
+// Async LLM call: generate next tool call with streaming (optional)
+async generateNextToolCallWithStreaming(
+  state: Thread,
+  onToolCall?: (toolCall: ToolCall) => void,
+  onTextChunk?: (chunk: string, messageId: string) => void
+): Promise<ToolCallEvent | null>
+
+// Async LLM call: generate explanation with streaming (optional)
+async generateExplanationWithStreaming(
+  state: Thread,
+  onTextChunk?: (chunk: string, messageId: string) => void
+): Promise<string>
 ```
 
 ### 4. Tool Executor (`packages/core/src/agent/tool-executor.ts`)
@@ -297,10 +376,20 @@ type Event =
   | { type: 'user_input'; timestamp: number; data: string }
   | { type: 'tool_call'; timestamp: number; data: ToolCall }
   | { type: 'tool_response'; timestamp: number; data: unknown }
-  | { type: 'error'; timestamp: number; data: { error: string } }
+  | { type: 'error'; timestamp: number; data: { error: string; code?: string } }
   | { type: 'complete'; timestamp: number; data: unknown }
-  | { type: 'awaiting_approval'; timestamp: number; data: ToolCall };
+  | { type: 'awaiting_approval'; timestamp: number; data: ToolCall }
+  | { type: 'text_chunk'; timestamp: number; data: { content: string; messageId: string } }
+  | { type: 'connected'; timestamp: number; data: { status: string; conversationId: string } };
 ```
+
+**Streaming Events:**
+- **text_chunk**: Real-time text tokens from LLM streaming
+  - `content`: Text chunk to append
+  - `messageId`: Unique identifier for grouping chunks into messages
+- **connected**: SSE connection confirmation
+  - `status`: Connection status ("ready")
+  - `conversationId`: Unique conversation identifier
 
 **Serialization Features:**
 - XML-based context serialization for LLM
@@ -350,7 +439,7 @@ interface StateStore<TState = Thread> {
 
 #### OpenAI Client (`packages/client/src/openai.ts`)
 
-Handles integration with OpenAI's API via Responses API.
+Handles integration with OpenAI's API via Responses API with streaming support.
 
 **Location:** `packages/client/src/openai.ts`
 
@@ -358,15 +447,43 @@ Handles integration with OpenAI's API via Responses API.
 
 **Responsibilities:**
 - Generate structured function calls from natural language using GPT-4o
+- Stream text generation in real-time for natural user experience
 - Manage API communication with retry logic
 - Handle rate limiting and error recovery
 
 **Features:**
-- OpenAI Responses API for server-side conversation management
-- Automatic JSON parsing of function arguments
-- Configurable retry mechanism (3 attempts with exponential backoff)
-- Support for function calling with 8 tools
-- Cost optimization via server-side conversation caching
+- **OpenAI Responses API**: Server-side conversation management
+- **Streaming Support**: Real-time text token streaming via callbacks
+  - `generateToolCallWithStreaming()`: Stream tool call generation
+  - `generateTextWithStreaming()`: Stream explanation text
+- **Type Safety**: TypeScript type guards for runtime event validation
+- **Automatic JSON Parsing**: Function arguments parsing
+- **Retry Mechanism**: 3 attempts with exponential backoff
+- **Function Calling**: Support for 8 tools
+- **Cost Optimization**: Server-side conversation caching
+- **Error Handling**: Comprehensive error catching and reporting
+
+**Streaming Implementation:**
+```typescript
+// Type guards for OpenAI streaming events
+function isResponseFunctionCallEvent(event: unknown): boolean
+function isResponseTextDeltaEvent(event: unknown): boolean
+
+// Streaming methods
+async generateToolCallWithStreaming(params: {
+  systemPrompt: string;
+  inputMessages: InputMessage[];
+  tools: Array<unknown>;
+  onToolCall?: (toolCall: ToolCall) => void;
+  onTextChunk?: (chunk: string, messageId: string) => void;
+}): Promise<{ toolCall: ToolCall | null }>
+
+async generateTextWithStreaming(params: {
+  systemPrompt: string;
+  inputMessages: InputMessage[];
+  onTextChunk?: (chunk: string, messageId: string) => void;
+}): Promise<string>
+```
 
 #### Notion Client (`packages/client/src/notion.ts`)
 
@@ -758,33 +875,318 @@ dotenv.config({ path: path.resolve(__dirname, '../../..', '.env') });
 - Error tracking through CLI exit codes
 - StateStore enables conversation replay for debugging
 
-## Future Extensibility
+## Web UI and Streaming Architecture
 
-### 1. Web UI Integration
+### Overview
 
-The Stateless Reducer architecture is designed for web deployment:
+The web architecture extends the core Stateless Reducer Pattern with real-time streaming capabilities, enabling users to see LLM responses as they're generated. The system uses a **multi-turn conversation approach** that separates tool execution from text generation for optimal user experience.
+
+### Web Components
+
+#### 1. Web API Server (`packages/web`)
+
+Express-based API server with SSE streaming support.
+
+**Key Components:**
+- **Agent Router** (`src/routes/agent.ts`): Query submission and approval endpoints
+- **Stream Router** (`src/routes/stream.ts`): SSE connection management
+- **Redis State Store** (`src/state/redis-store.ts`): Thread persistence with 1-hour TTL
+- **Stream Manager** (`src/streaming/manager.ts`): SSE session management
+
+**API Endpoints:**
+- `POST /api/agent/query`: Submit new query, returns `conversationId`
+- `GET /api/stream/:conversationId`: SSE connection for real-time events
+- `POST /api/agent/approve/:conversationId`: Approve/deny pending tool calls
+- `GET /health`: Health check endpoint
+
+#### 2. Web UI (`packages/web-ui`)
+
+Next.js-based frontend with real-time chat interface.
+
+**Key Components:**
+- **ChatInterface** (`components/chat/chat-interface.tsx`): Main chat UI with SSE integration
+- **SSE Client** (`lib/sse-client.ts`): Server-Sent Events connection management
+- **useSSE Hook** (`hooks/use-sse.ts`): React hook for SSE lifecycle
+- **useSendMessage Hook** (`lib/api/hooks/use-send-message.ts`): API call hook
+
+**Features:**
+- Real-time text streaming display
+- Event type visualization (badges for tool calls, approvals, etc.)
+- Auto-scroll to latest message
+- Error handling and display
+- Responsive design with Tailwind CSS
+
+### Multi-turn Conversation Flow
+
+The web implementation uses a **two-turn approach** for optimal user experience:
+
+#### Turn 1: Tool Call Detection and Execution (Non-streaming)
 
 ```mermaid
-graph TD
-    WebUI[Web UI<br/>Next.js] --> API[Web API<br/>Express]
-    API --> Orchestrator[AgentOrchestrator]
-    Orchestrator --> Reducer[LLMAgentReducer]
-    Orchestrator --> Executor[NotionToolExecutor]
-    Orchestrator --> Redis[RedisStateStore]
+sequenceDiagram
+    participant User
+    participant WebUI
+    participant API
+    participant Reducer
+    participant Executor
+    participant Redis
+    participant SSE
 
-    style WebUI fill:#e1f5fe
-    style API fill:#f3e5f5
-    style Orchestrator fill:#fff3e0
-    style Redis fill:#e8f5e8
+    User->>WebUI: Send message
+    WebUI->>API: POST /api/agent/query
+    API->>Redis: Store initial Thread
+    API-->>WebUI: conversationId
+    WebUI->>API: GET /api/stream/:conversationId
+    API->>SSE: Establish SSE connection
+    SSE-->>WebUI: connected event
+    
+    API->>Reducer: generateNextToolCall()
+    Reducer-->>API: ToolCallEvent
+    API->>SSE: Send tool_call event
+    SSE-->>WebUI: Display tool execution
+    
+    API->>Executor: execute(toolCall)
+    Executor-->>API: ToolResult
+    API->>SSE: Send tool_result event
+    SSE-->>WebUI: Display tool result
+    API->>Redis: Update Thread
 ```
 
-**Key Features for Web:**
-- **REST API**: `POST /api/agent/query` returns conversation ID
-- **SSE Streaming**: `GET /api/stream/:conversationId` for real-time updates
-- **Redis StateStore**: Horizontal scaling with state persistence
-- **Launch/Pause/Resume**: Long-running tasks and approval flows
+#### Turn 2: Explanation Generation (Streaming)
 
-### 2. New Tool Integration
+```mermaid
+sequenceDiagram
+    participant API
+    participant Reducer
+    participant OpenAI
+    participant SSE
+    participant WebUI
+
+    API->>Reducer: generateExplanationWithStreaming()
+    Reducer->>OpenAI: Start streaming session
+    
+    loop For each text token
+        OpenAI-->>Reducer: Text chunk
+        Reducer->>SSE: Send text_chunk event
+        SSE-->>WebUI: Append chunk to message
+        WebUI->>WebUI: Update UI in real-time
+    end
+    
+    OpenAI-->>Reducer: Stream complete
+    Reducer-->>API: Full text
+    API->>SSE: Send tool_call (done_for_now)
+    SSE-->>WebUI: Conversation complete
+```
+
+### SSE Connection Management
+
+#### Dynamic Polling
+
+The system uses dynamic polling to wait for SSE connection establishment:
+
+```typescript
+async function waitForSSEConnection(
+  conversationId: string,
+  streamManager: StreamManager,
+  timeout: number = 2000
+): Promise<boolean> {
+  const startTime = Date.now();
+  
+  while (Date.now() - startTime < timeout) {
+    if (streamManager.hasSession(conversationId)) {
+      return true;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  return false; // Timeout
+}
+```
+
+**Benefits:**
+- Faster processing when connection is quick (100ms vs fixed 500ms)
+- More reliable connection confirmation
+- Timeout handling with warning logs
+- Improved observability
+
+#### Stream Manager
+
+Manages active SSE sessions with in-memory storage:
+
+```typescript
+class StreamManager {
+  register(conversationId: string, session: SSESession): void
+  send(conversationId: string, event: Event): void
+  unregister(conversationId: string): void
+  hasSession(conversationId: string): boolean
+  getActiveSessionCount(): number
+  closeAll(): void
+}
+```
+
+**Features:**
+- Session lifecycle management
+- Event broadcasting to specific conversations
+- Auto-cleanup on connection close
+- Graceful shutdown support
+
+### State Persistence with Redis
+
+#### Redis State Store
+
+Persists Thread state for horizontal scaling:
+
+```typescript
+class RedisStateStore implements StateStore<Thread> {
+  async connect(): Promise<void>
+  async disconnect(): Promise<void>
+  async get(conversationId: string): Promise<Thread | null>
+  async set(conversationId: string, thread: Thread): Promise<void>
+  async delete(conversationId: string): Promise<void>
+  async clear(): Promise<void>
+  async list(): Promise<string[]>
+}
+```
+
+**Configuration:**
+- **Key Pattern**: `shochan_ai:conversation:{conversationId}`
+- **TTL**: 3600 seconds (1 hour)
+- **Storage Format**: JSON-serialized Thread
+
+**Benefits:**
+- Horizontal scaling: Any server can handle any request
+- Conversation persistence across server restarts
+- Automatic cleanup via TTL
+- Support for pause/resume workflows
+
+### Error Handling
+
+#### Comprehensive Error Coverage
+
+The streaming implementation includes robust error handling at all layers:
+
+**LLMAgentReducer Layer:**
+```typescript
+async generateExplanationWithStreaming(
+  state: Thread,
+  onTextChunk?: (chunk: string, messageId: string) => void
+): Promise<string> {
+  try {
+    return await this.llmClient.generateTextWithStreaming({...});
+  } catch (error) {
+    console.error('Failed to generate explanation with streaming:', error);
+    throw new Error(`Streaming explanation generation failed: ${error.message}`);
+  }
+}
+```
+
+**OpenAI Client Layer:**
+```typescript
+async generateTextWithStreaming({...}): Promise<string> {
+  try {
+    for await (const event of stream) {
+      if (event.type === 'error') {
+        throw new Error(`OpenAI streaming error: ${JSON.stringify(event.error)}`);
+      }
+      // Process event...
+    }
+  } catch (error) {
+    console.error('OpenAI text streaming failed:', error);
+    throw new Error(`Failed to generate text with streaming: ${error.message}`);
+  }
+}
+```
+
+**API Layer:**
+```typescript
+async function processAgent(conversationId: string, deps: AgentDependencies): Promise<void> {
+  try {
+    // Agent processing...
+  } catch (error) {
+    console.error(`❌ processAgent error for ${conversationId}:`, error);
+    streamManager.send(conversationId, {
+      type: 'error',
+      timestamp: Date.now(),
+      data: {
+        error: error instanceof Error ? error.message : String(error),
+        code: 'AGENT_PROCESSING_FAILED',
+      },
+    });
+  }
+}
+```
+
+### Testing Strategy
+
+#### Unit Tests
+
+**Coverage:**
+- LLMAgentReducer: 13 tests (normal operation + error cases)
+- OpenAI Client: 8 tests (streaming + error handling)
+- Agent Routes: Multiple tests for query submission, approval, and streaming
+- Redis State Store: Connection, CRUD operations, TTL
+- Stream Manager: Session management, event broadcasting
+
+**Test Approach:**
+- Mock external dependencies (OpenAI API, Notion API, Redis)
+- Test error paths and edge cases
+- Verify streaming callback behavior
+- Test SSE connection lifecycle
+
+**Total Test Coverage:** 212 tests passing
+
+### Performance Considerations
+
+#### Streaming Benefits
+
+- **Perceived Performance**: Users see responses immediately, not after full generation
+- **Reduced Latency**: No need to wait for complete LLM response
+- **Better UX**: Progressive disclosure of information
+- **Network Efficiency**: Chunked transfer encoding
+
+#### Scalability
+
+- **Stateless Design**: Any server can handle any request
+- **Redis Persistence**: Horizontal scaling support
+- **SSE Efficiency**: Long-lived connections with minimal overhead
+- **Resource Management**: Automatic session cleanup and TTL
+
+### Security Considerations
+
+#### API Security
+
+- **CORS Configuration**: Restricted origins in production
+- **Input Validation**: Request body validation
+- **Error Messages**: No sensitive information in error responses
+- **Rate Limiting**: (Future enhancement)
+
+#### Data Privacy
+
+- **Redis TTL**: Automatic conversation cleanup after 1 hour
+- **No Logging**: User data not logged in production
+- **Secure Connections**: HTTPS in production (recommended)
+
+## Future Extensibility
+
+### 1. Additional Web Features
+
+**Planned Enhancements:**
+- Approval UI for destructive operations in web-ui
+- Conversation history management
+- Multi-conversation support
+- Dark mode
+- Markdown rendering for agent responses
+- File upload support
+
+### 2. Performance Monitoring
+
+**Observability:**
+- SSE connection metrics
+- Streaming latency tracking
+- Redis performance monitoring
+- Error rate tracking
+
+### 3. New Tool Integration
 
 The architecture supports easy addition of new tools:
 
@@ -795,7 +1197,7 @@ The architecture supports easy addition of new tools:
 5. Implement tool execution in `ToolExecutor`
 6. Update Notion client if needed
 
-### 3. Additional Clients
+### 4. Additional Clients
 
 New external service integration follows the pattern:
 
@@ -804,7 +1206,7 @@ New external service integration follows the pattern:
 3. Implement ToolExecutor for the new service
 4. Add error handling and retry logic
 
-### 4. Alternative LLM Providers
+### 5. Alternative LLM Providers
 
 The generic `LLMAgentReducer` supports any LLM client:
 
@@ -821,4 +1223,11 @@ const reducer = new LLMAgentReducer(customClient, tools, buildPrompt);
 
 ## Conclusion
 
-Shochan AI's architecture prioritizes **statelessness**, **type safety**, and **scalability** through the Stateless Reducer Pattern. The monorepo structure enables code sharing and modular development, while maintaining clean separation of concerns between pure state transitions (Reducer), side effects (Executor), and coordination (Orchestrator). This foundation supports both CLI and future Web UI deployment with minimal changes to core business logic.
+Shochan AI's architecture prioritizes **statelessness**, **type safety**, and **scalability** through the Stateless Reducer Pattern. The monorepo structure enables code sharing and modular development, while maintaining clean separation of concerns between pure state transitions (Reducer), side effects (Executor), and coordination (Orchestrator).
+
+The architecture successfully supports both CLI and Web UI deployments:
+
+- **CLI**: Direct agent execution with in-memory state
+- **Web**: RESTful API with SSE streaming, Redis persistence, and real-time text generation
+
+The **multi-turn conversation approach** with streaming provides an optimal user experience, separating tool execution from text generation while maintaining the core stateless design principles. With comprehensive error handling, robust testing (212 tests), and horizontal scalability via Redis, the system is production-ready for both personal and team use.

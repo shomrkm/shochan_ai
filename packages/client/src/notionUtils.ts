@@ -6,6 +6,8 @@ import type {
   NotionUpdatePageParams,
 } from '@shochan_ai/core';
 
+type NotionPropertyUpdates = NotionUpdatePageParams['properties'];
+
 export function buildTaskCreatePageParams(args: BuildTaskPageParamsArgs): NotionCreatePageParams {
   const { databaseId, title, description, task_type, scheduled_date, project_id } = args;
 
@@ -139,7 +141,7 @@ export function buildTaskUpdatePageParams(
 ): NotionUpdatePageParams {
   const { pageId, title, task_type, scheduled_date, project_id, is_archived } = args;
 
-  const properties: Record<string, any> = {};
+  const properties: NotionPropertyUpdates = {};
 
   if (title !== undefined) {
     properties.Name = {

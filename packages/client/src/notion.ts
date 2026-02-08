@@ -1,4 +1,5 @@
 import { Client } from '@notionhq/client';
+import type { UpdatePageParameters } from '@notionhq/client/build/src/api-endpoints';
 import type { ToolCall } from '@shochan_ai/core';
 import {
   buildProjectCreatePageParams,
@@ -221,7 +222,7 @@ export class NotionClient {
         is_archived,
       });
 
-      const response = await this.client.pages.update(params);
+      const response = await this.client.pages.update(params as UpdatePageParameters);
 
       if (!this.taskParser.isFullPageResponse(response)) {
         throw new Error(

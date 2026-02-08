@@ -10,6 +10,8 @@ export type {
 	ErrorEvent,
 	AwaitingApprovalEvent,
 	CompleteEvent,
+	TextChunkEvent,
+	ConnectedEvent,
 } from './types/event';
 export {
 	isUserInputEvent,
@@ -18,6 +20,8 @@ export {
 	isErrorEvent,
 	isAwaitingApprovalEvent,
 	isCompleteEvent,
+	isTextChunkEvent,
+	isConnectedEvent,
 } from './types/event';
 export type {
   ToolCall,

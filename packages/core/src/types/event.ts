@@ -57,6 +57,30 @@ export interface CompleteEvent extends BaseEvent<'complete'> {
 }
 
 /**
+ * Text chunk event - streams text tokens in real-time
+ * Used for streaming agent responses after tool execution (Multi-turn approach)
+ */
+export interface TextChunkEvent extends BaseEvent<'text_chunk'> {
+	data: {
+		/** テキストチャンク（1トークン分または複数トークン） */
+		content: string;
+		/** メッセージID（同一メッセージのチャンクを識別） */
+		messageId: string;
+	};
+}
+
+/**
+ * Connected event - indicates SSE connection is ready
+ * Sent when processAgent starts to confirm SSE connection is established
+ */
+export interface ConnectedEvent extends BaseEvent<'connected'> {
+	data: {
+		status: 'ready';
+		conversationId: string;
+	};
+}
+
+/**
  * Discriminated union of all event types
  * TypeScript will automatically narrow the type based on the 'type' field
  */
@@ -66,7 +90,9 @@ export type Event =
 	| ToolResponseEvent
 	| ErrorEvent
 	| AwaitingApprovalEvent
-	| CompleteEvent;
+	| CompleteEvent
+	| TextChunkEvent
+	| ConnectedEvent;
 
 /**
  * Type guard to check if an event is a user input event
@@ -110,4 +136,18 @@ export function isAwaitingApprovalEvent(
  */
 export function isCompleteEvent(event: Event): event is CompleteEvent {
 	return event.type === 'complete';
+}
+
+/**
+ * Type guard to check if an event is a text chunk event
+ */
+export function isTextChunkEvent(event: Event): event is TextChunkEvent {
+	return event.type === 'text_chunk';
+}
+
+/**
+ * Type guard to check if an event is a connected event
+ */
+export function isConnectedEvent(event: Event): event is ConnectedEvent {
+	return event.type === 'connected';
 }
