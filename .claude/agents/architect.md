@@ -131,10 +131,11 @@ Read CLAUDE.md
 [High-level description]
 
 ## Architecture Diagram
-```
-[Component A] → [Component B] → [Component C]
-     ↓
-[Component D]
+```mermaid
+graph LR
+    A[Component A] --> B[Component B]
+    B --> C[Component C]
+    A --> D[Component D]
 ```
 
 ## Components
@@ -393,6 +394,7 @@ events.emit('task:created', newTask);
 
 ### Current Architecture
 
+**Package Structure:**
 ```
 shochan_ai/
 ├── packages/
@@ -417,6 +419,27 @@ shochan_ai/
 │       ├── app/        # App Router pages
 │       ├── components/ # React components
 │       └── hooks/      # Custom hooks
+```
+
+**Dependency Graph:**
+```mermaid
+graph TD
+    Core[core<br/>Business logic, types, orchestration]
+    Client[client<br/>OpenAI & Notion integration]
+    CLI[cli<br/>Command-line interface]
+    Web[web<br/>REST API server]
+    WebUI[web-ui<br/>Next.js frontend]
+
+    Core --> Client
+    Client --> CLI
+    Client --> Web
+    Web -.HTTP API.-> WebUI
+
+    style Core fill:#e1f5ff
+    style Client fill:#fff4e1
+    style CLI fill:#e8f5e9
+    style Web fill:#fff3e0
+    style WebUI fill:#f3e5f5
 ```
 
 ### Key Architectural Decisions
@@ -534,7 +557,7 @@ You should activate when you see:
 ## Output Format
 
 Provide:
-1. **Architecture Diagram** (text-based)
+1. **Architecture Diagram** (use mermaid format for visual clarity)
 2. **Component Descriptions**
 3. **Technology Choices with Justification**
 4. **Trade-off Analysis**
