@@ -21,8 +21,8 @@ export function MessageInput({ onSend, disabled = false }: MessageInputProps) {
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // Send message on Enter (without Shift)
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Send message on Enter (without Shift), but not during IME composition
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSend()
     }
