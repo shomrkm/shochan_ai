@@ -5,40 +5,39 @@ description: Runs tests for specific packages or all packages with coverage repo
 
 # Testing Packages
 
-## Quick Start
+## Workflow
+
+Copy this checklist and track progress:
+
+```
+Test Progress:
+- [ ] Step 1: Build packages
+- [ ] Step 2: Run tests
+- [ ] Step 3: Check coverage (if requested)
+- [ ] Step 4: Report results
+```
+
+### Step 1: Build Packages
+
+Tests may depend on built artifacts:
+```bash
+pnpm build
+```
+
+### Step 2: Run Tests
 
 ```bash
-# Test all packages (build first)
-pnpm build && pnpm test
+# All packages
+pnpm test
 
-# Test specific package
+# Specific package
 pnpm --filter @shochan_ai/core test
-
-# Test with coverage
-pnpm test -- --coverage
 
 # Watch mode
 pnpm --filter @shochan_ai/web-ui test:watch
 ```
 
-## Workflow
-
-1. Build packages (tests may depend on built artifacts)
-2. Run tests for target package(s)
-3. Report results with pass/fail counts
-4. If `--coverage` requested, verify 80% minimum threshold
-
-## Package-Specific Commands
-
-```bash
-pnpm --filter @shochan_ai/core test
-pnpm --filter @shochan_ai/client test
-pnpm --filter @shochan_ai/cli test
-pnpm --filter @shochan_ai/web test
-pnpm --filter @shochan_ai/web-ui test
-```
-
-## Coverage Requirements
+### Step 3: Check Coverage
 
 Project requires **80% minimum** across statements, branches, functions, and lines.
 
@@ -49,6 +48,10 @@ pnpm test -- --coverage
 # View HTML report
 open coverage/index.html
 ```
+
+### Step 4: Report Results
+
+Report pass/fail counts and coverage percentages (if requested)
 
 ## Common Failures and Fixes
 
@@ -70,15 +73,6 @@ await waitFor(() => {
   expect(result.current.data).toBeDefined();
 }, { timeout: 10000 });
 ```
-
-## Report Format
-
-After running tests, provide a summary:
-- Package name
-- Tests passed / failed / total
-- Coverage percentages (if requested)
-- Specific failure details with file paths and line numbers
-- Recommended fixes for failures
 
 ## Related
 

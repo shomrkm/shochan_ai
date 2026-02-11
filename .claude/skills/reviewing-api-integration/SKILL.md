@@ -56,7 +56,7 @@ Use Task tool with subagent_type="api-integration-reviewer"
 
 ### Step 4: Generate Report
 
-See [REPORT-FORMAT.md](REPORT-FORMAT.md) for success/failure report templates.
+See [REPORT-FORMAT.md](references/REPORT-FORMAT.md) for success/failure report templates.
 
 ## Review Checklist
 

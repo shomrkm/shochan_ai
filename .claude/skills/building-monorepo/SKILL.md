@@ -38,7 +38,7 @@ Build order (automatic via pnpm):
 ### Step 3: Verify TypeScript Compilation
 
 ```bash
-npx tsc --noEmit
+pnpm dlx tsc --noEmit
 ```
 
 ### Step 4: Check Build Artifacts
@@ -52,8 +52,6 @@ ls packages/web-ui/.next
 ```
 
 ## Common Build Errors
-
-**Type errors**: Run `npx tsc --noEmit`, fix the types, rebuild.
 
 **"Cannot find module '@shochan_ai/core'"**: Check `package.json` dependencies, run `pnpm install`, then rebuild.
 
@@ -69,13 +67,6 @@ After successful build, consider running:
 pnpm test       # Run all tests
 pnpm check      # Format and lint check
 ```
-
-## Report Format
-
-Report build results as:
-- Per-package build status (success/failure)
-- TypeScript compilation result
-- Any errors with specific file/line references and recommended fixes
 
 ## Related
 
