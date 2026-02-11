@@ -1,6 +1,7 @@
 import type { Message } from '@/types/chat'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { MarkdownContent } from './markdown-content'
 
 interface MessageListProps {
   messages: Message[]
@@ -43,9 +44,13 @@ export function MessageList({ messages, className }: MessageListProps) {
                       ? 'Agent'
                       : 'System'}
                 </p>
-                <p className="whitespace-pre-wrap wrap-break-word">
-                  {message.content}
-                </p>
+                {message.type === 'agent' ? (
+                  <MarkdownContent content={message.content} />
+                ) : (
+                  <p className="whitespace-pre-wrap wrap-break-word">
+                    {message.content}
+                  </p>
+                )}
                 <p className="text-xs opacity-50 text-right">
                   {new Date(message.timestamp).toLocaleTimeString()}
                 </p>

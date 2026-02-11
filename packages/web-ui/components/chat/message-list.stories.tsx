@@ -101,6 +101,56 @@ export const LongConversation: Story = {
   },
 }
 
+export const WithMarkdown: Story = {
+  args: {
+    messages: [
+      {
+        id: '1',
+        type: 'user',
+        content: 'Can you explain how to use React hooks?',
+        timestamp: Date.now() - 20000,
+      },
+      {
+        id: '2',
+        type: 'agent',
+        content: `# React Hooks Guide
+
+Here are the most commonly used hooks:
+
+## useState
+Use **useState** for managing local state:
+
+\`\`\`typescript
+const [count, setCount] = useState(0);
+\`\`\`
+
+## useEffect
+Use *useEffect* for side effects:
+
+- Fetching data
+- Setting up subscriptions
+- Manually changing the DOM
+
+## Useful Links
+Check the [React documentation](https://react.dev/) for more details.
+
+| Hook | Purpose |
+|------|---------|
+| useState | Local state |
+| useEffect | Side effects |
+| useContext | Context access |
+
+> **Note:** Always follow the [Rules of Hooks](https://react.dev/reference/rules/rules-of-hooks).
+
+---
+
+That's a quick overview! Let me know if you need more details.`,
+        timestamp: Date.now() - 10000,
+      },
+    ],
+  },
+}
+
 export const WithLongText: Story = {
   args: {
     messages: [
