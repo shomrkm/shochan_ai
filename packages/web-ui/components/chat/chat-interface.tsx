@@ -101,7 +101,7 @@ export function ChatInterface() {
         {conversationId && <Badge variant="outline">Connected</Badge>}
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-32 px-4">
+      <div className="flex-1 overflow-y-auto px-4">
         <div className="max-w-4xl mx-auto h-full">
           <MessageList messages={messages} />
         </div>
