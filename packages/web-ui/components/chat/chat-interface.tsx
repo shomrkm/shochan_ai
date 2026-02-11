@@ -103,7 +103,7 @@ export function ChatInterface() {
 
       <div className="flex-1 overflow-y-auto px-4">
         <div className="max-w-4xl mx-auto h-full">
-          <MessageList messages={messages} />
+          <MessageList messages={messages} className="pb-32" />
         </div>
       </div>
 

@@ -1,11 +1,13 @@
 import type { Message } from '@/types/chat'
 import { Card, CardContent } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 interface MessageListProps {
   messages: Message[]
+  className?: string
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, className }: MessageListProps) {
   if (messages.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -15,7 +17,7 @@ export function MessageList({ messages }: MessageListProps) {
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 overflow-y-auto h-full">
+    <div className={cn("flex flex-col gap-4 p-4 overflow-y-auto h-full", className)}>
       {messages.map((message) => (
         <div
           key={message.id}
