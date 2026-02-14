@@ -33,7 +33,12 @@ export function useAutoScroll(deps: unknown[]) {
 
   useEffect(() => {
     if (isNearBottomRef.current) {
-      scrollToBottom();
+      // Wait for DOM updates to complete before scrolling
+      const rafId = requestAnimationFrame(() => {
+        scrollToBottom();
+      });
+      
+      return () => cancelAnimationFrame(rafId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
