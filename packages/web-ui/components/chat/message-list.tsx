@@ -17,7 +17,7 @@ export function MessageList({ messages, className }: MessageListProps) {
   }
 
   return (
-    <div className={cn("flex flex-col gap-4 p-4 overflow-y-auto h-full", className)}>
+    <div className={cn("flex flex-col gap-4 p-4", className)}>
       {messages.map((message) => (
         <div
           key={message.id}

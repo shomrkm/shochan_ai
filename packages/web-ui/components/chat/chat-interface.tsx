@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import type { Message, Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent } from '@/types/chat'
 import { useSendMessage } from '@/lib/api'
 import { useSSE } from '@/hooks/use-sse'
+import { useAutoScroll } from '@/hooks/use-auto-scroll'
 import { MessageList } from './message-list'
 import { MessageInput } from './message-input'
 import { Badge } from '@/components/ui/badge'
@@ -82,6 +83,8 @@ export function ChatInterface() {
 
   useSSE(conversationId, handleSSEEvent)
 
+  const { scrollRef, handleScroll } = useAutoScroll([messages])
+
   const handleSendMessage = (content: string) => {
     const userMessage: Message = {
       id: crypto.randomUUID(),
@@ -101,7 +104,7 @@ export function ChatInterface() {
         {conversationId && <Badge variant="outline">Connected</Badge>}
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4">
+      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4">
         <div className="max-w-4xl mx-auto h-full">
           <MessageList messages={messages} className="pb-32" />
         </div>
