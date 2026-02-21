@@ -58,8 +58,9 @@ describe('MarkdownContent', () => {
 
   it('renders blockquotes', () => {
     render(<MarkdownContent content="> This is a quote" />);
-    expect(screen.getByText('This is a quote')).toBeInTheDocument();
-    expect(screen.getByRole('blockquote')).toBeInTheDocument();
+    const quoteText = screen.getByText('This is a quote');
+    expect(quoteText).toBeInTheDocument();
+    expect(quoteText.closest('blockquote')).not.toBeNull();
   });
 
   it('renders tables (GFM)', () => {
