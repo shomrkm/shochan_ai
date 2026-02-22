@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
 import {
 	Thread,
 	LLMAgentReducer,
@@ -44,14 +45,33 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 				return;
 			}
 
-		const conversationId = randomUUID();
+		const parsedConversationId = z.string().uuid().optional().safeParse(req.body.conversationId);
+		const existingConversationId = parsedConversationId.success ? parsedConversationId.data : undefined;
+
 		const userInputEvent: Event = {
 			type: 'user_input',
 			timestamp: Date.now(),
 			data: message,
 		};
-		const initialThread = new Thread([userInputEvent]);
-		await redisStore.set(conversationId, initialThread);
+
+		let conversationId: string;
+		let thread: Thread;
+
+		if (existingConversationId) {
+			const existingThread = await redisStore.get(existingConversationId);
+			if (existingThread) {
+				conversationId = existingConversationId;
+				thread = new Thread([...existingThread.events, userInputEvent]);
+			} else {
+				conversationId = randomUUID();
+				thread = new Thread([userInputEvent]);
+			}
+		} else {
+			conversationId = randomUUID();
+			thread = new Thread([userInputEvent]);
+		}
+
+		await redisStore.set(conversationId, thread);
       
 		// Start agent processing in background (don't await)
 		processAgent(conversationId, deps).catch((error) => {

@@ -85,6 +85,76 @@ describe('Agent Routes', () => {
 			expect(thread?.events[0].data).toBe('Test message');
 		});
 
+		it('should continue existing conversation when valid conversationId is provided', async () => {
+			mockGenerateNextToolCall.mockResolvedValueOnce(null);
+
+			// Pre-seed an existing conversation in Redis
+			const existingConversationId = 'a1b2c3d4-e5f6-4789-abcd-ef1234567890';
+			const existingThread = new Thread([
+				{ type: 'user_input', timestamp: Date.now(), data: 'Previous message' },
+			]);
+			await redisStore.set(existingConversationId, existingThread);
+
+			const response = await request(app)
+				.post('/api/agent/query')
+				.send({ message: 'Follow-up message', conversationId: existingConversationId })
+				.expect(200);
+
+			// Same conversationId should be returned
+			expect(response.body.conversationId).toBe(existingConversationId);
+
+			await new Promise((resolve) => setTimeout(resolve, 2500));
+
+			const thread = await redisStore.get(existingConversationId);
+			expect(thread).toBeDefined();
+			// Thread should have both the original event and the new user_input
+			expect(thread?.events).toHaveLength(2);
+			expect(thread?.events[0].data).toBe('Previous message');
+			expect(thread?.events[1].data).toBe('Follow-up message');
+		});
+
+		it('should create new conversation when conversationId does not exist in Redis', async () => {
+			mockGenerateNextToolCall.mockResolvedValueOnce(null);
+
+			const unknownConversationId = 'ffffffff-ffff-4fff-bfff-ffffffffffff';
+
+			const response = await request(app)
+				.post('/api/agent/query')
+				.send({ message: 'Test message', conversationId: unknownConversationId })
+				.expect(200);
+
+			// A new conversationId should be generated since the old one wasn't found
+			expect(response.body.conversationId).not.toBe(unknownConversationId);
+			expect(response.body.conversationId).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+			);
+
+			await new Promise((resolve) => setTimeout(resolve, 2500));
+
+			const thread = await redisStore.get(response.body.conversationId);
+			expect(thread?.events).toHaveLength(1);
+			expect(thread?.events[0].data).toBe('Test message');
+		});
+
+		it('should create new conversation when conversationId is not a valid UUID', async () => {
+			mockGenerateNextToolCall.mockResolvedValueOnce(null);
+
+			const response = await request(app)
+				.post('/api/agent/query')
+				.send({ message: 'Test message', conversationId: 'not-a-valid-uuid' })
+				.expect(200);
+
+			// Invalid UUID should be ignored, a new conversation is created
+			expect(response.body.conversationId).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+			);
+
+			await new Promise((resolve) => setTimeout(resolve, 2500));
+
+			const thread = await redisStore.get(response.body.conversationId);
+			expect(thread?.events).toHaveLength(1);
+		});
+
 		it('should return 400 when message is missing', async () => {
 			const response = await request(app)
 				.post('/api/agent/query')

@@ -94,7 +94,7 @@ export function ChatInterface() {
     }
 
     setMessages((prev) => [...prev, userMessage])
-    mutation.mutate(content)
+    mutation.mutate({ message: content, conversationId })
   }
 
   return (
