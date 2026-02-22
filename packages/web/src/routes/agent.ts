@@ -36,7 +36,7 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 	 */
 	router.post('/query', async (req: Request, res: Response) => {
 		try {
-			const { message } = req.body;
+			const { message, conversationId: existingConversationId } = req.body;
 			if (!message || typeof message !== 'string') {
 				res
 					.status(400)
@@ -44,14 +44,30 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 				return;
 			}
 
-		const conversationId = randomUUID();
 		const userInputEvent: Event = {
 			type: 'user_input',
 			timestamp: Date.now(),
 			data: message,
 		};
-		const initialThread = new Thread([userInputEvent]);
-		await redisStore.set(conversationId, initialThread);
+
+		let conversationId: string;
+		let thread: Thread;
+
+		if (existingConversationId && typeof existingConversationId === 'string') {
+			const existingThread = await redisStore.get(existingConversationId);
+			if (existingThread) {
+				conversationId = existingConversationId;
+				thread = new Thread([...existingThread.events, userInputEvent]);
+			} else {
+				conversationId = randomUUID();
+				thread = new Thread([userInputEvent]);
+			}
+		} else {
+			conversationId = randomUUID();
+			thread = new Thread([userInputEvent]);
+		}
+
+		await redisStore.set(conversationId, thread);
       
 		// Start agent processing in background (don't await)
 		processAgent(conversationId, deps).catch((error) => {
