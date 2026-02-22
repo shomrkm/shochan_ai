@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
 import {
 	Thread,
 	LLMAgentReducer,
@@ -36,13 +37,16 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 	 */
 	router.post('/query', async (req: Request, res: Response) => {
 		try {
-			const { message, conversationId: existingConversationId } = req.body;
+			const { message } = req.body;
 			if (!message || typeof message !== 'string') {
 				res
 					.status(400)
 					.json({ error: 'Message is required and must be a string' });
 				return;
 			}
+
+		const parsedConversationId = z.string().uuid().optional().safeParse(req.body.conversationId);
+		const existingConversationId = parsedConversationId.success ? parsedConversationId.data : undefined;
 
 		const userInputEvent: Event = {
 			type: 'user_input',
@@ -53,7 +57,7 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 		let conversationId: string;
 		let thread: Thread;
 
-		if (existingConversationId && typeof existingConversationId === 'string') {
+		if (existingConversationId) {
 			const existingThread = await redisStore.get(existingConversationId);
 			if (existingThread) {
 				conversationId = existingConversationId;
