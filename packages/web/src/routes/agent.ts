@@ -56,22 +56,11 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 			data: message,
 		};
 
-		let conversationId: string;
-		let thread: Thread;
-
-		if (existingConversationId) {
-			const existingThread = await redisStore.get(existingConversationId);
-			if (existingThread) {
-				conversationId = existingConversationId;
-				thread = new Thread([...existingThread.events, userInputEvent]);
-			} else {
-				conversationId = randomUUID();
-				thread = new Thread([userInputEvent]);
-			}
-		} else {
-			conversationId = randomUUID();
-			thread = new Thread([userInputEvent]);
-		}
+		const { conversationId, thread } = await initializeConversation(
+			userInputEvent,
+			existingConversationId,
+			redisStore,
+		);
 
 		await redisStore.set(conversationId, thread);
       
@@ -166,6 +155,37 @@ export function createAgentRouter(deps: AgentDependencies): Router {
   });
 
 	return router;
+}
+
+/**
+ * Initialize or resume a conversation thread.
+ * Creates a new conversation if no existing ID is provided or if the thread is not found.
+ *
+ * @param userInputEvent - User input event to add to the thread
+ * @param existingConversationId - Optional existing conversation ID
+ * @param redisStore - Redis store for retrieving existing threads
+ * @returns Object containing conversationId and initialized thread
+ */
+async function initializeConversation(
+	userInputEvent: Event,
+	existingConversationId: string | undefined,
+	redisStore: RedisStateStore,
+): Promise<{ conversationId: string; thread: Thread }> {
+	if (existingConversationId) {
+		const existingThread = await redisStore.get(existingConversationId);
+		if (existingThread) {
+			return {
+				conversationId: existingConversationId,
+				thread: new Thread([...existingThread.events, userInputEvent]),
+			};
+		}
+	}
+
+	// Create new conversation if no existing ID or thread not found
+	return {
+		conversationId: randomUUID(),
+		thread: new Thread([userInputEvent]),
+	};
 }
 
 /**
