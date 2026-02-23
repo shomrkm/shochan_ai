@@ -20,7 +20,9 @@ export interface AgentDependencies {
 	executor: NotionToolExecutor<NotionClient>;
 }
 
-const ConversationIdSchema = z.string().uuid().optional();
+// Accepts valid UUID strings, undefined, and null.
+// null and undefined both fall through to creating a new conversation.
+const ConversationIdSchema = z.string().uuid().nullish();
 
 /**
  * Create agent router with injected dependencies.

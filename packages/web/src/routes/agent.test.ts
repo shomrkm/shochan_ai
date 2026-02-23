@@ -155,6 +155,25 @@ describe('Agent Routes', () => {
 			expect(thread?.events).toHaveLength(1);
 		});
 
+		it('should create new conversation when conversationId is null', async () => {
+			mockGenerateNextToolCall.mockResolvedValueOnce(null);
+
+			const response = await request(app)
+				.post('/api/agent/query')
+				.send({ message: 'Test message', conversationId: null })
+				.expect(200);
+
+			// null conversationId should be treated as omitted, a new conversation is created
+			expect(response.body.conversationId).toMatch(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+			);
+
+			await new Promise((resolve) => setTimeout(resolve, 2500));
+
+			const thread = await redisStore.get(response.body.conversationId);
+			expect(thread?.events).toHaveLength(1);
+		});
+
 		it('should return 400 when message is missing', async () => {
 			const response = await request(app)
 				.post('/api/agent/query')
