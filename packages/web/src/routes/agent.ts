@@ -265,7 +265,8 @@ async function processAgent(
 			);
 
 			if (!toolCallEvent) {
-				console.error(`❌ No tool call generated for ${conversationId}`);
+				console.log(`⚠️  No tool call generated for ${conversationId}, generating explanation...`);
+				await generateAndStreamExplanation(conversationId, currentThread, { reducer, streamManager });
 				break;
 			}
 
