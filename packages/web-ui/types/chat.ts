@@ -1,5 +1,6 @@
 import type {
   Event,
+  ToolCall,
   ToolCallEvent,
   ToolResponseEvent,
   ErrorEvent,
@@ -11,6 +12,7 @@ import type {
 
 export type {
   Event,
+  ToolCall,
   ToolCallEvent,
   ToolResponseEvent,
   ErrorEvent,

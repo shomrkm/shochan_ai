@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import type { Message, Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent } from '@/types/chat'
+import type { Message, Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent, ToolCall } from '@/types/chat'
 import { useSendMessage } from '@/lib/api'
 import { useSSE } from '@/hooks/use-sse'
 import { useAutoScroll } from '@/hooks/use-auto-scroll'
@@ -144,7 +144,7 @@ export function ChatInterface() {
   )
 }
 
-const TOOL_CALL_LABELS: Record<string, string> = {
+const TOOL_CALL_LABELS: Record<ToolCall['intent'], string> = {
   get_tasks: '🔍 タスク一覧を取得しています...',
   get_task_details: '🔍 タスクの詳細を確認しています...',
   create_task: '✍️ タスクを作成しています...',
