@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { randomUUID } from 'crypto';
+import { z } from 'zod';
 import {
 	Thread,
 	LLMAgentReducer,
@@ -18,6 +19,10 @@ export interface AgentDependencies {
 	reducer: LLMAgentReducer<OpenAIClient, typeof taskAgentTools>;
 	executor: NotionToolExecutor<NotionClient>;
 }
+
+// Accepts valid UUID strings, undefined, and null.
+// null and undefined both fall through to creating a new conversation.
+const ConversationIdSchema = z.string().uuid().nullish();
 
 /**
  * Create agent router with injected dependencies.
@@ -44,14 +49,22 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 				return;
 			}
 
-		const conversationId = randomUUID();
+		const parsedConversationId = ConversationIdSchema.safeParse(req.body.conversationId);
+		const existingConversationId = parsedConversationId.success ? parsedConversationId.data : undefined;
+
 		const userInputEvent: Event = {
 			type: 'user_input',
 			timestamp: Date.now(),
 			data: message,
 		};
-		const initialThread = new Thread([userInputEvent]);
-		await redisStore.set(conversationId, initialThread);
+
+		const { conversationId, thread } = await initializeConversation(
+			userInputEvent,
+			existingConversationId,
+			redisStore,
+		);
+
+		await redisStore.set(conversationId, thread);
       
 		// Start agent processing in background (don't await)
 		processAgent(conversationId, deps).catch((error) => {
@@ -144,6 +157,37 @@ export function createAgentRouter(deps: AgentDependencies): Router {
   });
 
 	return router;
+}
+
+/**
+ * Initialize or resume a conversation thread.
+ * Creates a new conversation if no existing ID is provided or if the thread is not found.
+ *
+ * @param userInputEvent - User input event to add to the thread
+ * @param existingConversationId - Optional existing conversation ID
+ * @param redisStore - Redis store for retrieving existing threads
+ * @returns Object containing conversationId and initialized thread
+ */
+async function initializeConversation(
+	userInputEvent: Event,
+	existingConversationId: string | undefined,
+	redisStore: RedisStateStore,
+): Promise<{ conversationId: string; thread: Thread }> {
+	if (existingConversationId) {
+		const existingThread = await redisStore.get(existingConversationId);
+		if (existingThread) {
+			return {
+				conversationId: existingConversationId,
+				thread: new Thread([...existingThread.events, userInputEvent]),
+			};
+		}
+	}
+
+	// Create new conversation if no existing ID or thread not found
+	return {
+		conversationId: randomUUID(),
+		thread: new Thread([userInputEvent]),
+	};
 }
 
 /**

@@ -1,7 +1,12 @@
 import { useMutation, type UseMutationOptions } from '@tanstack/react-query'
 import type { SendMessageResponse } from '@/types/chat'
 
-async function sendMessage(message: string): Promise<SendMessageResponse> {
+interface SendMessageArgs {
+  message: string
+  conversationId?: string | null
+}
+
+async function sendMessage({ message, conversationId }: SendMessageArgs): Promise<SendMessageResponse> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
   const endpoint = `${apiUrl}/api/agent/query`
 
@@ -10,7 +15,7 @@ async function sendMessage(message: string): Promise<SendMessageResponse> {
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, conversationId }),
   })
 
   if (!response.ok) {
@@ -22,7 +27,7 @@ async function sendMessage(message: string): Promise<SendMessageResponse> {
 }
 
 type UseSendMessageOptions = Omit<
-  UseMutationOptions<SendMessageResponse, Error, string>,
+  UseMutationOptions<SendMessageResponse, Error, SendMessageArgs>,
   'mutationFn'
 >
 
