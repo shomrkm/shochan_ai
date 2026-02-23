@@ -6,8 +6,8 @@ import { RedisStateStore } from '../state/redis-store';
 import { StreamManager } from '../streaming/manager';
 import { createAgentRouter, type AgentDependencies } from './agent';
 
-// Mock for generateNextToolCall
-const mockGenerateNextToolCall = vi.fn().mockResolvedValue(null);
+// Mock for generateNextToolCallWithStreaming
+const mockGenerateNextToolCallWithStreaming = vi.fn().mockResolvedValue(null);
 
 // Mock executor
 const mockExecute = vi.fn();
@@ -35,7 +35,7 @@ describe('Agent Routes', () => {
 			redisStore,
 			streamManager,
 			reducer: {
-				generateNextToolCall: mockGenerateNextToolCall,
+				generateNextToolCallWithStreaming: mockGenerateNextToolCallWithStreaming,
 				reduce: (state: Thread, event: unknown) =>
 					new Thread([...state.events, event as any]),
 			} as unknown as AgentDependencies['reducer'],
@@ -53,15 +53,15 @@ describe('Agent Routes', () => {
 	});
 
 	afterEach(async () => {
-		mockGenerateNextToolCall.mockReset();
-		mockGenerateNextToolCall.mockResolvedValue(null);
+		mockGenerateNextToolCallWithStreaming.mockReset();
+		mockGenerateNextToolCallWithStreaming.mockResolvedValue(null);
 		mockExecute.mockReset();
 	});
 
 	describe('POST /api/agent/query', () => {
 		it('should return conversationId when valid message is provided', async () => {
 			// Explicitly set mock to return null for this test
-			mockGenerateNextToolCall.mockResolvedValueOnce(null);
+			mockGenerateNextToolCallWithStreaming.mockResolvedValueOnce(null);
 			
 			const response = await request(app)
 				.post('/api/agent/query')
@@ -207,7 +207,7 @@ describe('Agent Routes', () => {
 		 * - approval endpoint must be able to find the awaiting_approval event
 		 */
 		it('should persist awaiting_approval event when delete_task is generated', async () => {
-			mockGenerateNextToolCall.mockResolvedValueOnce({
+			mockGenerateNextToolCallWithStreaming.mockResolvedValueOnce({
 				type: 'tool_call',
 				timestamp: Date.now(),
 				data: {
@@ -295,7 +295,7 @@ describe('Agent Routes', () => {
 		});
 
     it('should handle approval correctly', async () => {
-      mockGenerateNextToolCall.mockResolvedValue(null);
+      mockGenerateNextToolCallWithStreaming.mockResolvedValue(null);
       mockExecute.mockResolvedValueOnce({
         event: {
           type: 'tool_response',
@@ -358,7 +358,7 @@ describe('Agent Routes', () => {
     });
 
 		it('should handle denial correctly', async () => {
-			mockGenerateNextToolCall.mockResolvedValue(null);
+			mockGenerateNextToolCallWithStreaming.mockResolvedValue(null);
 			const conversationId = 'test-conversation-id-4';
 			const thread = new Thread([
 				{

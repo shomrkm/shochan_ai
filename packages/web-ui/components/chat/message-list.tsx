@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import type { Message } from '@/types/chat'
 import { Card, CardContent } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -6,6 +9,32 @@ import { MarkdownContent } from './markdown-content'
 interface MessageListProps {
   messages: Message[]
   className?: string
+}
+
+interface CollapsibleToolResponseProps {
+  content: string
+}
+
+function CollapsibleToolResponse({ content }: CollapsibleToolResponseProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span>{isExpanded ? '▼' : '▶'}</span>
+        <span>📊 ツール実行結果 {isExpanded ? '(折りたたむ)' : '(展開する)'}</span>
+      </button>
+      {isExpanded && (
+        <pre className="mt-2 text-xs bg-background rounded p-2 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap wrap-break-word">
+          {content}
+        </pre>
+      )}
+    </div>
+  )
 }
 
 export function MessageList({ messages, className }: MessageListProps) {
@@ -18,7 +47,7 @@ export function MessageList({ messages, className }: MessageListProps) {
   }
 
   return (
-    <div className={cn("flex flex-col gap-4 p-4", className)}>
+    <div className={cn('flex flex-col gap-4 p-4', className)}>
       {messages.map((message) => (
         <div
           key={message.id}
@@ -46,6 +75,8 @@ export function MessageList({ messages, className }: MessageListProps) {
                 </p>
                 {message.type === 'agent' ? (
                   <MarkdownContent content={message.content} />
+                ) : message.subtype === 'tool_response' ? (
+                  <CollapsibleToolResponse content={message.content} />
                 ) : (
                   <p className="whitespace-pre-wrap wrap-break-word">
                     {message.content}

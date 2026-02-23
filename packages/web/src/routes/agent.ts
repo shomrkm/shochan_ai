@@ -250,9 +250,19 @@ async function processAgent(
 			iterations++;
 
 			// ========================================
-			// Turn 1: Tool call detection and execution
+			// Turn 1: Tool call detection with thinking streaming
 			// ========================================
-			const toolCallEvent = await reducer.generateNextToolCall(currentThread);
+			const toolCallEvent = await reducer.generateNextToolCallWithStreaming(
+				currentThread,
+				undefined,
+				(chunk, messageId) => {
+					streamManager.send(conversationId, {
+						type: 'thinking_chunk',
+						timestamp: Date.now(),
+						data: { content: chunk, messageId },
+					});
+				},
+			);
 
 			if (!toolCallEvent) {
 				console.error(`❌ No tool call generated for ${conversationId}`);

@@ -7,6 +7,12 @@ ${thread}
 
 IMPORTANT: You MUST call exactly ONE tool function per turn.
 
+Before calling a tool, briefly explain in 1-2 sentences:
+- What you understood from the user's request
+- What you are about to do and why
+Always respond in the same language the user used (e.g., Japanese if the user wrote in Japanese).
+Then immediately call the appropriate tool.
+
 Analyze the user's request and choose the appropriate tool:
 
 1. **get_tasks** - When you need to retrieve tasks
