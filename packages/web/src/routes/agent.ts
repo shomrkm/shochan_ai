@@ -20,6 +20,8 @@ export interface AgentDependencies {
 	executor: NotionToolExecutor<NotionClient>;
 }
 
+const ConversationIdSchema = z.string().uuid().optional();
+
 /**
  * Create agent router with injected dependencies.
  * Dependencies are captured in closure, avoiding global state.
@@ -45,7 +47,7 @@ export function createAgentRouter(deps: AgentDependencies): Router {
 				return;
 			}
 
-		const parsedConversationId = z.string().uuid().optional().safeParse(req.body.conversationId);
+		const parsedConversationId = ConversationIdSchema.safeParse(req.body.conversationId);
 		const existingConversationId = parsedConversationId.success ? parsedConversationId.data : undefined;
 
 		const userInputEvent: Event = {
