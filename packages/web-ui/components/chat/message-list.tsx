@@ -47,49 +47,51 @@ export function MessageList({ messages, className }: MessageListProps) {
   }
 
   return (
-    <div className={cn('flex flex-col gap-4 p-4', className)}>
-      {messages.map((message) => (
-        <div
-          key={message.id}
-          className={`flex ${
-            message.type === 'user' ? 'justify-end' : 'justify-start'
-          }`}
-        >
-          <Card
-            className={`max-w-[80%] ${
-              message.type === 'user'
-                ? 'bg-primary text-primary-foreground'
-                : message.type === 'system'
-                  ? 'bg-muted'
-                  : ''
-            }`}
-          >
-            <CardContent className="py-3">
-              <div className="flex flex-col gap-1">
-                <p className="text-xs opacity-70">
-                  {message.type === 'user'
-                    ? 'You'
-                    : message.type === 'agent'
-                      ? 'Agent'
-                      : 'System'}
-                </p>
-                {message.type === 'agent' ? (
-                  <MarkdownContent content={message.content} />
-                ) : message.subtype === 'tool_response' ? (
+    <div className={cn('flex flex-col gap-2 p-4', className)}>
+      {messages.map((message) => {
+        if (message.type === 'system') {
+          return (
+            <div key={message.id} className="flex justify-start px-1">
+              <div className="text-xs text-muted-foreground">
+                {message.subtype === 'tool_response' ? (
                   <CollapsibleToolResponse content={message.content} />
                 ) : (
-                  <p className="whitespace-pre-wrap wrap-break-word">
-                    {message.content}
-                  </p>
+                  <span>{message.content}</span>
                 )}
-                <p className="text-xs opacity-50 text-right">
-                  {new Date(message.timestamp).toLocaleTimeString()}
-                </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      ))}
+            </div>
+          )
+        }
+
+        return (
+          <div
+            key={message.id}
+            className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <Card
+              className={`max-w-[80%] ${
+                message.type === 'user' ? 'bg-primary text-primary-foreground' : ''
+              }`}
+            >
+              <CardContent className="py-3">
+                <div className="flex flex-col gap-1">
+                  <p className="text-xs opacity-70">
+                    {message.type === 'user' ? 'You' : 'Agent'}
+                  </p>
+                  {message.type === 'agent' ? (
+                    <MarkdownContent content={message.content} />
+                  ) : (
+                    <p className="whitespace-pre-wrap wrap-break-word">{message.content}</p>
+                  )}
+                  <p className="text-xs opacity-50 text-right">
+                    {new Date(message.timestamp).toLocaleTimeString()}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )
+      })}
     </div>
   )
 }
