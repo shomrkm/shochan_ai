@@ -145,14 +145,14 @@ export function ChatInterface() {
 }
 
 const TOOL_CALL_LABELS: Record<ToolCall['intent'], string> = {
-  get_tasks: '🔍 タスク一覧を取得しています...',
-  get_task_details: '🔍 タスクの詳細を確認しています...',
-  create_task: '✍️ タスクを作成しています...',
-  create_project: '📁 プロジェクトを作成しています...',
-  update_task: '✏️ タスクを更新しています...',
-  delete_task: '🗑️ タスクの削除を確認しています...',
-  request_more_information: '❓ 追加情報を確認中...',
-  done_for_now: '✅ 処理完了',
+  get_tasks: '🔍 Fetching task list...',
+  get_task_details: '🔍 Fetching task details...',
+  create_task: '✍️ Creating task...',
+  create_project: '📁 Creating project...',
+  update_task: '✏️ Updating task...',
+  delete_task: '🗑️ Confirming task deletion...',
+  request_more_information: '❓ Requesting more information...',
+  done_for_now: '✅ Done',
 }
 
 /**
