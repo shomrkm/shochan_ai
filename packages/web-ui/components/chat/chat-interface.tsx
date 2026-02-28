@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import type { Message, Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent } from '@/types/chat'
+import type { Message, Event, ToolCallEvent, ToolResponseEvent, ErrorEvent, CompleteEvent, ToolCall } from '@/types/chat'
 import { useSendMessage } from '@/lib/api'
 import { useSSE } from '@/hooks/use-sse'
 import { useAutoScroll } from '@/hooks/use-auto-scroll'
@@ -32,6 +32,31 @@ export function ChatInterface() {
     let message: Message | null = null
 
     switch (event.type) {
+      case 'thinking_chunk':
+        // Real-time thinking streaming: append chunks to existing system message or create new one
+        setMessages((prev) => {
+          const lastMessage = prev[prev.length - 1]
+          const { messageId, content } = event.data
+
+          if (lastMessage && lastMessage.id === messageId) {
+            return [
+              ...prev.slice(0, -1),
+              { ...lastMessage, content: lastMessage.content + content },
+            ]
+          }
+
+          return [
+            ...prev,
+            {
+              id: messageId,
+              type: 'system' as const,
+              content,
+              timestamp: event.timestamp,
+            },
+          ]
+        })
+        return
+
       case 'text_chunk':
         // Real-time text streaming: append chunks to existing message or create new one
         setMessages((prev) => {
@@ -119,17 +144,29 @@ export function ChatInterface() {
   )
 }
 
+const TOOL_CALL_LABELS: Record<ToolCall['intent'], string> = {
+  get_tasks: '🔍 Fetching task list...',
+  get_task_details: '🔍 Fetching task details...',
+  create_task: '✍️ Creating task...',
+  create_project: '📁 Creating project...',
+  update_task: '✏️ Updating task...',
+  delete_task: '🗑️ Confirming task deletion...',
+  request_more_information: '❓ Requesting more information...',
+  done_for_now: '✅ Done',
+}
+
 /**
  * Create a message from a tool call event.
- * Shows tool calls as system messages.
+ * Shows tool calls as system messages with natural Japanese labels.
  */
 function createToolCallMessage(event: ToolCallEvent): Message {
   const { data: toolCall, timestamp } = event
+  const label = TOOL_CALL_LABELS[toolCall.intent] ?? `🔧 ${toolCall.intent}`
 
   return {
     id: `tool-call-${timestamp}`,
     type: 'system',
-    content: `🔧 Tool call: ${toolCall.intent}`,
+    content: label,
     timestamp,
   }
 }
@@ -141,6 +178,7 @@ function createToolResponseMessage(event: ToolResponseEvent): Message {
   return {
     id: `tool-response-${event.timestamp}`,
     type: 'system',
+    subtype: 'tool_response',
     content: JSON.stringify(event.data, null, 2),
     timestamp: event.timestamp,
   }

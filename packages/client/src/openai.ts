@@ -162,9 +162,9 @@ export class OpenAIClient {
       if (isResponseFunctionCallEvent(event)) {
         toolCall = this.parseToolCall({
           type: 'function_call',
-          call_id: '',
-          name: event.name,
-          arguments: event.arguments,
+          call_id: event.item.call_id,
+          name: event.item.name,
+          arguments: event.item.arguments,
         });
         onToolCall?.(toolCall);
       }

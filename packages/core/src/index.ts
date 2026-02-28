@@ -11,6 +11,7 @@ export type {
 	AwaitingApprovalEvent,
 	CompleteEvent,
 	TextChunkEvent,
+	ThinkingChunkEvent,
 	ConnectedEvent,
 } from './types/event';
 export {
@@ -21,6 +22,7 @@ export {
 	isAwaitingApprovalEvent,
 	isCompleteEvent,
 	isTextChunkEvent,
+	isThinkingChunkEvent,
 	isConnectedEvent,
 } from './types/event';
 export type {

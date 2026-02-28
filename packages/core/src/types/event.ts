@@ -70,6 +70,19 @@ export interface TextChunkEvent extends BaseEvent<'text_chunk'> {
 }
 
 /**
+ * Thinking chunk event - streams agent thinking/reasoning in real-time
+ * Used before tool calls to show the agent's reasoning process to the user
+ */
+export interface ThinkingChunkEvent extends BaseEvent<'thinking_chunk'> {
+	data: {
+		/** 思考テキストチャンク（1トークン分または複数トークン） */
+		content: string;
+		/** メッセージID（同一メッセージのチャンクを識別） */
+		messageId: string;
+	};
+}
+
+/**
  * Connected event - indicates SSE connection is ready
  * Sent when processAgent starts to confirm SSE connection is established
  */
@@ -92,6 +105,7 @@ export type Event =
 	| AwaitingApprovalEvent
 	| CompleteEvent
 	| TextChunkEvent
+	| ThinkingChunkEvent
 	| ConnectedEvent;
 
 /**
@@ -143,6 +157,13 @@ export function isCompleteEvent(event: Event): event is CompleteEvent {
  */
 export function isTextChunkEvent(event: Event): event is TextChunkEvent {
 	return event.type === 'text_chunk';
+}
+
+/**
+ * Type guard to check if an event is a thinking chunk event
+ */
+export function isThinkingChunkEvent(event: Event): event is ThinkingChunkEvent {
+	return event.type === 'thinking_chunk';
 }
 
 /**

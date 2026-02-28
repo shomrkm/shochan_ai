@@ -6,8 +6,8 @@ import { RedisStateStore } from '../state/redis-store';
 import { StreamManager } from '../streaming/manager';
 import { createAgentRouter, type AgentDependencies } from './agent';
 
-// Mock for generateNextToolCall
-const mockGenerateNextToolCall = vi.fn().mockResolvedValue(null);
+// Mock for generateNextToolCallWithStreaming
+const mockGenerateNextToolCallWithStreaming = vi.fn().mockResolvedValue(null);
 
 // Mock executor
 const mockExecute = vi.fn();
@@ -35,7 +35,7 @@ describe('Agent Routes', () => {
 			redisStore,
 			streamManager,
 			reducer: {
-				generateNextToolCall: mockGenerateNextToolCall,
+				generateNextToolCallWithStreaming: mockGenerateNextToolCallWithStreaming,
 				reduce: (state: Thread, event: unknown) =>
 					new Thread([...state.events, event as any]),
 			} as unknown as AgentDependencies['reducer'],
@@ -53,15 +53,15 @@ describe('Agent Routes', () => {
 	});
 
 	afterEach(async () => {
-		mockGenerateNextToolCall.mockReset();
-		mockGenerateNextToolCall.mockResolvedValue(null);
+		mockGenerateNextToolCallWithStreaming.mockReset();
+		mockGenerateNextToolCallWithStreaming.mockResolvedValue(null);
 		mockExecute.mockReset();
 	});
 
 	describe('POST /api/agent/query', () => {
 		it('should return conversationId when valid message is provided', async () => {
 			// Explicitly set mock to return null for this test
-			mockGenerateNextToolCall.mockResolvedValueOnce(null);
+			mockGenerateNextToolCallWithStreaming.mockResolvedValueOnce(null);
 			
 			const response = await request(app)
 				.post('/api/agent/query')
@@ -206,8 +206,47 @@ describe('Agent Routes', () => {
 		 * - awaiting_approval event must be saved to Redis
 		 * - approval endpoint must be able to find the awaiting_approval event
 		 */
+		it('should send thinking_chunk events when thinking callback is invoked during processing', async () => {
+			// Make the mock invoke the thinking callback before returning null
+			mockGenerateNextToolCallWithStreaming.mockImplementationOnce(
+				async (
+					_thread: unknown,
+					_systemPrompt: unknown,
+					thinkingCallback?: (chunk: string, messageId: string) => void,
+				) => {
+					thinkingCallback?.('タスクを確認しています', 'test-message-id');
+					return null;
+				},
+			);
+
+			const sendSpy = vi.spyOn(streamManager, 'send');
+
+			await request(app)
+				.post('/api/agent/query')
+				.send({ message: 'Test thinking chunk' })
+				.expect(200);
+
+			// Wait for background processAgent to complete (includes SSE timeout)
+			await new Promise((resolve) => setTimeout(resolve, 2500));
+
+			// Verify thinking_chunk event was sent to streamManager
+			const thinkingChunkCalls = sendSpy.mock.calls.filter(
+				([, event]) => event.type === 'thinking_chunk',
+			);
+			expect(thinkingChunkCalls.length).toBeGreaterThan(0);
+			expect(thinkingChunkCalls[0][1]).toMatchObject({
+				type: 'thinking_chunk',
+				data: {
+					content: 'タスクを確認しています',
+					messageId: 'test-message-id',
+				},
+			});
+
+			sendSpy.mockRestore();
+		});
+
 		it('should persist awaiting_approval event when delete_task is generated', async () => {
-			mockGenerateNextToolCall.mockResolvedValueOnce({
+			mockGenerateNextToolCallWithStreaming.mockResolvedValueOnce({
 				type: 'tool_call',
 				timestamp: Date.now(),
 				data: {
@@ -295,7 +334,7 @@ describe('Agent Routes', () => {
 		});
 
     it('should handle approval correctly', async () => {
-      mockGenerateNextToolCall.mockResolvedValue(null);
+      mockGenerateNextToolCallWithStreaming.mockResolvedValue(null);
       mockExecute.mockResolvedValueOnce({
         event: {
           type: 'tool_response',
@@ -358,7 +397,7 @@ describe('Agent Routes', () => {
     });
 
 		it('should handle denial correctly', async () => {
-			mockGenerateNextToolCall.mockResolvedValue(null);
+			mockGenerateNextToolCallWithStreaming.mockResolvedValue(null);
 			const conversationId = 'test-conversation-id-4';
 			const thread = new Thread([
 				{
