@@ -15,28 +15,6 @@ interface CollapsibleToolResponseProps {
   content: string
 }
 
-function CollapsibleToolResponse({ content }: CollapsibleToolResponseProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setIsExpanded((prev) => !prev)}
-        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-      >
-        <span>{isExpanded ? '▼' : '▶'}</span>
-        <span>📊 ツール実行結果 {isExpanded ? '(折りたたむ)' : '(展開する)'}</span>
-      </button>
-      {isExpanded && (
-        <pre className="mt-2 text-xs bg-background rounded p-2 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap wrap-break-word">
-          {content}
-        </pre>
-      )}
-    </div>
-  )
-}
-
 export function MessageList({ messages, className }: MessageListProps) {
   if (messages.length === 0) {
     return (
@@ -92,6 +70,29 @@ export function MessageList({ messages, className }: MessageListProps) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function CollapsibleToolResponse({ content }: CollapsibleToolResponseProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setIsExpanded((prev) => !prev)}
+        aria-expanded={isExpanded}
+        className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span>{isExpanded ? '▼' : '▶'}</span>
+        <span>📊 Tool Result {isExpanded ? '(collapse)' : '(expand)'}</span>
+      </button>
+      {isExpanded && (
+        <pre className="mt-2 text-xs bg-background rounded p-2 overflow-x-auto max-h-64 overflow-y-auto whitespace-pre-wrap wrap-break-word">
+          {content}
+        </pre>
+      )}
     </div>
   )
 }

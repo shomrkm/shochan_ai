@@ -32,34 +32,37 @@ export class SSEClient {
 
     // Handle default message events (no event field specified)
     this.eventSource.onmessage = (event) => {
+      // Skip empty data (e.g., keep-alive or server-sent protocol messages)
+      if (!event.data) return
       try {
         const data = JSON.parse(event.data) as Event
         console.log('📨 SSE Event (default):', data.type, data)
         onEvent(data)
       } catch (error) {
-        console.error('Failed to parse SSE event:', error)
-        onError?.(error as Error)
+        console.warn('Failed to parse SSE event (skipping):', event.data, error)
       }
     }
 
     // Listen for custom event types
     SSE_EVENT_TYPES.forEach((eventType) => {
       this.eventSource?.addEventListener(eventType, (e: MessageEvent) => {
+        if (!e.data) return
         try {
           const data = JSON.parse(e.data) as Event
           console.log('📨 SSE Event:', data.type, data)
           onEvent(data)
         } catch (error) {
-          console.error('Failed to parse SSE event:', error)
-          onError?.(error as Error)
+          console.warn('Failed to parse SSE event (skipping):', e.data, error)
         }
       })
     })
 
     this.eventSource.onerror = () => {
-      console.error('❌ SSE error')
+      // Close the EventSource to prevent browser auto-reconnect.
+      // Each stream is unique per conversation, so reconnecting is not desired.
+      console.log('🔌 SSE stream ended, closing connection')
+      onError?.(new Error('SSE stream ended'))
       this.disconnect()
-      onError?.(new Error('SSE connection error'))
     }
   }
 

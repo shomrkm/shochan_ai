@@ -106,8 +106,8 @@ describe('ChatInterface', () => {
     });
   });
 
-  describe('tool_call event handling with Japanese labels', () => {
-    it('shows Japanese label for get_tasks intent', async () => {
+  describe('tool_call event handling with English labels', () => {
+    it('shows English label for get_tasks intent', async () => {
       renderWithQueryClient(<ChatInterface />);
 
       await act(async () => {
@@ -118,10 +118,10 @@ describe('ChatInterface', () => {
         });
       });
 
-      expect(screen.getByText('🔍 タスク一覧を取得しています...')).toBeInTheDocument();
+      expect(screen.getByText('🔍 Fetching task list...')).toBeInTheDocument();
     });
 
-    it('shows Japanese label for create_task intent', async () => {
+    it('shows English label for create_task intent', async () => {
       renderWithQueryClient(<ChatInterface />);
 
       await act(async () => {
@@ -132,10 +132,10 @@ describe('ChatInterface', () => {
         });
       });
 
-      expect(screen.getByText('✍️ タスクを作成しています...')).toBeInTheDocument();
+      expect(screen.getByText('✍️ Creating task...')).toBeInTheDocument();
     });
 
-    it('shows Japanese label for update_task intent', async () => {
+    it('shows English label for update_task intent', async () => {
       renderWithQueryClient(<ChatInterface />);
 
       await act(async () => {
@@ -146,10 +146,10 @@ describe('ChatInterface', () => {
         });
       });
 
-      expect(screen.getByText('✏️ タスクを更新しています...')).toBeInTheDocument();
+      expect(screen.getByText('✏️ Updating task...')).toBeInTheDocument();
     });
 
-    it('shows Japanese label for delete_task intent', async () => {
+    it('shows English label for delete_task intent', async () => {
       renderWithQueryClient(<ChatInterface />);
 
       await act(async () => {
@@ -160,10 +160,10 @@ describe('ChatInterface', () => {
         });
       });
 
-      expect(screen.getByText('🗑️ タスクの削除を確認しています...')).toBeInTheDocument();
+      expect(screen.getByText('🗑️ Confirming task deletion...')).toBeInTheDocument();
     });
 
-    it('shows Japanese label for create_project intent', async () => {
+    it('shows English label for create_project intent', async () => {
       renderWithQueryClient(<ChatInterface />);
 
       await act(async () => {
@@ -177,10 +177,10 @@ describe('ChatInterface', () => {
         });
       });
 
-      expect(screen.getByText('📁 プロジェクトを作成しています...')).toBeInTheDocument();
+      expect(screen.getByText('📁 Creating project...')).toBeInTheDocument();
     });
 
-    it('shows Japanese label for done_for_now intent', async () => {
+    it('shows English label for done_for_now intent', async () => {
       renderWithQueryClient(<ChatInterface />);
 
       await act(async () => {
@@ -191,10 +191,10 @@ describe('ChatInterface', () => {
         });
       });
 
-      expect(screen.getByText('✅ 処理完了')).toBeInTheDocument();
+      expect(screen.getByText('✅ Done')).toBeInTheDocument();
     });
 
-    it('shows Japanese label for request_more_information intent', async () => {
+    it('shows English label for request_more_information intent', async () => {
       renderWithQueryClient(<ChatInterface />);
 
       await act(async () => {
@@ -205,7 +205,7 @@ describe('ChatInterface', () => {
         });
       });
 
-      expect(screen.getByText('❓ 追加情報を確認中...')).toBeInTheDocument();
+      expect(screen.getByText('❓ Requesting more information...')).toBeInTheDocument();
     });
   });
 });
