@@ -206,6 +206,45 @@ describe('Agent Routes', () => {
 		 * - awaiting_approval event must be saved to Redis
 		 * - approval endpoint must be able to find the awaiting_approval event
 		 */
+		it('should send thinking_chunk events when thinking callback is invoked during processing', async () => {
+			// Make the mock invoke the thinking callback before returning null
+			mockGenerateNextToolCallWithStreaming.mockImplementationOnce(
+				async (
+					_thread: unknown,
+					_systemPrompt: unknown,
+					thinkingCallback?: (chunk: string, messageId: string) => void,
+				) => {
+					thinkingCallback?.('タスクを確認しています', 'test-message-id');
+					return null;
+				},
+			);
+
+			const sendSpy = vi.spyOn(streamManager, 'send');
+
+			await request(app)
+				.post('/api/agent/query')
+				.send({ message: 'Test thinking chunk' })
+				.expect(200);
+
+			// Wait for background processAgent to complete (includes SSE timeout)
+			await new Promise((resolve) => setTimeout(resolve, 2500));
+
+			// Verify thinking_chunk event was sent to streamManager
+			const thinkingChunkCalls = sendSpy.mock.calls.filter(
+				([, event]) => event.type === 'thinking_chunk',
+			);
+			expect(thinkingChunkCalls.length).toBeGreaterThan(0);
+			expect(thinkingChunkCalls[0][1]).toMatchObject({
+				type: 'thinking_chunk',
+				data: {
+					content: 'タスクを確認しています',
+					messageId: 'test-message-id',
+				},
+			});
+
+			sendSpy.mockRestore();
+		});
+
 		it('should persist awaiting_approval event when delete_task is generated', async () => {
 			mockGenerateNextToolCallWithStreaming.mockResolvedValueOnce({
 				type: 'tool_call',
