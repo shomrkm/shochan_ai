@@ -22,7 +22,7 @@ export interface AgentDependencies {
 
 // Accepts valid UUID strings, undefined, and null.
 // null and undefined both fall through to creating a new conversation.
-const ConversationIdSchema = z.string().uuid().nullish();
+const ConversationIdSchema = z.string().uuid().optional();
 
 /**
  * Create agent router with injected dependencies.
@@ -306,28 +306,37 @@ async function processAgent(
 		console.log(`⚙️  Executing tool: ${toolCall.intent}`);
 		const result = await executor.execute(toolCall);
 
-		streamManager.send(conversationId, result.event);
+		// Only stream non-error events to frontend directly.
+		// Error events are added to the thread context so that generateAndStreamExplanation
+		// can explain them naturally via LLM on the next turn.
+		if (result.event.type !== 'error') {
+			streamManager.send(conversationId, result.event);
+		}
 		currentThread = reducer.reduce(currentThread, result.event);
 		await redisStore.set(conversationId, currentThread);
 
-		console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+		if (result.event.type === 'error') {
+			console.log(`⚠️  Tool execution returned error: ${toolCall.intent}`);
+		} else {
+			console.log(`✅ Tool executed successfully: ${toolCall.intent}`);
+		}
 
 		// ========================================
 		// Turn 2: Generate explanation with streaming
+		// (If result was an error, the LLM will explain it naturally via the thread context)
 		// ========================================
 		await generateAndStreamExplanation(conversationId, currentThread, { reducer, streamManager });
 		break; // Complete after explanation
 		}
 	} catch (error) {
 		console.error(`❌ processAgent error for ${conversationId}:`, error);
-		streamManager.send(conversationId, {
-			type: 'error',
-			timestamp: Date.now(),
-			data: {
-				error: error instanceof Error ? error.message : String(error),
-				code: 'AGENT_PROCESSING_FAILED',
-			},
-		});
+		const threadForError = await redisStore.get(conversationId).catch(() => null);
+		await generateAndStreamErrorExplanation(
+			conversationId,
+			threadForError,
+			error,
+			{ reducer, streamManager },
+		);
 	}
 }
 
@@ -393,4 +402,62 @@ async function generateAndStreamExplanation(
 	);
 
 	console.log(`✅ Explanation generated for ${conversationId}`);
+}
+
+/**
+ * Generate error explanation using LLM, with fallback to user-friendly message.
+ * Instead of sending raw error messages to the frontend, this function adds the error
+ * to the thread context and asks the LLM to explain it naturally.
+ *
+ * @param conversationId - Unique conversation identifier
+ * @param currentThread - Current thread state (null if unavailable)
+ * @param error - The error that occurred
+ * @param deps - Agent dependencies (reducer and streamManager)
+ */
+async function generateAndStreamErrorExplanation(
+	conversationId: string,
+	currentThread: Thread | null,
+	error: unknown,
+	deps: Pick<AgentDependencies, 'reducer' | 'streamManager'>,
+): Promise<void> {
+	const { reducer, streamManager } = deps;
+	const errorMessage = error instanceof Error ? error.message : String(error);
+
+	if (currentThread) {
+		try {
+			const errorEvent: Event = {
+				type: 'error',
+				timestamp: Date.now(),
+				data: {
+					error: errorMessage,
+					code: 'AGENT_PROCESSING_FAILED',
+				},
+			};
+			const threadWithError = reducer.reduce(currentThread, errorEvent);
+
+			await reducer.generateExplanationWithStreaming(
+				threadWithError,
+				(chunk, messageId) => {
+					const textChunkEvent: Event = {
+						type: 'text_chunk',
+						timestamp: Date.now(),
+						data: { content: chunk, messageId },
+					};
+					streamManager.send(conversationId, textChunkEvent);
+				},
+			);
+			return;
+		} catch (llmError) {
+			console.error('Failed to generate LLM error explanation:', llmError);
+		}
+	}
+
+	// Fallback: send user-friendly message in English
+	const fallbackMessageId = randomUUID();
+	const fallbackMessage = 'Sorry, an error occurred during processing. Please try again later.';
+	streamManager.send(conversationId, {
+		type: 'text_chunk',
+		timestamp: Date.now(),
+		data: { content: fallbackMessage, messageId: fallbackMessageId },
+	});
 }
