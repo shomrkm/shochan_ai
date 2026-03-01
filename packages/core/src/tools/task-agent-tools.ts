@@ -139,7 +139,7 @@ export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
         scheduled_date: {
           anyOf: [
             { type: 'string', description: 'New scheduled date in ISO format' },
-            { type: 'null', description: 'Remove scheduled date' }
+            { type: 'null', description: 'Remove scheduled date' },
           ],
           description: 'New scheduled date in ISO format, or null to remove',
         },
@@ -171,7 +171,8 @@ export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
   {
     type: 'function',
     name: 'request_more_information',
-    description: 'Use ONLY when you need additional information from the user to complete their request. Do not use for simple greetings or acknowledgments.',
+    description:
+      'Use ONLY when you need additional information from the user to complete their request. Do not use for simple greetings or acknowledgments.',
     strict: null,
     parameters: {
       type: 'object',
@@ -182,7 +183,8 @@ export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
   {
     type: 'function',
     name: 'done_for_now',
-    description: 'Use when you have completed the user\'s request or when responding to simple queries, greetings, or acknowledgments that do not require tool execution.',
+    description:
+      "Use when you have completed the user's request or when responding to simple queries, greetings, or acknowledgments that do not require tool execution.",
     strict: null,
     parameters: {
       type: 'object',

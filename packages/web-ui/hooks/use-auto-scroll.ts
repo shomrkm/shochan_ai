@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 const NEAR_BOTTOM_THRESHOLD = 100;
 
@@ -37,7 +37,7 @@ export function useAutoScroll(deps: unknown[]) {
       const rafId = requestAnimationFrame(() => {
         scrollToBottom();
       });
-      
+
       return () => cancelAnimationFrame(rafId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

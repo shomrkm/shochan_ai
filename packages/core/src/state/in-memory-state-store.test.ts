@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { InMemoryStateStore } from './in-memory-state-store';
 import { Thread } from '../thread/thread';
 import type { Event } from '../types/event';
+import { InMemoryStateStore } from './in-memory-state-store';
 
 describe('InMemoryStateStore', () => {
   describe('constructor', () => {
@@ -29,9 +29,7 @@ describe('InMemoryStateStore', () => {
 
   describe('getState', () => {
     it('returns the current state', () => {
-      const events: Event[] = [
-        { type: 'user_input', timestamp: Date.now(), data: 'Test' },
-      ];
+      const events: Event[] = [{ type: 'user_input', timestamp: Date.now(), data: 'Test' }];
       const thread = new Thread(events);
       const store = new InMemoryStateStore(thread);
 
@@ -89,9 +87,7 @@ describe('InMemoryStateStore', () => {
     it('allows setting state multiple times', () => {
       const store = new InMemoryStateStore(new Thread([]));
 
-      const thread1 = new Thread([
-        { type: 'user_input', timestamp: Date.now(), data: 'First' },
-      ]);
+      const thread1 = new Thread([{ type: 'user_input', timestamp: Date.now(), data: 'First' }]);
       store.setState(thread1);
       expect(store.getState().events).toHaveLength(1);
 
@@ -136,9 +132,7 @@ describe('InMemoryStateStore', () => {
 
   describe('immutability', () => {
     it('does not protect against mutations (caller responsibility)', () => {
-      const events: Event[] = [
-        { type: 'user_input', timestamp: Date.now(), data: 'Original' },
-      ];
+      const events: Event[] = [{ type: 'user_input', timestamp: Date.now(), data: 'Original' }];
       const thread = new Thread(events);
       const store = new InMemoryStateStore(thread);
 

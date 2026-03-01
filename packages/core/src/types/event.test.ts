@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import type { Event } from './event';
 import {
-  isThinkingChunkEvent,
-  isTextChunkEvent,
-  isToolCallEvent,
   isCompleteEvent,
   isErrorEvent,
+  isTextChunkEvent,
+  isThinkingChunkEvent,
+  isToolCallEvent,
 } from './event';
-import type { Event } from './event';
 
 describe('isThinkingChunkEvent', () => {
   it('returns true for thinking_chunk type', () => {

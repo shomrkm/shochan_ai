@@ -7,10 +7,7 @@
     "declaration": true,
     "declarationMap": true
   },
-  "references": [
-    { "path": "../core" },
-    { "path": "../client" }
-  ],
+  "references": [{ "path": "../core" }, { "path": "../client" }],
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist", "**/*.test.ts"]
 }

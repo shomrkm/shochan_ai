@@ -1,8 +1,8 @@
-import type { ToolCall } from '../types/tools';
 import type { Event } from '../types/event';
+import type { ToolCall } from '../types/tools';
 
 export type ToolExecutionResult = {
-	event: Event;
+  event: Event;
 };
 
 /**
@@ -10,5 +10,5 @@ export type ToolExecutionResult = {
  * Errors should be caught and returned as error events.
  */
 export interface ToolExecutor {
-	execute(toolCall: ToolCall): Promise<ToolExecutionResult>;
+  execute(toolCall: ToolCall): Promise<ToolExecutionResult>;
 }

@@ -33,7 +33,15 @@
     }
   },
   "files": {
-    "includes": ["src/**/*", "*.ts", "*.js", "*.json"],
+    "includes": [
+      "**/*.ts",
+      "**/*.js",
+      "**/*.json",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/.next",
+      "!**/coverage"
+    ],
     "ignoreUnknown": false
   }
 }
