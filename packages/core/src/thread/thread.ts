@@ -48,9 +48,7 @@ export class Thread {
     if (typeof data === 'object') {
       const dataObj = data as Record<string, unknown>;
       const filteredKeys = Object.keys(dataObj).filter((k) => k !== 'intent');
-      return filteredKeys
-        .map((k) => `${k}: ${this.serializeValue(dataObj[k])}`)
-        .join('\n');
+      return filteredKeys.map((k) => `${k}: ${this.serializeValue(dataObj[k])}`).join('\n');
     }
 
     return String(data);

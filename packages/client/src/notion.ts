@@ -2,20 +2,20 @@ import { Client } from '@notionhq/client';
 import type { UpdatePageParameters } from '@notionhq/client/build/src/api-endpoints';
 import type { ToolCall } from '@shochan_ai/core';
 import {
+  isCreateProjectTool,
+  isCreateTaskTool,
+  isDeleteTaskTool,
+  isGetTaskDetailsTool,
+  isGetTasksTool,
+  isUpdateTaskTool,
+  NotionQueryBuilder,
+  NotionTaskParser,
+} from '@shochan_ai/core';
+import {
   buildProjectCreatePageParams,
   buildTaskCreatePageParams,
   buildTaskUpdatePageParams,
 } from './notionUtils';
-import { NotionQueryBuilder } from '@shochan_ai/core';
-import { NotionTaskParser } from '@shochan_ai/core';
-import {
-  isCreateProjectTool,
-  isCreateTaskTool,
-  isGetTasksTool,
-  isDeleteTaskTool,
-  isUpdateTaskTool,
-  isGetTaskDetailsTool,
-} from '@shochan_ai/core';
 
 export class NotionClient {
   private client: Client;

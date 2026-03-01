@@ -6,5 +6,5 @@ import type { Event } from '../types/event';
  * No side effects, no async operations, returns new state (immutable).
  */
 export interface AgentReducer<TState = Thread, TEvent = Event> {
-	reduce(state: TState, event: TEvent): TState;
+  reduce(state: TState, event: TEvent): TState;
 }

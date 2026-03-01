@@ -4,56 +4,55 @@ import type { ToolCall } from './tools';
  * Base event interface with discriminated type field
  */
 interface BaseEvent<T extends string> {
-	type: T;
-	timestamp: number;
+  type: T;
+  timestamp: number;
 }
 
 /**
  * User input event - captures user messages and responses
  */
 export interface UserInputEvent extends BaseEvent<'user_input'> {
-	data: string;
+  data: string;
 }
 
 /**
  * Tool call event - records AI-initiated tool invocations
  */
 export interface ToolCallEvent extends BaseEvent<'tool_call'> {
-	data: ToolCall;
+  data: ToolCall;
 }
 
 /**
  * Tool response event - stores results from tool executions
  */
 export interface ToolResponseEvent extends BaseEvent<'tool_response'> {
-	data: unknown;
+  data: unknown;
 }
 
 /**
  * Error event - captures errors during processing
  */
 export interface ErrorEvent extends BaseEvent<'error'> {
-	data: {
-		error: string;
-		code?: string;
-	};
+  data: {
+    error: string;
+    code?: string;
+  };
 }
 
 /**
  * Awaiting approval event - indicates human approval is required
  */
-export interface AwaitingApprovalEvent
-	extends BaseEvent<'awaiting_approval'> {
-	data: ToolCall;
+export interface AwaitingApprovalEvent extends BaseEvent<'awaiting_approval'> {
+  data: ToolCall;
 }
 
 /**
  * Complete event - signals end of agent processing
  */
 export interface CompleteEvent extends BaseEvent<'complete'> {
-	data: {
-		message: string;
-	};
+  data: {
+    message: string;
+  };
 }
 
 /**
@@ -61,12 +60,12 @@ export interface CompleteEvent extends BaseEvent<'complete'> {
  * Used for streaming agent responses after tool execution (Multi-turn approach)
  */
 export interface TextChunkEvent extends BaseEvent<'text_chunk'> {
-	data: {
-		/** テキストチャンク（1トークン分または複数トークン） */
-		content: string;
-		/** メッセージID（同一メッセージのチャンクを識別） */
-		messageId: string;
-	};
+  data: {
+    /** テキストチャンク（1トークン分または複数トークン） */
+    content: string;
+    /** メッセージID（同一メッセージのチャンクを識別） */
+    messageId: string;
+  };
 }
 
 /**
@@ -74,12 +73,12 @@ export interface TextChunkEvent extends BaseEvent<'text_chunk'> {
  * Used before tool calls to show the agent's reasoning process to the user
  */
 export interface ThinkingChunkEvent extends BaseEvent<'thinking_chunk'> {
-	data: {
-		/** 思考テキストチャンク（1トークン分または複数トークン） */
-		content: string;
-		/** メッセージID（同一メッセージのチャンクを識別） */
-		messageId: string;
-	};
+  data: {
+    /** 思考テキストチャンク（1トークン分または複数トークン） */
+    content: string;
+    /** メッセージID（同一メッセージのチャンクを識別） */
+    messageId: string;
+  };
 }
 
 /**
@@ -87,10 +86,10 @@ export interface ThinkingChunkEvent extends BaseEvent<'thinking_chunk'> {
  * Sent when processAgent starts to confirm SSE connection is established
  */
 export interface ConnectedEvent extends BaseEvent<'connected'> {
-	data: {
-		status: 'ready';
-		conversationId: string;
-	};
+  data: {
+    status: 'ready';
+    conversationId: string;
+  };
 }
 
 /**
@@ -98,77 +97,75 @@ export interface ConnectedEvent extends BaseEvent<'connected'> {
  * TypeScript will automatically narrow the type based on the 'type' field
  */
 export type Event =
-	| UserInputEvent
-	| ToolCallEvent
-	| ToolResponseEvent
-	| ErrorEvent
-	| AwaitingApprovalEvent
-	| CompleteEvent
-	| TextChunkEvent
-	| ThinkingChunkEvent
-	| ConnectedEvent;
+  | UserInputEvent
+  | ToolCallEvent
+  | ToolResponseEvent
+  | ErrorEvent
+  | AwaitingApprovalEvent
+  | CompleteEvent
+  | TextChunkEvent
+  | ThinkingChunkEvent
+  | ConnectedEvent;
 
 /**
  * Type guard to check if an event is a user input event
  */
 export function isUserInputEvent(event: Event): event is UserInputEvent {
-	return event.type === 'user_input';
+  return event.type === 'user_input';
 }
 
 /**
  * Type guard to check if an event is a tool call event
  */
 export function isToolCallEvent(event: Event): event is ToolCallEvent {
-	return event.type === 'tool_call';
+  return event.type === 'tool_call';
 }
 
 /**
  * Type guard to check if an event is a tool response event
  */
 export function isToolResponseEvent(event: Event): event is ToolResponseEvent {
-	return event.type === 'tool_response';
+  return event.type === 'tool_response';
 }
 
 /**
  * Type guard to check if an event is an error event
  */
 export function isErrorEvent(event: Event): event is ErrorEvent {
-	return event.type === 'error';
+  return event.type === 'error';
 }
 
 /**
  * Type guard to check if an event is an awaiting approval event
  */
-export function isAwaitingApprovalEvent(
-	event: Event,
-): event is AwaitingApprovalEvent {
-	return event.type === 'awaiting_approval';
+export function isAwaitingApprovalEvent(event: Event): event is AwaitingApprovalEvent {
+  return event.type === 'awaiting_approval';
 }
 
 /**
  * Type guard to check if an event is a complete event
  */
 export function isCompleteEvent(event: Event): event is CompleteEvent {
-	return event.type === 'complete';
+  return event.type === 'complete';
 }
 
 /**
  * Type guard to check if an event is a text chunk event
  */
 export function isTextChunkEvent(event: Event): event is TextChunkEvent {
-	return event.type === 'text_chunk';
+  return event.type === 'text_chunk';
 }
 
 /**
  * Type guard to check if an event is a thinking chunk event
  */
 export function isThinkingChunkEvent(event: Event): event is ThinkingChunkEvent {
-	return event.type === 'thinking_chunk';
+  return event.type === 'thinking_chunk';
 }
 
 /**
  * Type guard to check if an event is a connected event
  */
 export function isConnectedEvent(event: Event): event is ConnectedEvent {
-	return event.type === 'connected';
+  return event.type === 'connected';
 }

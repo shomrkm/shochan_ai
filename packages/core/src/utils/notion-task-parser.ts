@@ -6,10 +6,10 @@
  */
 
 import type {
-  PageObjectResponse,
-  QueryDatabaseResponse,
   BlockObjectResponse,
+  PageObjectResponse,
   PartialBlockObjectResponse,
+  QueryDatabaseResponse,
 } from '@notionhq/client/build/src/api-endpoints';
 import type { TaskInfo } from '../types/task';
 
@@ -114,7 +114,7 @@ export class NotionTaskParser {
 
   private extractTextFromProperty(
     properties: PageObjectResponse['properties'],
-    propertyName: string,
+    propertyName: string
   ): string | undefined {
     const prop = properties[propertyName];
     if (!prop) return undefined;
@@ -131,7 +131,7 @@ export class NotionTaskParser {
 
   private extractSelectFromProperty(
     properties: PageObjectResponse['properties'],
-    propertyName: string,
+    propertyName: string
   ): string | undefined {
     const prop = properties[propertyName];
     if (!prop || prop.type !== 'select') return undefined;
@@ -141,7 +141,7 @@ export class NotionTaskParser {
 
   private extractDateFromProperty(
     properties: PageObjectResponse['properties'],
-    propertyName: string,
+    propertyName: string
   ): string | undefined {
     const prop = properties[propertyName];
     if (!prop || prop.type !== 'date') return undefined;
@@ -161,7 +161,7 @@ export class NotionTaskParser {
 
   private extractFormulaFromProperty(
     properties: PageObjectResponse['properties'],
-    propertyName: string,
+    propertyName: string
   ): boolean {
     const prop = properties[propertyName];
     if (!prop || prop.type !== 'formula') return false;

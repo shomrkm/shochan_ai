@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto';
+import { type ToolCall, toolCallSchema } from '@shochan_ai/core';
 import OpenAI from 'openai';
-import { toolCallSchema, type ToolCall } from '@shochan_ai/core';
-import {
-  isResponseFunctionCallEvent,
-  isResponseTextDeltaEvent,
-} from './openai-streaming';
+import { isResponseFunctionCallEvent, isResponseTextDeltaEvent } from './openai-streaming';
 
 type InputMessage =
   | { role: 'user' | 'system' | 'developer'; content: string }
@@ -47,7 +44,7 @@ type GenerateToolCallWithStreamingParams = {
 export class ToolCallValidationError extends Error {
   constructor(
     public readonly toolCall: unknown,
-    public readonly validationErrors: string[],
+    public readonly validationErrors: string[]
   ) {
     super(`Invalid tool call from OpenAI API: ${validationErrors.join(', ')}`);
     this.name = 'ToolCallValidationError';
@@ -167,13 +164,16 @@ export class OpenAIClient {
           arguments: event.item.arguments,
         });
         onToolCall?.(toolCall);
-      }
-      else if (isResponseTextDeltaEvent(event)) {
+      } else if (isResponseTextDeltaEvent(event)) {
         const chunk = event.delta || '';
         fullText += chunk;
         onTextChunk?.(chunk, messageId);
-      }
-      else if (typeof event === 'object' && event !== null && 'type' in event && (event as { type: string }).type === 'error') {
+      } else if (
+        typeof event === 'object' &&
+        event !== null &&
+        'type' in event &&
+        (event as { type: string }).type === 'error'
+      ) {
         throw new Error(`OpenAI streaming error: ${JSON.stringify(event)}`);
       }
     }
@@ -184,7 +184,7 @@ export class OpenAIClient {
   /**
    * Generate text response with streaming support.
    * Used for explaining tool results to the user.
-   * 
+   *
    * This method does NOT use tools - it only generates text output.
    * Use this after tool execution to provide a natural language explanation.
    *
@@ -221,13 +221,12 @@ export class OpenAIClient {
         // Handle text delta events - THIS IS WHERE REAL-TIME STREAMING HAPPENS
         if (typeof event === 'object' && event !== null && 'type' in event) {
           const eventType = (event as { type: string }).type;
-          
+
           if (eventType === 'response.output_text.delta') {
             const delta = (event as { delta?: string }).delta || '';
             fullText += delta;
             onTextChunk?.(delta, messageId);
-          }
-          else if (eventType === 'error') {
+          } else if (eventType === 'error') {
             const errorData = (event as { error?: unknown }).error;
             throw new Error(`OpenAI streaming error: ${JSON.stringify(errorData || event)}`);
           }
@@ -242,7 +241,7 @@ export class OpenAIClient {
     } catch (error) {
       console.error('OpenAI text streaming failed:', error);
       throw new Error(
-        `Failed to generate text with streaming: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to generate text with streaming: ${error instanceof Error ? error.message : String(error)}`
       );
     }
   }
@@ -251,9 +250,7 @@ export class OpenAIClient {
    * Parses a function call from OpenAI API response and validates with zod schema.
    * @throws ToolCallValidationError if the tool call doesn't match expected schema
    */
-  private parseToolCall(
-    functionCall: OpenAI.Responses.ResponseFunctionToolCall
-  ): ToolCall {
+  private parseToolCall(functionCall: OpenAI.Responses.ResponseFunctionToolCall): ToolCall {
     const toolCall = {
       intent: functionCall.name,
       parameters: JSON.parse(functionCall.arguments),

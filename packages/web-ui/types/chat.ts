@@ -1,14 +1,14 @@
 import type {
+  CompleteEvent,
+  ConnectedEvent,
+  ErrorEvent,
   Event,
+  TextChunkEvent,
+  ThinkingChunkEvent,
   ToolCall,
   ToolCallEvent,
   ToolResponseEvent,
-  ErrorEvent,
-  CompleteEvent,
-  TextChunkEvent,
-  ThinkingChunkEvent,
-  ConnectedEvent,
-} from '@shochan_ai/core'
+} from '@shochan_ai/core';
 
 export type {
   Event,
@@ -20,21 +20,21 @@ export type {
   TextChunkEvent,
   ThinkingChunkEvent,
   ConnectedEvent,
-}
+};
 
 export interface Message {
-  id: string
-  type: 'user' | 'agent' | 'system'
-  subtype?: 'tool_response'
-  content: string
-  timestamp: number
+  id: string;
+  type: 'user' | 'agent' | 'system';
+  subtype?: 'tool_response';
+  content: string;
+  timestamp: number;
 }
 
 // API Response Types
 export interface SendMessageResponse {
-  conversationId: string
+  conversationId: string;
 }
 
 export interface ApiError {
-  error: string
+  error: string;
 }

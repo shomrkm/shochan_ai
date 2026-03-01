@@ -33,7 +33,11 @@ describe('Thread', () => {
 
     it('serializes multiple events', () => {
       const events: Event[] = [
-        { type: 'tool_call', timestamp: Date.now(), data: { intent: 'create_task', parameters: { title: 'Task 1' } } },
+        {
+          type: 'tool_call',
+          timestamp: Date.now(),
+          data: { intent: 'create_task', parameters: { title: 'Task 1' } },
+        },
         { type: 'tool_response', timestamp: Date.now(), data: { task_id: '123' } },
       ];
       const thread = new Thread(events);
@@ -52,7 +56,7 @@ describe('Thread', () => {
       expect(result).toBe(
         '\n<create_task>\nparameters: {title: Task 1}\n</create_task>\n' +
           '\n' + // join separator
-          '\n<tool_response>\ntask_id: 123\n</tool_response>\n',
+          '\n<tool_response>\ntask_id: 123\n</tool_response>\n'
       );
     });
 
@@ -88,7 +92,9 @@ describe('Thread', () => {
       // parameters: {key1: value1, key2: value2}
       // </test_intent>
       //
-      expect(result).toBe('\n<test_intent>\nparameters: {key1: value1, key2: value2}\n</test_intent>\n');
+      expect(result).toBe(
+        '\n<test_intent>\nparameters: {key1: value1, key2: value2}\n</test_intent>\n'
+      );
     });
 
     it('serializes event with non-object data', () => {
@@ -297,11 +303,13 @@ describe('Thread', () => {
 
     it('handles event with very long data', () => {
       const longString = 'a'.repeat(10000);
-      const events: Event[] = [{
-        type: 'tool_call',
-        timestamp: Date.now(),
-        data: { intent: 'test', parameters: { content: longString } }
-      }];
+      const events: Event[] = [
+        {
+          type: 'tool_call',
+          timestamp: Date.now(),
+          data: { intent: 'test', parameters: { content: longString } },
+        },
+      ];
       const thread = new Thread(events);
       const result = thread.serializeForLLM();
 
@@ -309,11 +317,13 @@ describe('Thread', () => {
     });
 
     it('handles event with numeric type', () => {
-      const events: Event[] = [{
-        type: 'error',
-        timestamp: Date.now(),
-        data: { error: '42', code: '42' }
-      }];
+      const events: Event[] = [
+        {
+          type: 'error',
+          timestamp: Date.now(),
+          data: { error: '42', code: '42' },
+        },
+      ];
       const thread = new Thread(events);
       const result = thread.serializeForLLM();
 
@@ -356,7 +366,7 @@ describe('Thread', () => {
       // </test>
       //
       expect(result).toBe(
-        '\n<test>\nparameters: {level1: {level2: {level3: {level4: deep value}}}}\n</test>\n',
+        '\n<test>\nparameters: {level1: {level2: {level3: {level4: deep value}}}}\n</test>\n'
       );
     });
   });

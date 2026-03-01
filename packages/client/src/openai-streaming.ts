@@ -31,9 +31,7 @@ export interface ResponseFunctionCallEvent {
  * @param event - The streaming event to check
  * @returns true if the event is a function call output item done event
  */
-export function isResponseFunctionCallEvent(
-  event: unknown
-): event is ResponseFunctionCallEvent {
+export function isResponseFunctionCallEvent(event: unknown): event is ResponseFunctionCallEvent {
   return (
     typeof event === 'object' &&
     event !== null &&
