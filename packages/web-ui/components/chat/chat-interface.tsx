@@ -198,12 +198,13 @@ function createCompleteMessage(event: CompleteEvent): Message {
 
 /**
  * Create a message from an error event.
+ * Shows a generic message as a safety net for unexpected edge cases.
  */
 function createErrorMessage(event: ErrorEvent): Message {
   return {
     id: `error-${event.timestamp}`,
     type: 'system',
-    content: `❌ Error: ${event.data.error}`,
+    content: 'Sorry, a problem occurred during processing.',
     timestamp: event.timestamp,
   }
 }
