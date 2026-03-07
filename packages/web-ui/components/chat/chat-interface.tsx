@@ -7,11 +7,14 @@ import { useSSE } from '@/hooks/use-sse'
 import { useAutoScroll } from '@/hooks/use-auto-scroll'
 import { MessageList } from './message-list'
 import { MessageInput } from './message-input'
+import { ApprovalCard } from './approval-card'
 import { Badge } from '@/components/ui/badge'
 
 export function ChatInterface() {
   const [messages, setMessages] = useState<Message[]>([])
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [pendingApproval, setPendingApproval] = useState<ToolCall | null>(null)
+  const [isApproving, setIsApproving] = useState(false)
 
   const mutation = useSendMessage({
     onSuccess: (data) => {
@@ -96,6 +99,10 @@ export function ChatInterface() {
         message = createCompleteMessage(event)
         break
 
+      case 'awaiting_approval':
+        setPendingApproval(event.data)
+        return
+
       case 'error':
         message = createErrorMessage(event)
         break
@@ -105,6 +112,29 @@ export function ChatInterface() {
       setMessages((prev) => [...prev, message])
     }
   }, [])
+
+  const handleApproval = useCallback(
+    async (approved: boolean) => {
+      if (!conversationId) return
+
+      setIsApproving(true)
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL
+        const response = await fetch(`${apiUrl}/api/agent/approve/${conversationId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ approved }),
+        })
+        if (!response.ok) {
+          throw new Error('Failed to send approval')
+        }
+      } finally {
+        setPendingApproval(null)
+        setIsApproving(false)
+      }
+    },
+    [conversationId],
+  )
 
   useSSE(conversationId, handleSSEEvent)
 
@@ -137,7 +167,17 @@ export function ChatInterface() {
 
       <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 border-t p-4">
         <div className="max-w-4xl mx-auto">
-          <MessageInput onSend={handleSendMessage} disabled={mutation.isPending} />
+          {pendingApproval && (
+            <div className="mb-4">
+              <ApprovalCard
+                toolCall={pendingApproval}
+                onApprove={() => handleApproval(true)}
+                onDeny={() => handleApproval(false)}
+                isLoading={isApproving}
+              />
+            </div>
+          )}
+          <MessageInput onSend={handleSendMessage} disabled={mutation.isPending || isApproving} />
         </div>
       </div>
     </div>
