@@ -151,6 +151,8 @@ const TOOL_CALL_LABELS: Record<ToolCall['intent'], string> = {
   create_project: '📁 Creating project...',
   update_task: '✏️ Updating task...',
   delete_task: '🗑️ Confirming task deletion...',
+  get_projects: '🔍 Fetching project list...',
+  get_project_details: '🔍 Fetching project details...',
   request_more_information: '❓ Requesting more information...',
   done_for_now: '✅ Done',
 }

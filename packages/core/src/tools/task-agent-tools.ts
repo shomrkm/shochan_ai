@@ -170,6 +170,46 @@ export const taskAgentTools: OpenAI.Responses.FunctionTool[] = [
   },
   {
     type: 'function',
+    name: 'get_projects',
+    description: 'Retrieve a list of projects with optional filtering',
+    strict: null,
+    parameters: {
+      type: 'object',
+      properties: {
+        search_name: {
+          type: 'string',
+          description: 'Search projects by name (partial match)',
+        },
+        status: {
+          type: 'string',
+          description: 'Filter by project status',
+        },
+        limit: {
+          type: 'number',
+          minimum: 1,
+          maximum: 100,
+          description: 'Maximum number of projects to return (default: 10)',
+        },
+      },
+      required: [],
+    },
+  },
+  {
+    type: 'function',
+    name: 'get_project_details',
+    description:
+      'Get detailed information about a specific project by its ID, including related tasks and page content',
+    strict: null,
+    parameters: {
+      type: 'object',
+      properties: {
+        project_id: { type: 'string', description: 'ID of the project to retrieve details for' },
+      },
+      required: ['project_id'],
+    },
+  },
+  {
+    type: 'function',
     name: 'request_more_information',
     description:
       'Use ONLY when you need additional information from the user to complete their request. Do not use for simple greetings or acknowledgments.',

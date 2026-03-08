@@ -12,6 +12,8 @@ import type { ToolExecutionResult, ToolExecutor } from './tool-executor';
  * - delete_task
  * - get_tasks
  * - get_task_details
+ * - get_projects
+ * - get_project_details
  *
  * Non-Notion tools (done_for_now, request_more_information) return
  * appropriate events without calling external APIs.
@@ -26,6 +28,8 @@ export class NotionToolExecutor<
     deleteTask(toolCall: ToolCall): Promise<unknown>;
     updateTask(toolCall: ToolCall): Promise<unknown>;
     getTaskDetails(toolCall: ToolCall): Promise<unknown>;
+    getProjects(toolCall: ToolCall): Promise<unknown>;
+    getProjectDetails(toolCall: ToolCall): Promise<unknown>;
   },
 > implements ToolExecutor
 {
@@ -40,7 +44,7 @@ export class NotionToolExecutor<
    * Executes a tool call and returns the result as an event.
    *
    * This method handles all tool types:
-   * - Notion API calls: create_task, create_project, update_task, delete_task, get_tasks, get_task_details
+   * - Notion API calls: create_task, create_project, update_task, delete_task, get_tasks, get_task_details, get_projects, get_project_details
    * - Control flow tools: done_for_now, request_more_information
    *
    * All errors are caught and returned as error events, ensuring the method never throws.
@@ -86,6 +90,10 @@ export class NotionToolExecutor<
         return await this.notionClient.updateTask(toolCall);
       case 'get_task_details':
         return await this.notionClient.getTaskDetails(toolCall);
+      case 'get_projects':
+        return await this.notionClient.getProjects(toolCall);
+      case 'get_project_details':
+        return await this.notionClient.getProjectDetails(toolCall);
       default:
         // TypeScript should ensure this is never reached due to exhaustive switch
         throw new Error(`Unknown tool intent: ${(toolCall as ToolCall).intent}`);
