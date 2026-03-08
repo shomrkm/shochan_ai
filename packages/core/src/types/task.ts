@@ -12,3 +12,15 @@ export interface TaskInfo {
   status: 'active' | 'completed' | 'archived';
   content?: string;
 }
+
+export interface ProjectInfo {
+  project_id: string;
+  name: string;
+  description?: string;
+  importance?: string;
+  status?: string;
+  action_plan?: string;
+  notion_url?: string;
+  created_at: Date;
+  updated_at: Date;
+}

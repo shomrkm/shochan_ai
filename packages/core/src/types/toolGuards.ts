@@ -3,6 +3,7 @@ import type {
   CreateTaskTool,
   DeleteTaskTool,
   DoneForNowTool,
+  GetProjectsTool,
   GetTaskDetailsTool,
   GetTasksTool,
   RequestMoreInformationTool,
@@ -20,6 +21,10 @@ export function isCreateProjectTool(tool: ToolCall): tool is CreateProjectTool {
 
 export function isGetTasksTool(tool: ToolCall): tool is GetTasksTool {
   return tool.intent === 'get_tasks';
+}
+
+export function isGetProjectsTool(tool: ToolCall): tool is GetProjectsTool {
+  return tool.intent === 'get_projects';
 }
 
 export function isDeleteTaskTool(tool: ToolCall): tool is DeleteTaskTool {

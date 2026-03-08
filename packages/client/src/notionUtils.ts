@@ -4,7 +4,9 @@ import type {
   BuildTaskUpdatePageParamsArgs,
   NotionCreatePageParams,
   NotionUpdatePageParams,
+  ProjectInfo,
 } from '@shochan_ai/core';
+import type { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 
 type NotionPropertyUpdates = NotionUpdatePageParams['properties'];
 
@@ -201,4 +203,79 @@ export function buildTaskUpdatePageParams(
     page_id: pageId,
     properties,
   };
+}
+
+/**
+ * Parse a Notion page response into a ProjectInfo object.
+ */
+export function parseProjectFromNotionPage(page: PageObjectResponse): ProjectInfo {
+  const properties = page.properties;
+
+  const name = extractTextFromProperty(properties, 'name') || 'Untitled Project';
+  const description = extractRichTextFromProperty(properties, 'description');
+  const importance = extractSelectFromProperty(properties, 'importance');
+  const status = extractStatusFromProperty(properties, 'status');
+  const action_plan = extractRichTextFromProperty(properties, 'action_plan');
+
+  return {
+    project_id: page.id,
+    name,
+    description,
+    importance,
+    status,
+    action_plan,
+    notion_url: page.url,
+    created_at: new Date(page.created_time),
+    updated_at: new Date(page.last_edited_time),
+  };
+}
+
+// ===== Private helper functions for property extraction =====
+
+function extractTextFromProperty(
+  properties: PageObjectResponse['properties'],
+  propertyName: string
+): string | undefined {
+  const prop = properties[propertyName];
+  if (!prop) return undefined;
+
+  if (prop.type === 'title' && prop.title.length > 0) {
+    return prop.title[0].plain_text;
+  }
+
+  return undefined;
+}
+
+function extractRichTextFromProperty(
+  properties: PageObjectResponse['properties'],
+  propertyName: string
+): string | undefined {
+  const prop = properties[propertyName];
+  if (!prop) return undefined;
+
+  if (prop.type === 'rich_text' && prop.rich_text.length > 0) {
+    return prop.rich_text[0].plain_text;
+  }
+
+  return undefined;
+}
+
+function extractSelectFromProperty(
+  properties: PageObjectResponse['properties'],
+  propertyName: string
+): string | undefined {
+  const prop = properties[propertyName];
+  if (!prop || prop.type !== 'select') return undefined;
+
+  return prop.select?.name;
+}
+
+function extractStatusFromProperty(
+  properties: PageObjectResponse['properties'],
+  propertyName: string
+): string | undefined {
+  const prop = properties[propertyName];
+  if (!prop || prop.type !== 'status') return undefined;
+
+  return prop.status?.name;
 }

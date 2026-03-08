@@ -1,10 +1,11 @@
 import { Client } from '@notionhq/client';
 import type { UpdatePageParameters } from '@notionhq/client/build/src/api-endpoints';
-import type { ToolCall } from '@shochan_ai/core';
+import type { ProjectInfo, ToolCall } from '@shochan_ai/core';
 import {
   isCreateProjectTool,
   isCreateTaskTool,
   isDeleteTaskTool,
+  isGetProjectsTool,
   isGetTaskDetailsTool,
   isGetTasksTool,
   isUpdateTaskTool,
@@ -15,6 +16,7 @@ import {
   buildProjectCreatePageParams,
   buildTaskCreatePageParams,
   buildTaskUpdatePageParams,
+  parseProjectFromNotionPage,
 } from './notionUtils';
 
 export class NotionClient {
@@ -173,6 +175,82 @@ export class NotionClient {
       console.error('❌ [NOTION] Get tasks failed:', error);
       throw new Error(
         `Failed to get tasks: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  async getProjects(tool: ToolCall): Promise<{
+    projects: ProjectInfo[];
+    total_count: number;
+    has_more: boolean;
+    query_parameters: ToolCall['parameters'];
+  }> {
+    if (!isGetProjectsTool(tool)) {
+      throw new Error('Invalid tool call');
+    }
+
+    const { search_name, status, limit = 10 } = tool.parameters;
+
+    try {
+      console.log(`🔍 [NOTION] Getting projects with filters:`, tool.parameters);
+
+      // Build filters
+      type NotionFilter =
+        | { property: string; title: { contains: string } }
+        | { property: string; status: { equals: string } };
+
+      const notionFilters: NotionFilter[] = [];
+
+      if (search_name) {
+        notionFilters.push({
+          property: 'name',
+          title: { contains: search_name },
+        });
+      }
+
+      if (status) {
+        notionFilters.push({
+          property: 'status',
+          status: { equals: status },
+        });
+      }
+
+      const filter =
+        notionFilters.length > 0
+          ? notionFilters.length === 1
+            ? notionFilters[0]
+            : { and: notionFilters }
+          : undefined;
+
+      const response = await this.client.databases.query({
+        database_id: this.projectsDbId,
+        filter,
+        page_size: Math.min(limit, 100), // Notion API limit
+      });
+
+      const projects: ProjectInfo[] = [];
+      for (const result of response.results) {
+        if (!this.taskParser.isFullPageResponse(result)) continue;
+        try {
+          const project = parseProjectFromNotionPage(result);
+          projects.push(project);
+        } catch (parseError) {
+          console.warn(`Failed to parse project ${result.id}:`, parseError);
+        }
+      }
+
+      console.log(`✅ [NOTION] Found ${projects.length} projects`);
+
+      return {
+        projects,
+        total_count: projects.length,
+        has_more: response.has_more,
+        query_parameters: tool.parameters,
+      };
+    } catch (error) {
+      console.error('❌ [NOTION] Get projects failed:', error);
+      throw new Error(
+        `Failed to get projects: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }

@@ -51,6 +51,15 @@ export const getTasksSchema = z.object({
   }),
 });
 
+export const getProjectsSchema = z.object({
+  intent: z.literal('get_projects'),
+  parameters: z.object({
+    search_name: z.string().optional(),
+    status: z.string().optional(),
+    limit: z.number().optional().default(10),
+  }),
+});
+
 export const deleteTaskSchema = z.object({
   intent: z.literal('delete_task'),
   parameters: z.object({
@@ -96,6 +105,7 @@ export const toolCallSchema = z.discriminatedUnion('intent', [
   createTaskSchema,
   createProjectSchema,
   getTasksSchema,
+  getProjectsSchema,
   deleteTaskSchema,
   updateTaskSchema,
   getTaskDetailsSchema,
@@ -110,6 +120,7 @@ export type Importance = z.infer<typeof importanceSchema>;
 export type CreateTaskTool = z.infer<typeof createTaskSchema>;
 export type CreateProjectTool = z.infer<typeof createProjectSchema>;
 export type GetTasksTool = z.infer<typeof getTasksSchema>;
+export type GetProjectsTool = z.infer<typeof getProjectsSchema>;
 export type DeleteTaskTool = z.infer<typeof deleteTaskSchema>;
 export type UpdateTaskTool = z.infer<typeof updateTaskSchema>;
 export type GetTaskDetailsTool = z.infer<typeof getTaskDetailsSchema>;
