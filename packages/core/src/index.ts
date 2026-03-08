@@ -46,13 +46,14 @@ export type {
   NotionCreatePageParams,
   NotionUpdatePageParams,
 } from './types/notion';
-export type { ProjectInfo, TaskInfo } from './types/task';
+export type { ProjectDetails, ProjectInfo, TaskInfo } from './types/task';
 // Type Guards
 export {
   isCreateProjectTool,
   isCreateTaskTool,
   isDeleteTaskTool,
   isDoneForNowTool,
+  isGetProjectDetailsTool,
   isGetProjectsTool,
   isGetTaskDetailsTool,
   isGetTasksTool,
@@ -64,6 +65,7 @@ export type {
   CreateTaskTool,
   DeleteTaskTool,
   DoneForNowTool,
+  GetProjectDetailsTool,
   GetProjectsTool,
   GetTaskDetailsTool,
   GetTasksTool,

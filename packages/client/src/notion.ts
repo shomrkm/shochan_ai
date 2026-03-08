@@ -1,10 +1,11 @@
 import { Client } from '@notionhq/client';
 import type { UpdatePageParameters } from '@notionhq/client/build/src/api-endpoints';
-import type { ProjectInfo, ToolCall } from '@shochan_ai/core';
+import type { ProjectDetails, ProjectInfo, ToolCall } from '@shochan_ai/core';
 import {
   isCreateProjectTool,
   isCreateTaskTool,
   isDeleteTaskTool,
+  isGetProjectDetailsTool,
   isGetProjectsTool,
   isGetTaskDetailsTool,
   isGetTasksTool,
@@ -384,6 +385,150 @@ export class NotionClient {
         `Failed to get task details: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  async getProjectDetails(tool: ToolCall): Promise<ProjectDetails> {
+    if (!isGetProjectDetailsTool(tool)) {
+      throw new Error('Invalid tool call');
+    }
+
+    const { project_id } = tool.parameters;
+
+    try {
+      console.log(`🔍 [NOTION] Getting project details for ${project_id}`);
+
+      const pageResponse = await this.client.pages.retrieve({
+        page_id: project_id,
+      });
+
+      if (!this.taskParser.isFullPageResponse(pageResponse)) {
+        throw new Error(
+          'Notion returned a partial page response. Ensure the integration has access to the page/database.'
+        );
+      }
+
+      const properties = pageResponse.properties;
+
+      const name = this.extractTextFromProperty(properties, 'name') || 'Untitled Project';
+      const description = this.extractTextFromProperty(properties, 'description');
+      const importance = this.extractSelectFromProperty(properties, 'importance');
+      const status = this.extractStatusFromProperty(properties, 'status');
+      const action_plan = this.extractTextFromProperty(properties, 'action_plan');
+
+      let page_content: string | undefined;
+      try {
+        console.log(`🔍 [NOTION] Getting page content for project ${project_id}`);
+        const blocksResponse = await this.client.blocks.children.list({
+          block_id: project_id,
+          page_size: 100,
+        });
+        page_content = this.taskParser.parseContentFromBlocks(blocksResponse.results);
+        console.log(`✅ [NOTION] Project page content retrieved for ${project_id}`);
+      } catch (contentError) {
+        console.warn(`⚠️ [NOTION] Could not retrieve page content for ${project_id}:`, contentError);
+        page_content = undefined;
+      }
+
+      console.log(`🔍 [NOTION] Getting related tasks for project ${project_id}`);
+      const tasksResponse = await this.client.databases.query({
+        database_id: this.tasksDbId,
+        filter: {
+          property: 'project',
+          relation: {
+            contains: project_id,
+          },
+        },
+        page_size: 100,
+      });
+
+      const related_tasks = await this.taskParser.parseTasksFromNotionResponse(
+        tasksResponse.results
+      );
+      console.log(
+        `✅ [NOTION] Found ${related_tasks.length} related tasks for project ${project_id}`
+      );
+
+      return {
+        project_id: pageResponse.id,
+        name,
+        description,
+        importance,
+        status,
+        action_plan,
+        notion_url: pageResponse.url,
+        page_content,
+        related_tasks,
+        created_at: new Date(pageResponse.created_time),
+        updated_at: new Date(pageResponse.last_edited_time),
+      };
+    } catch (error) {
+      console.error('❌ [NOTION] Get project details failed:', error);
+
+      if (error instanceof Error && error.message.includes('Could not find page')) {
+        throw new Error(`Project with ID ${project_id} not found`);
+      }
+
+      if (error instanceof Error && error.message.includes('unauthorized')) {
+        throw new Error(`Access denied to project ${project_id}. Check integration permissions.`);
+      }
+
+      throw new Error(
+        `Failed to get project details: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
+    }
+  }
+
+  private extractTextFromProperty(
+    properties: Record<string, unknown>,
+    propertyName: string
+  ): string | undefined {
+    const prop = properties[propertyName];
+    if (!prop || typeof prop !== 'object' || prop === null) return undefined;
+
+    const propObj = prop as Record<string, unknown>;
+
+    if (propObj.type === 'title' && Array.isArray(propObj.title) && propObj.title.length > 0) {
+      const first = propObj.title[0] as { plain_text?: string };
+      return first.plain_text;
+    }
+    if (
+      propObj.type === 'rich_text' &&
+      Array.isArray(propObj.rich_text) &&
+      propObj.rich_text.length > 0
+    ) {
+      const first = propObj.rich_text[0] as { plain_text?: string };
+      return first.plain_text;
+    }
+
+    return undefined;
+  }
+
+  private extractSelectFromProperty(
+    properties: Record<string, unknown>,
+    propertyName: string
+  ): string | undefined {
+    const prop = properties[propertyName];
+    if (!prop || typeof prop !== 'object' || prop === null) return undefined;
+
+    const propObj = prop as Record<string, unknown>;
+    if (propObj.type !== 'select') return undefined;
+
+    const select = propObj.select as { name?: string } | null;
+    return select?.name;
+  }
+
+  private extractStatusFromProperty(
+    properties: Record<string, unknown>,
+    propertyName: string
+  ): string | undefined {
+    const prop = properties[propertyName];
+    if (!prop || typeof prop !== 'object' || prop === null) return undefined;
+
+    const propObj = prop as Record<string, unknown>;
+    if (propObj.type !== 'status') return undefined;
+
+    const status = propObj.status as { name?: string } | null;
+    return status?.name;
   }
 
   async testConnection(): Promise<boolean> {

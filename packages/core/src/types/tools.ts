@@ -87,6 +87,13 @@ export const getTaskDetailsSchema = z.object({
   }),
 });
 
+export const getProjectDetailsSchema = z.object({
+  intent: z.literal('get_project_details'),
+  parameters: z.object({
+    project_id: z.string(),
+  }),
+});
+
 export const requestMoreInformationSchema = z.object({
   intent: z.literal('request_more_information'),
   parameters: z.object({}),
@@ -109,6 +116,7 @@ export const toolCallSchema = z.discriminatedUnion('intent', [
   deleteTaskSchema,
   updateTaskSchema,
   getTaskDetailsSchema,
+  getProjectDetailsSchema,
   requestMoreInformationSchema,
   doneForNowSchema,
 ]);
@@ -124,6 +132,7 @@ export type GetProjectsTool = z.infer<typeof getProjectsSchema>;
 export type DeleteTaskTool = z.infer<typeof deleteTaskSchema>;
 export type UpdateTaskTool = z.infer<typeof updateTaskSchema>;
 export type GetTaskDetailsTool = z.infer<typeof getTaskDetailsSchema>;
+export type GetProjectDetailsTool = z.infer<typeof getProjectDetailsSchema>;
 export type RequestMoreInformationTool = z.infer<typeof requestMoreInformationSchema>;
 export type DoneForNowTool = z.infer<typeof doneForNowSchema>;
 

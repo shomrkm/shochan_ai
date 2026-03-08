@@ -24,3 +24,17 @@ export interface ProjectInfo {
   created_at: Date;
   updated_at: Date;
 }
+
+export interface ProjectDetails {
+  project_id: string;
+  name: string;
+  description?: string;
+  importance?: string;
+  status?: string;
+  action_plan?: string;
+  notion_url?: string;
+  page_content?: string;
+  related_tasks: TaskInfo[];
+  created_at: Date;
+  updated_at: Date;
+}
